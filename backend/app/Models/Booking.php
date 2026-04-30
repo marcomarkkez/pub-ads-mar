@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Booking extends Model
+{
+    protected $fillable = [
+        'client_user_id',
+        'space_id',
+        'ad_id',
+        'adset_id',
+        'start_date',
+        'end_date',
+        'total_price',
+        'status',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'start_date' => 'date',
+            'end_date' => 'date',
+            'total_price' => 'decimal:2',
+        ];
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'client_user_id');
+    }
+
+    public function space(): BelongsTo
+    {
+        return $this->belongsTo(Space::class);
+    }
+
+    public function ad(): BelongsTo
+    {
+        return $this->belongsTo(Ad::class);
+    }
+
+    public function adset(): BelongsTo
+    {
+        return $this->belongsTo(Adset::class);
+    }
+
+    public function payment(): HasOne
+    {
+        return $this->hasOne(Payment::class);
+    }
+
+    public function proofs(): HasMany
+    {
+        return $this->hasMany(Proof::class);
+    }
+}

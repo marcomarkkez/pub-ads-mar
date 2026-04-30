@@ -1,21 +1,175 @@
 # Claude Agents
 
-This file contains instructions and context for Claude AI agents working on this project.
+Instructions and context for Claude AI agents working on this project.
 
 ## Project Overview
 
-<!-- Add project description here -->
+Web-based advertising spaces marketplace built with **Laravel 12** (API backend) and **Angular 18** (frontend). Three user roles: **Clients**, **Providers**, and **Managers**. Clients create campaigns with geolocated adsets and ads, browse and book provider spaces. Providers post spaces with photos, geolocation, and availability. Managers administer users via a CRM panel.
+
+**See [ARCHITECTURE.md](ARCHITECTURE.md) for full folder structure, database schema, API routes, data flow, dev commands, and implementation status.**
+
+---
 
 ## Guidelines
 
 - Follow existing code conventions
 - Write clear commit messages
 - Test changes before committing
+- Always append a new entry to `history.md` at the end of each session
 
 ## Key Files
 
-<!-- List important files and their purposes -->
+| File | Purpose |
+|------|---------|
+| `ARCHITECTURE.md` | Folder tree, DB schema, API routes, data flow, dev commands, status |
+| `history.md` | Session diary — append entries, never delete |
+| `claude.md` | This file — agent instructions |
+| `install_beads.md` | Guide for installing the `bd` task CLI |
+| `backend/.env` | Environment config (DB, keys) |
+| `backend/routes/api.php` | All API route definitions |
+| `backend/app/Http/Controllers/` | API controllers grouped by role |
+| `backend/app/Models/` | Eloquent models |
+
+---
+
+## Tech Stack
+
+- **Backend:** Laravel 12 (API only) — `backend/` directory
+- **Frontend:** Angular 18 SPA — `frontend/` directory
+- **Database:** PostgreSQL 17 local **port 5434** — db: `pub_ads_mar`, user: `postgres`, no password (trust auth)
+- **Auth:** Laravel Sanctum (token-based, Bearer token in header)
+- **CORS:** Allow `http://localhost:4200` with credentials
+- **File storage:** Laravel `storage/app/public/` via `php artisan storage:link`
+
+---
+
+## User Roles
+
+| Role | Capabilities |
+|------|-------------|
+| `client` | Create campaigns/adsets/ads, search spaces, book, chat |
+| `provider` | Post spaces + photos + availability, manage bookings, chat |
+| `manager` | CRM — create/read/update/delete any user |
+
+---
+
+## Database Schema (11 tables)
+
+| Table | Owner | Key Columns |
+|-------|-------|-------------|
+| users | — | role (client/provider/manager), phone, company_name, address, is_active |
+| campaigns | user (client) | name, description, status, start_date, end_date, budget |
+| adsets | campaign | name, latitude, longitude, location_name, radius_km, status |
+| ads | adset | name, media_type (image/video/sound/gif), file_path, file_name |
+| spaces | user (provider) | name, type, latitude, longitude, price_per_day, width, height, is_active |
+| space_photos | space | file_path, file_name, is_primary, sort_order |
+| space_availabilities | space | start_date, end_date, status (available/booked/blocked) |
+| bookings | client + space + adset | start_date, end_date, total_price, status |
+| payments | booking | amount, status, payment_method (mocked), transaction_id |
+| conversations | space + client + provider | unique per (space_id, client_user_id) |
+| messages | conversation + sender | body, is_read |
+
+---
+
+## API Route Structure
+
+```
+POST /api/register, POST /api/login             — public
+POST /api/logout, GET /api/me                   — any authenticated
+
+/api/client/*    role:client   — campaigns, adsets, ads, bookings, space search
+/api/provider/*  role:provider — spaces, photos, availabilities, bookings, dashboard
+/api/manager/*   role:manager  — user CRUD (CRM)
+/api/conversations/*           — any authenticated — messaging
+```
+
+---
+
+## Dev Commands
+
+```bash
+# Backend
+cd backend
+php artisan serve                 # API at http://localhost:8000
+php artisan migrate               # Run pending migrations
+php artisan migrate:fresh --seed  # Reset DB + seed demo data
+php artisan route:list            # List all routes
+php artisan storage:link          # Link storage for file uploads
+
+# Frontend
+cd frontend
+npm install
+ng serve                          # SPA at http://localhost:4200
+
+# PostgreSQL (local PG 17 on port 5434)
+"C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -h 127.0.0.1 -p 5434 -d pub_ads_mar
+```
+
+---
+
+## Skills Available in This Project
+
+These skills are globally installed and available in all sessions:
+
+| Skill | Trigger |
+|-------|---------|
+| `todo-tracker` | Session start/end, task management |
+| `session-recorder` | Save session to history.md with token count |
+| `skill-creator` | Create or update skills |
+| `find-skills` | Discover installable skills |
+| `pg:design-postgres-tables` | Design PostgreSQL schemas |
+
+The `skill-creator` tool is also installed locally at `.agents/skills/skill-creator/` (symlinked to `.claude/skills/`).
+
+---
+
+## Implementation Status
+
+See [ARCHITECTURE.md — Implementation Status](ARCHITECTURE.md#implementation-status) for the full table.
+
+**Completed:** Full backend API — Laravel scaffold, PostgreSQL DB, Sanctum auth, CORS, 14 migrations, 11 models, RoleMiddleware, 14 controllers, 49 routes, demo seeders, storage link. All endpoints tested and working.
+
+**Next up (unblocked):**
+1. Angular frontend development (auth, client, provider, manager features)
+2. Frontend auth service + token interceptor
+3. UI components (map, media preview, booking card)
+
+---
 
 ## Notes
 
-<!-- Add any relevant notes for AI agents -->
+- `history.md` is the session diary — always append, never overwrite previous entries. Insert new entries before the `<!-- Add new sessions above this line -->` marker.
+- Payments are mocked (no real gateway) for MVP.
+- Geolocation search uses bounding-box filter for MVP; PostGIS is the upgrade path.
+- Message body is filtered (strip phone numbers, emails, URLs via regex) to prevent direct contact sharing.
+- The `bd` CLI (beads) can be installed for persistent task tracking — see `install_beads.md`. Install via: `go install github.com/steveyegge/beads/cmd/bd@latest` then add `%USERPROFILE%\go\bin` to Windows PATH.
+
+---
+
+## PostgreSQL Troubleshooting (Critical)
+
+This machine has **multiple PostgreSQL installations** on different ports:
+
+| Version | Port | Auth | Status |
+|---------|------|------|--------|
+| PG 17 | **5434** | `trust` (no password) | **Use this one** |
+| PG 18 | 5432 | `scram-sha-256` (unknown password) | Do NOT use |
+| PG 16 | 5433 | `scram-sha-256` | Do NOT use |
+
+**Always use port 5434** for this project. The `.env` must have:
+```
+DB_PORT=5434
+DB_PASSWORD=
+```
+
+The `pg_hba.conf` for PG 17 (`C:\Program Files\PostgreSQL\17\data\pg_hba.conf`) has `trust` for 127.0.0.1/32 and ::1/128, meaning no password is needed for local TCP connections.
+
+**Common pitfall:** If you see "password authentication failed for user postgres", you're hitting the wrong PostgreSQL instance (port 5432 = PG 18). Always specify `-p 5434` in psql commands.
+
+---
+
+## Learnings / Common Mistakes
+
+- **Windows `NUL` vs bash `/dev/null`:** On Windows with bash shell, never redirect to `NUL` — bash treats it as a literal filename and creates a `nul` file. Always use `/dev/null` instead.
+- **Skill files go in `.agents/skills/`**, not the project root. If `.skill` files appear in the root, move them to `.agents/skills/`.
+- **Don't create files in the project root** unless they're documented in ARCHITECTURE.md. Keep the root clean.

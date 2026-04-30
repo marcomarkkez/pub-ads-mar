@@ -11,6 +11,8 @@ export interface Space {
   price_per_day: number;
   width: number | null;
   height: number | null;
+  ical_url: string | null;
+  calendar_keyword: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -36,4 +38,5 @@ export interface SpaceAvailability {
   start_date: string;
   end_date: string;
   status: 'available' | 'booked' | 'blocked';
+  source?: string;
 }

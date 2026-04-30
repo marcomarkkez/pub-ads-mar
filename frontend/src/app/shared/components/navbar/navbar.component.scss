@@ -1,0 +1,111 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.navbar-end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.role-badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+
+  &[data-role="client"] { background: #e3f2fd; color: #1565c0; }
+  &[data-role="provider"] { background: #e8f5e9; color: #2e7d32; }
+  &[data-role="admin"] { background: #fce4ec; color: #c62828; }
+  &[data-role="support"] { background: #fff3e0; color: #e65100; }
+  &[data-role="payments"] { background: #f3e5f5; color: #6a1b9a; }
+}
+
+.user-menu {
+  position: relative;
+}
+
+.avatar-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.dropdown-header {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+
+  strong { font-size: 14px; color: var(--text); }
+  small { font-size: 12px; color: var(--text-muted); }
+}
+
+.dropdown hr {
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+
+  &:hover { background: var(--hover); }
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}

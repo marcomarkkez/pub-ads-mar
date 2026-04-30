@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Http\Controllers\Client;
+
+use App\Http\Controllers\Controller;
+use App\Models\Space;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class SpaceSearchController extends Controller
+{
+    public function search(Request $request): JsonResponse
+    {
+        $request->validate([
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'radius_km' => 'nullable|numeric|min:1|max:500',
+            'min_price' => 'nullable|numeric|min:0',
+            'max_price' => 'nullable|numeric|min:0',
+            'type' => 'nullable|string',
+        ]);
+
+        $query = Space::where('is_active', true)->with(['photos', 'user', 'availabilities']);
+
+        // Bounding-box geolocation filter
+        if ($request->filled(['latitude', 'longitude'])) {
+            $lat = $request->latitude;
+            $lng = $request->longitude;
+            $radius = $request->input('radius_km', 10);
+
+            // ~1 degree latitude = 111 km
+            $latDelta = $radius / 111.0;
+            // ~1 degree longitude varies by latitude
+            $lngDelta = $radius / (111.0 * cos(deg2rad($lat)));
+
+            $query->whereBetween('latitude', [$lat - $latDelta, $lat + $latDelta])
+                  ->whereBetween('longitude', [$lng - $lngDelta, $lng + $lngDelta]);
+        }
+
+        if ($request->filled('min_price')) {
+            $query->where('price_per_day', '>=', $request->min_price);
+        }
+
+        if ($request->filled('max_price')) {
+            $query->where('price_per_day', '<=', $request->max_price);
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+
+        $spaces = $query->latest()->paginate(20);
+
+        return response()->json($spaces);
+    }
+}

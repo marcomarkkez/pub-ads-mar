@@ -1,0 +1,39 @@
+.actions-cell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.total-count {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 12px;
+  padding: 4px 0;
+}
+
+/* Role badges */
+.badge-client {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-provider {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.badge-admin {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-support {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.badge-payments {
+  background: #d1fae5;
+  color: #065f46;
+}

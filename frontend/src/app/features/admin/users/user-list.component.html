@@ -1,0 +1,78 @@
+<div class="page-header">
+  <h1>Users</h1>
+  <a routerLink="/admin/users/new" class="btn btn-primary" style="width:auto">+ New User</a>
+</div>
+
+@if (error()) {
+  <div class="alert alert-error">{{ error() }}</div>
+}
+
+@if (loading()) {
+  <div class="loading-container">
+    <span class="spinner"></span>
+  </div>
+} @else {
+  @if (users().length === 0) {
+    <div class="empty-state">
+      <div class="empty-icon">&#128100;</div>
+      <p>No users found.</p>
+    </div>
+  } @else {
+    <div class="card">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Company</th>
+              <th>Active</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of users(); track user.id) {
+              <tr>
+                <td>{{ user.name }}</td>
+                <td>{{ user.email }}</td>
+                <td>
+                  <span class="badge badge-{{ user.role }}">{{ user.role }}</span>
+                </td>
+                <td>{{ user.company_name || '---' }}</td>
+                <td>
+                  @if (user.is_active) {
+                    <span class="badge badge-active">Active</span>
+                  } @else {
+                    <span class="badge badge-cancelled">Inactive</span>
+                  }
+                </td>
+                <td>{{ user.created_at | date:'mediumDate' }}</td>
+                <td class="actions-cell">
+                  <a [routerLink]="['/admin/users', user.id]" class="btn btn-sm">Edit</a>
+                  <button class="btn btn-sm btn-danger" (click)="deleteUser(user)">Delete</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (lastPage() > 1) {
+        <div class="pagination">
+          <button [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">Prev</button>
+          @for (page of pages; track page) {
+            <button
+              [class.active]="page === currentPage()"
+              (click)="goToPage(page)"
+            >{{ page }}</button>
+          }
+          <button [disabled]="currentPage() === lastPage()" (click)="goToPage(currentPage() + 1)">Next</button>
+        </div>
+      }
+
+      <p class="total-count">{{ total() }} user(s) total</p>
+    </div>
+  }
+}

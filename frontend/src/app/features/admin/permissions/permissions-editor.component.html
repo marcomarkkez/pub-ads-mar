@@ -1,0 +1,72 @@
+<div class="page-header">
+  <h1>Role Permissions</h1>
+  @if (saving()) {
+    <span class="save-indicator">
+      <span class="spinner"></span> Saving...
+    </span>
+  }
+</div>
+
+@if (error()) {
+  <div class="alert alert-error">{{ error() }}</div>
+}
+
+@if (loading() && roles().length === 0) {
+  <div class="loading-container">
+    <span class="spinner"></span>
+  </div>
+} @else {
+  <!-- Role selector tabs -->
+  <div class="role-tabs">
+    @for (role of roles(); track role) {
+      <button
+        class="role-tab"
+        [class.active]="role === selectedRole()"
+        (click)="selectRole(role)"
+        [disabled]="loading()"
+      >
+        {{ role | titlecase }}
+      </button>
+    }
+  </div>
+
+  @if (loading()) {
+    <div class="loading-container">
+      <span class="spinner"></span>
+    </div>
+  } @else {
+    <div class="card">
+      <div class="table-container">
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th class="resource-header">Resource</th>
+              @for (action of actions(); track action) {
+                <th class="action-header">{{ action | titlecase }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (resource of resources(); track resource) {
+              <tr>
+                <td class="resource-name">{{ resource | titlecase }}</td>
+                @for (action of actions(); track action) {
+                  <td class="action-cell">
+                    <label class="matrix-checkbox">
+                      <input
+                        type="checkbox"
+                        [checked]="isChecked(resource, action)"
+                        (change)="onToggle(resource, action)"
+                        [disabled]="saving()"
+                      />
+                    </label>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+}

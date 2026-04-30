@@ -1,16 +1,38 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, NgZone, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { GoogleMapsModule } from '@angular/google-maps';
+import * as L from 'leaflet';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
 import { Space, PaginatedResponse } from '../../../core/models';
 
+// Custom icons using div elements — no asset files needed
+const CENTER_ICON = L.divIcon({
+  html: `<div style="width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5);"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+  className: '',
+});
+
+const SPACE_ICON = L.divIcon({
+  html: `<div style="width:14px;height:14px;border-radius:50%;background:#e11d48;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+  className: '',
+});
+
+const SPACE_ICON_SELECTED = L.divIcon({
+  html: `<div style="width:18px;height:18px;border-radius:50%;background:#f97316;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);"></div>`,
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+  className: '',
+});
+
 @Component({
   selector: 'app-space-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, GoogleMapsModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="page-header">
       <h1>Explore Spaces</h1>
@@ -65,55 +87,10 @@ import { Space, PaginatedResponse } from '../../../core/models';
       </form>
     </div>
 
-    <!-- Map View -->
-    @if (showMap()) {
-      <div class="card" style="margin-bottom:24px;padding:0;overflow:hidden;">
-        @if (mapsApiLoaded()) {
-          <google-map
-            height="480px"
-            width="100%"
-            [center]="mapCenter()"
-            [zoom]="mapZoom"
-            (mapClick)="onMapClick($event)">
-            <!-- Search center marker -->
-            <map-marker
-              [position]="mapCenter()"
-              [options]="centerMarkerOptions">
-            </map-marker>
-            <!-- Space markers -->
-            @for (space of spaces(); track space.id) {
-              <map-marker
-                [position]="{ lat: +space.latitude, lng: +space.longitude }"
-                [options]="getSpaceMarkerOptions(space)"
-                (mapClick)="selectSpace(space)">
-              </map-marker>
-            }
-            @if (selectedSpace()) {
-              <map-info-window>
-                <div style="padding:8px;max-width:220px;">
-                  <strong style="display:block;margin-bottom:4px;">{{ selectedSpace()!.name }}</strong>
-                  <span style="font-size:12px;color:#666;">{{ formatType(selectedSpace()!.type) }}</span><br>
-                  <strong style="color:#2563eb;">\${{ selectedSpace()!.price_per_day }}/day</strong>
-                  @if (selectedSpace()!.width && selectedSpace()!.height) {
-                    <span style="font-size:12px;color:#666;margin-left:8px;">{{ selectedSpace()!.width }}x{{ selectedSpace()!.height }}m</span>
-                  }
-                </div>
-              </map-info-window>
-            }
-          </google-map>
-        } @else {
-          <div style="height:480px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">
-            <div style="text-align:center;">
-              <div style="font-size:32px;margin-bottom:8px;">🗺️</div>
-              <p>Loading map...</p>
-              @if (mapsApiError()) {
-                <p style="color:var(--danger);font-size:12px;">{{ mapsApiError() }}</p>
-              }
-            </div>
-          </div>
-        }
-      </div>
-    }
+    <!-- Map View (always rendered so ViewChild is available; shown/hidden via CSS) -->
+    <div [style.display]="showMap() ? 'block' : 'none'" class="card" style="margin-bottom:24px;padding:0;overflow:hidden;">
+      <div #mapEl style="height:480px;width:100%;"></div>
+    </div>
 
     <!-- List Results -->
     @if (!showMap()) {
@@ -127,8 +104,9 @@ import { Space, PaginatedResponse } from '../../../core/models';
       } @else if (spaces().length > 0) {
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
           @for (space of spaces(); track space.id) {
-            <div class="card" style="padding:0;overflow:hidden;" [class.selected-card]="selectedSpace()?.id === space.id" (click)="selectSpace(space)">
-              <!-- Photo -->
+            <div class="card" style="padding:0;overflow:hidden;cursor:pointer;"
+              [class.selected-card]="selectedSpace()?.id === space.id"
+              (click)="selectSpace(space)">
               @if (getFirstPhoto(space)) {
                 <img [src]="getFirstPhoto(space)" [alt]="space.name"
                   style="width:100%;height:160px;object-fit:cover;" />
@@ -142,8 +120,8 @@ import { Space, PaginatedResponse } from '../../../core/models';
                   <h3 style="font-size:16px;font-weight:600;margin:0;">{{ space.name }}</h3>
                   <span class="badge badge-active" style="white-space:nowrap;">{{ formatType(space.type) }}</span>
                 </div>
-                @if (space.location_name) {
-                  <p style="color:var(--text-muted);font-size:12px;margin-bottom:6px;">{{ space.location_name }}</p>
+                @if (space.location_name || space.location_text) {
+                  <p style="color:var(--text-muted);font-size:12px;margin-bottom:6px;">{{ space.location_name || space.location_text }}</p>
                 }
                 <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;margin-bottom:8px;">
                   <div>
@@ -191,12 +169,12 @@ import { Space, PaginatedResponse } from '../../../core/models';
     }
   `,
   styles: [`
-    .selected-card {
-      outline: 2px solid var(--primary);
-    }
+    .selected-card { outline: 2px solid var(--primary); }
   `],
 })
-export class SpaceSearchComponent implements OnInit {
+export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('mapEl') mapEl!: ElementRef<HTMLDivElement>;
+
   private readonly api = environment.apiUrl;
 
   // Default: San Pedro Garza García, Nuevo León
@@ -216,58 +194,106 @@ export class SpaceSearchComponent implements OnInit {
   pages = signal<number[]>([]);
   showMap = signal(false);
   selectedSpace = signal<Space | null>(null);
-  mapsApiLoaded = signal(false);
-  mapsApiError = signal('');
-  mapCenter = signal<google.maps.LatLngLiteral>({ lat: 25.6597, lng: -100.4023 });
-  mapZoom = 12;
 
-  centerMarkerOptions: google.maps.MarkerOptions = {
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 8,
-      fillColor: '#2563eb',
-      fillOpacity: 1,
-      strokeColor: '#fff',
-      strokeWeight: 2,
-    },
-    title: 'Search center',
-  };
+  private map: L.Map | null = null;
+  private centerMarker: L.Marker | null = null;
+  private spaceMarkers: L.Marker[] = [];
 
   constructor(
     private http: HttpClient,
     private notify: NotificationService,
+    private zone: NgZone,
   ) {}
 
   ngOnInit(): void {
-    this.loadGoogleMaps();
     this.search();
   }
 
-  private loadGoogleMaps(): void {
-    if (typeof google !== 'undefined' && google.maps) {
-      this.mapsApiLoaded.set(true);
-      return;
-    }
-    const key = environment.googleMapsApiKey;
-    if (!key || key === 'YOUR_GOOGLE_MAPS_API_KEY') {
-      this.mapsApiError.set('Google Maps API key not configured.');
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}`;
-    script.async = true;
-    script.onload = () => this.mapsApiLoaded.set(true);
-    script.onerror = () => this.mapsApiError.set('Failed to load Google Maps.');
-    document.head.appendChild(script);
+  ngAfterViewInit(): void {
+    this.zone.runOutsideAngular(() => this.initMap());
   }
+
+  ngOnDestroy(): void {
+    this.map?.remove();
+    this.map = null;
+  }
+
+  // ── Map ────────────────────────────────────────────────────────────────────
+
+  private initMap(): void {
+    this.map = L.map(this.mapEl.nativeElement, {
+      center: [this.latitude, this.longitude],
+      zoom: 12,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(this.map);
+
+    this.centerMarker = L.marker([this.latitude, this.longitude], { icon: CENTER_ICON }).addTo(this.map);
+
+    this.map.on('click', (e: L.LeafletMouseEvent) => {
+      this.zone.run(() => {
+        this.latitude = +e.latlng.lat.toFixed(6);
+        this.longitude = +e.latlng.lng.toFixed(6);
+        this.centerMarker?.setLatLng([this.latitude, this.longitude]);
+        this.search();
+      });
+    });
+  }
+
+  private updateMapMarkers(): void {
+    if (!this.map) return;
+    // Update center marker
+    this.centerMarker?.setLatLng([this.latitude, this.longitude]);
+    this.map.setView([this.latitude, this.longitude], this.map.getZoom());
+
+    // Clear old space markers
+    this.spaceMarkers.forEach(m => m.remove());
+    this.spaceMarkers = [];
+
+    // Add new space markers
+    this.spaces().forEach(space => {
+      const lat = +space.latitude;
+      const lng = +space.longitude;
+      const isSelected = this.selectedSpace()?.id === space.id;
+      const marker = L.marker([lat, lng], {
+        icon: isSelected ? SPACE_ICON_SELECTED : SPACE_ICON,
+      }).addTo(this.map!);
+
+      marker.bindPopup(`
+        <div style="min-width:160px;">
+          <strong style="display:block;margin-bottom:4px;">${space.name}</strong>
+          <span style="font-size:12px;color:#666;">${this.formatType(space.type)}</span><br>
+          <strong style="color:#2563eb;">$${space.price_per_day}/day</strong>
+          ${space.width && space.height ? `<span style="font-size:12px;color:#666;margin-left:6px;">${space.width}×${space.height}m</span>` : ''}
+        </div>
+      `);
+
+      marker.on('click', () => {
+        this.zone.run(() => this.selectSpace(space));
+      });
+
+      this.spaceMarkers.push(marker);
+    });
+  }
+
+  // ── View toggle ────────────────────────────────────────────────────────────
 
   toggleView(): void {
     this.showMap.update(v => !v);
+    if (this.showMap() && this.map) {
+      // Leaflet needs an invalidateSize() after being shown from display:none
+      setTimeout(() => this.map?.invalidateSize(), 50);
+      this.zone.runOutsideAngular(() => this.updateMapMarkers());
+    }
   }
+
+  // ── Search ─────────────────────────────────────────────────────────────────
 
   search(): void {
     this.currentPage.set(1);
-    this.mapCenter.set({ lat: this.latitude, lng: this.longitude });
     this.loadPage(1);
   }
 
@@ -293,6 +319,9 @@ export class SpaceSearchComponent implements OnInit {
         this.total.set(res.total);
         this.pages.set(Array.from({ length: res.last_page }, (_, i) => i + 1));
         this.loading.set(false);
+        if (this.showMap()) {
+          this.zone.runOutsideAngular(() => this.updateMapMarkers());
+        }
       },
       error: (err) => {
         this.notify.error(err.error?.message || 'Search failed.');
@@ -301,34 +330,16 @@ export class SpaceSearchComponent implements OnInit {
     });
   }
 
-  onMapClick(event: google.maps.MapMouseEvent): void {
-    if (event.latLng) {
-      this.latitude = event.latLng.lat();
-      this.longitude = event.latLng.lng();
-      this.mapCenter.set({ lat: this.latitude, lng: this.longitude });
-      this.search();
-    }
-  }
-
   selectSpace(space: Space): void {
     this.selectedSpace.set(space);
-    this.mapCenter.set({ lat: +space.latitude, lng: +space.longitude });
-  }
-
-  getSpaceMarkerOptions(space: Space): google.maps.MarkerOptions {
-    return {
-      title: space.name,
-      icon: {
-        url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-      },
-    };
+    if (this.showMap() && this.map) {
+      this.map.setView([+space.latitude, +space.longitude], 15);
+      this.zone.runOutsideAngular(() => this.updateMapMarkers());
+    }
   }
 
   getFirstPhoto(space: Space): string | null {
-    if (space.photos && space.photos.length > 0) {
-      return space.photos[0].file_url;
-    }
-    return null;
+    return (space.photos && space.photos.length > 0) ? space.photos[0].file_url : null;
   }
 
   formatType(type: string): string {

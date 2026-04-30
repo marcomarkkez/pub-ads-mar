@@ -1,0 +1,158 @@
+<?php
+
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Admin\PermissionController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Client\AdController;
+use App\Http\Controllers\Client\AdsetController;
+use App\Http\Controllers\Client\BookingController as ClientBookingController;
+use App\Http\Controllers\Client\CampaignController;
+use App\Http\Controllers\Client\CollaboratorController;
+use App\Http\Controllers\Client\InvoiceController;
+use App\Http\Controllers\Client\SpaceSearchController;
+use App\Http\Controllers\Manager\UserController;
+use App\Http\Controllers\Payments\PaymentController;
+use App\Http\Controllers\Payments\ProofReviewController;
+use App\Http\Controllers\Provider\BookingController as ProviderBookingController;
+use App\Http\Controllers\Provider\DashboardController;
+use App\Http\Controllers\Provider\ProofController;
+use App\Http\Controllers\Provider\SpaceAvailabilityController;
+use App\Http\Controllers\Provider\SpaceController;
+use App\Http\Controllers\Provider\SpacePhotoController;
+use App\Http\Controllers\Shared\ConversationController;
+use App\Http\Controllers\Shared\MessageController;
+use App\Http\Controllers\Shared\TicketController;
+use App\Http\Controllers\Support\TicketController as SupportTicketController;
+use Illuminate\Support\Facades\Route;
+
+// Public routes
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+
+// Authenticated routes
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me']);
+
+    // ── Client routes ───────────────────────────────────────
+    Route::middleware('role:client')->prefix('client')->group(function () {
+        // Campaigns
+        Route::get('campaigns', [CampaignController::class, 'index'])->middleware('permission:campaigns,read');
+        Route::post('campaigns', [CampaignController::class, 'store'])->middleware('permission:campaigns,create');
+        Route::get('campaigns/{campaign}', [CampaignController::class, 'show'])->middleware('permission:campaigns,read');
+        Route::put('campaigns/{campaign}', [CampaignController::class, 'update'])->middleware('permission:campaigns,update');
+        Route::delete('campaigns/{campaign}', [CampaignController::class, 'destroy'])->middleware('permission:campaigns,delete');
+
+        // Adsets
+        Route::get('campaigns/{campaign}/adsets', [AdsetController::class, 'index'])->middleware('permission:adsets,read');
+        Route::post('campaigns/{campaign}/adsets', [AdsetController::class, 'store'])->middleware('permission:adsets,create');
+        Route::get('campaigns/{campaign}/adsets/{adset}', [AdsetController::class, 'show'])->middleware('permission:adsets,read');
+        Route::put('campaigns/{campaign}/adsets/{adset}', [AdsetController::class, 'update'])->middleware('permission:adsets,update');
+        Route::delete('campaigns/{campaign}/adsets/{adset}', [AdsetController::class, 'destroy'])->middleware('permission:adsets,delete');
+
+        // Ads
+        Route::get('campaigns/{campaign}/adsets/{adset}/ads', [AdController::class, 'index'])->middleware('permission:ads,read');
+        Route::post('campaigns/{campaign}/adsets/{adset}/ads', [AdController::class, 'store'])->middleware('permission:ads,create');
+        Route::get('campaigns/{campaign}/adsets/{adset}/ads/{ad}', [AdController::class, 'show'])->middleware('permission:ads,read');
+        Route::put('campaigns/{campaign}/adsets/{adset}/ads/{ad}', [AdController::class, 'update'])->middleware('permission:ads,update');
+        Route::delete('campaigns/{campaign}/adsets/{adset}/ads/{ad}', [AdController::class, 'destroy'])->middleware('permission:ads,delete');
+
+        // Bookings
+        Route::get('bookings', [ClientBookingController::class, 'index'])->middleware('permission:bookings,read');
+        Route::post('bookings', [ClientBookingController::class, 'store'])->middleware('permission:bookings,create');
+        Route::get('bookings/{booking}', [ClientBookingController::class, 'show'])->middleware('permission:bookings,read');
+        Route::put('bookings/{booking}', [ClientBookingController::class, 'update'])->middleware('permission:bookings,update');
+
+        // Space search
+        Route::get('spaces/search', [SpaceSearchController::class, 'search'])->middleware('permission:spaces,read');
+
+        // Collaborators
+        Route::get('campaigns/{campaign}/collaborators', [CollaboratorController::class, 'index'])->middleware('permission:collaborators,read');
+        Route::post('campaigns/{campaign}/collaborators', [CollaboratorController::class, 'store'])->middleware('permission:collaborators,create');
+        Route::delete('campaigns/{campaign}/collaborators/{collaborator}', [CollaboratorController::class, 'destroy'])->middleware('permission:collaborators,delete');
+
+        // Invoices
+        Route::get('invoices', [InvoiceController::class, 'index'])->middleware('permission:invoices,read');
+        Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoices,read');
+    });
+
+    // ── Provider routes ─────────────────────────────────────
+    Route::middleware('role:provider')->prefix('provider')->group(function () {
+        // Spaces
+        Route::get('spaces', [SpaceController::class, 'index'])->middleware('permission:spaces,read');
+        Route::post('spaces', [SpaceController::class, 'store'])->middleware('permission:spaces,create');
+        Route::get('spaces/{space}', [SpaceController::class, 'show'])->middleware('permission:spaces,read');
+        Route::put('spaces/{space}', [SpaceController::class, 'update'])->middleware('permission:spaces,update');
+        Route::delete('spaces/{space}', [SpaceController::class, 'destroy'])->middleware('permission:spaces,delete');
+
+        // Space photos
+        Route::post('spaces/{space}/photos', [SpacePhotoController::class, 'store'])->middleware('permission:space_photos,create');
+        Route::delete('spaces/{space}/photos/{photo}', [SpacePhotoController::class, 'destroy'])->middleware('permission:space_photos,delete');
+
+        // Space availabilities
+        Route::get('spaces/{space}/availabilities', [SpaceAvailabilityController::class, 'index'])->middleware('permission:space_availabilities,read');
+        Route::post('spaces/{space}/availabilities', [SpaceAvailabilityController::class, 'store'])->middleware('permission:space_availabilities,create');
+        Route::delete('spaces/{space}/availabilities/{availability}', [SpaceAvailabilityController::class, 'destroy'])->middleware('permission:space_availabilities,delete');
+        Route::post('spaces/{space}/sync-ical', [SpaceAvailabilityController::class, 'syncIcal'])->middleware('permission:space_availabilities,create');
+        Route::post('spaces/{space}/import-ical', [SpaceAvailabilityController::class, 'importIcal'])->middleware('permission:space_availabilities,create');
+
+        // Bookings
+        Route::get('bookings', [ProviderBookingController::class, 'index'])->middleware('permission:bookings,read');
+        Route::put('bookings/{booking}', [ProviderBookingController::class, 'update'])->middleware('permission:bookings,update');
+
+        // Dashboard
+        Route::get('dashboard', [DashboardController::class, 'index'])->middleware('permission:dashboard,read');
+
+        // Proofs
+        Route::get('proofs', [ProofController::class, 'index'])->middleware('permission:proofs,read');
+        Route::post('proofs', [ProofController::class, 'store'])->middleware('permission:proofs,create');
+        Route::get('proofs/{proof}', [ProofController::class, 'show'])->middleware('permission:proofs,read');
+    });
+
+    // ── Admin routes ────────────────────────────────────────
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
+        // Users CRM
+        Route::get('users', [AdminUserController::class, 'index'])->middleware('permission:users,read');
+        Route::post('users', [AdminUserController::class, 'store'])->middleware('permission:users,create');
+        Route::get('users/{user}', [AdminUserController::class, 'show'])->middleware('permission:users,read');
+        Route::put('users/{user}', [AdminUserController::class, 'update'])->middleware('permission:users,update');
+        Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->middleware('permission:users,delete');
+
+        // Permissions management (NO permission middleware — prevent lockout)
+        Route::get('permissions', [PermissionController::class, 'index']);
+        Route::get('permissions/{role}', [PermissionController::class, 'show']);
+        Route::put('permissions/{role}', [PermissionController::class, 'update']);
+        Route::patch('permissions/{role}/{resource}', [PermissionController::class, 'updateResource']);
+    });
+
+    // ── Support routes ──────────────────────────────────────
+    Route::middleware('role:support')->prefix('support')->group(function () {
+        Route::get('tickets', [SupportTicketController::class, 'index'])->middleware('permission:tickets,read');
+        Route::get('tickets/{ticket}', [SupportTicketController::class, 'show'])->middleware('permission:tickets,read');
+        Route::put('tickets/{ticket}', [SupportTicketController::class, 'update'])->middleware('permission:tickets,update');
+        Route::post('tickets/{ticket}/reply', [SupportTicketController::class, 'reply'])->middleware('permission:tickets,create');
+    });
+
+    // ── Payments routes ─────────────────────────────────────
+    Route::middleware('role:payments')->prefix('payments')->group(function () {
+        Route::get('payments', [PaymentController::class, 'index'])->middleware('permission:payments,read');
+        Route::get('payments/{payment}', [PaymentController::class, 'show'])->middleware('permission:payments,read');
+        Route::post('payments/{payment}/approve', [PaymentController::class, 'approve'])->middleware('permission:payments,update');
+        Route::post('payments/{payment}/reject', [PaymentController::class, 'reject'])->middleware('permission:payments,update');
+
+        Route::get('proofs', [ProofReviewController::class, 'index'])->middleware('permission:proofs,read');
+        Route::post('proofs/{proof}/approve', [ProofReviewController::class, 'approve'])->middleware('permission:proofs,update');
+        Route::post('proofs/{proof}/reject', [ProofReviewController::class, 'reject'])->middleware('permission:proofs,update');
+    });
+
+    // ── Shared routes (any authenticated user) ──────────────
+    Route::get('conversations', [ConversationController::class, 'index'])->middleware('permission:conversations,read');
+    Route::post('conversations', [ConversationController::class, 'store'])->middleware('permission:conversations,create');
+    Route::get('conversations/{conversation}/messages', [MessageController::class, 'index'])->middleware('permission:conversations,read');
+    Route::post('conversations/{conversation}/messages', [MessageController::class, 'store'])->middleware('permission:conversations,create');
+
+    Route::get('tickets', [TicketController::class, 'index'])->middleware('permission:tickets,read');
+    Route::post('tickets', [TicketController::class, 'store'])->middleware('permission:tickets,create');
+    Route::get('tickets/{ticket}', [TicketController::class, 'show'])->middleware('permission:tickets,read');
+    Route::post('tickets/{ticket}/reply', [TicketController::class, 'reply'])->middleware('permission:tickets,create');
+});

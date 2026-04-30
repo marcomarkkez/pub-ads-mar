@@ -1,0 +1,16 @@
+<aside class="sidebar" [class.open]="menuOpen">
+  <nav class="sidebar-nav">
+    @for (item of navItems(); track item.route) {
+      <a
+        [routerLink]="item.route"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
+        class="nav-item"
+        (click)="menuOpen = false"
+      >
+        <span class="nav-icon">{{ item.icon }}</span>
+        <span class="nav-label">{{ item.label }}</span>
+      </a>
+    }
+  </nav>
+</aside>

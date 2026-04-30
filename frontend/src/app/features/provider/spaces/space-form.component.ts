@@ -3,15 +3,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { GoogleMapsModule } from '@angular/google-maps';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
+import { LocationPickerComponent } from '../../../shared/components/location-picker/location-picker.component';
 import { Space } from '../../../core/models';
 
 @Component({
   selector: 'app-space-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, GoogleMapsModule],
+  imports: [CommonModule, FormsModule, RouterLink, LocationPickerComponent],
   template: `
     <div class="page-header">
       <h1>{{ isEdit() ? 'Edit Space' : 'New Space' }}</h1>
@@ -51,44 +51,24 @@ import { Space } from '../../../core/models';
 
           <!-- Map Location Picker -->
           <div class="form-group">
-            <label>Location * <span style="font-weight:400;color:var(--text-muted);font-size:12px;">— click on the map to set coordinates</span></label>
-            @if (mapsApiLoaded()) {
-              <google-map
-                height="320px"
-                width="100%"
-                [center]="mapCenter()"
-                [zoom]="mapZoom"
-                (mapClick)="onMapClick($event)"
-                style="border-radius:8px;overflow:hidden;display:block;margin-bottom:8px;">
-                @if (form.latitude && form.longitude) {
-                  <map-marker
-                    [position]="{ lat: form.latitude, lng: form.longitude }"
-                    [options]="markerOptions">
-                  </map-marker>
-                }
-              </google-map>
-            } @else {
-              <div style="height:320px;background:var(--hover);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);margin-bottom:8px;">
-                @if (mapsApiError()) {
-                  <span style="color:var(--danger);font-size:13px;">{{ mapsApiError() }}</span>
-                } @else {
-                  <span>Loading map...</span>
-                }
-              </div>
-            }
+            <label>Location * <span style="font-weight:400;color:var(--text-muted);font-size:12px;">— click the map or enter a what3words address</span></label>
+            <app-location-picker
+              [lat]="form.latitude"
+              [lng]="form.longitude"
+              height="320px"
+              (locationChange)="onLocationChange($event)">
+            </app-location-picker>
 
-            <div class="form-row">
+            <div class="form-row" style="margin-top:8px;">
               <div class="form-group" style="margin-bottom:0;">
                 <label for="latitude">Latitude *</label>
                 <input id="latitude" name="latitude" type="number" step="any"
-                  [(ngModel)]="form.latitude" required placeholder="e.g. 25.6597"
-                  (ngModelChange)="onCoordsChange()">
+                  [(ngModel)]="form.latitude" required placeholder="e.g. 25.6597">
               </div>
               <div class="form-group" style="margin-bottom:0;">
                 <label for="longitude">Longitude *</label>
                 <input id="longitude" name="longitude" type="number" step="any"
-                  [(ngModel)]="form.longitude" required placeholder="e.g. -100.4023"
-                  (ngModelChange)="onCoordsChange()">
+                  [(ngModel)]="form.longitude" required placeholder="e.g. -100.4023">
               </div>
             </div>
           </div>
@@ -168,17 +148,6 @@ export class SpaceFormComponent implements OnInit {
   loadingSpace = signal(false);
   saving = signal(false);
   error = signal('');
-  mapsApiLoaded = signal(false);
-  mapsApiError = signal('');
-
-  // Default center: San Pedro Garza García, NL
-  mapCenter = signal<google.maps.LatLngLiteral>({ lat: 25.6597, lng: -100.4023 });
-  mapZoom = 13;
-
-  markerOptions: google.maps.MarkerOptions = {
-    draggable: true,
-    title: 'Space location',
-  };
 
   form = {
     name: '',
@@ -204,8 +173,6 @@ export class SpaceFormComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadGoogleMaps();
-
     const idParam = this.route.snapshot.paramMap.get('id');
     const url = this.router.url;
 
@@ -216,44 +183,16 @@ export class SpaceFormComponent implements OnInit {
     }
   }
 
-  private loadGoogleMaps(): void {
-    if (typeof google !== 'undefined' && google.maps) {
-      this.mapsApiLoaded.set(true);
-      return;
-    }
-    const key = environment.googleMapsApiKey;
-    if (!key || key === 'YOUR_GOOGLE_MAPS_API_KEY') {
-      this.mapsApiError.set('Google Maps API key not configured.');
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}`;
-    script.async = true;
-    script.onload = () => this.mapsApiLoaded.set(true);
-    script.onerror = () => this.mapsApiError.set('Failed to load Google Maps.');
-    document.head.appendChild(script);
-  }
-
-  onMapClick(event: google.maps.MapMouseEvent): void {
-    if (event.latLng) {
-      this.form.latitude = +event.latLng.lat().toFixed(7);
-      this.form.longitude = +event.latLng.lng().toFixed(7);
-      this.mapCenter.set({ lat: this.form.latitude, lng: this.form.longitude });
-    }
-  }
-
-  onCoordsChange(): void {
-    if (this.form.latitude && this.form.longitude) {
-      this.mapCenter.set({ lat: this.form.latitude, lng: this.form.longitude });
-    }
+  onLocationChange(coords: { lat: number; lng: number }): void {
+    this.form.latitude = coords.lat;
+    this.form.longitude = coords.lng;
   }
 
   private loadSpace(): void {
     this.loadingSpace.set(true);
 
-    this.http.get<{ data: Space }>(`${this.api}/provider/spaces/${this.spaceId}`).subscribe({
-      next: (res) => {
-        const s = res.data;
+    this.http.get<Space>(`${this.api}/provider/spaces/${this.spaceId}`).subscribe({
+      next: (s) => {
         this.form.name = s.name;
         this.form.description = s.description || '';
         this.form.type = s.type;
@@ -264,9 +203,6 @@ export class SpaceFormComponent implements OnInit {
         this.form.width = s.width;
         this.form.height = s.height;
         this.form.is_active = s.is_active;
-        if (s.latitude && s.longitude) {
-          this.mapCenter.set({ lat: +s.latitude, lng: +s.longitude });
-        }
         this.loadingSpace.set(false);
       },
       error: (err) => {
@@ -283,13 +219,15 @@ export class SpaceFormComponent implements OnInit {
     const payload = { ...this.form };
 
     const request$ = this.isEdit()
-      ? this.http.put(`${this.api}/provider/spaces/${this.spaceId}`, payload)
-      : this.http.post(`${this.api}/provider/spaces`, payload);
+      ? this.http.put<any>(`${this.api}/provider/spaces/${this.spaceId}`, payload)
+      : this.http.post<any>(`${this.api}/provider/spaces`, payload);
 
     request$.subscribe({
-      next: () => {
-        this.notify.success(this.isEdit() ? 'Space updated successfully.' : 'Space created successfully.');
-        this.router.navigate(['/provider/spaces']);
+      next: (res) => {
+        this.notify.success(this.isEdit() ? 'Space updated successfully.' : 'Space created! Now add photos and availability.');
+        // After creation, go to the detail page so they can add photos + availabilities
+        const targetId = this.isEdit() ? this.spaceId : res.id;
+        this.router.navigate(['/provider/spaces', targetId]);
       },
       error: (err) => {
         this.error.set(err.error?.message || 'Failed to save space.');

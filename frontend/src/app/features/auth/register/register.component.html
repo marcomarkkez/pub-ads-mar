@@ -1,0 +1,98 @@
+<div class="auth-container">
+  <div class="auth-card">
+    <h1>Create Account</h1>
+    <p class="subtitle">Join PubAds as a Client or Provider</p>
+
+    @if (error()) {
+      <div class="alert alert-error">{{ error() }}</div>
+    }
+
+    <form (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="role">I am a...</label>
+        <div class="role-selector">
+          <button
+            type="button"
+            class="role-btn"
+            [class.active]="role === 'client'"
+            (click)="role = 'client'"
+          >
+            <span class="role-icon">📢</span>
+            <span>Client</span>
+            <small>I want to advertise</small>
+          </button>
+          <button
+            type="button"
+            class="role-btn"
+            [class.active]="role === 'provider'"
+            (click)="role = 'provider'"
+          >
+            <span class="role-icon">📍</span>
+            <span>Provider</span>
+            <small>I have ad spaces</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input
+          id="name"
+          type="text"
+          [(ngModel)]="name"
+          name="name"
+          placeholder="Your full name"
+          autocomplete="name"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          [(ngModel)]="email"
+          name="email"
+          placeholder="your@email.com"
+          autocomplete="email"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          [(ngModel)]="password"
+          name="password"
+          placeholder="Min 8 characters"
+          autocomplete="new-password"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="passwordConfirmation">Confirm Password</label>
+        <input
+          id="passwordConfirmation"
+          type="password"
+          [(ngModel)]="passwordConfirmation"
+          name="passwordConfirmation"
+          placeholder="Repeat your password"
+          autocomplete="new-password"
+          required
+        />
+      </div>
+
+      <button type="submit" class="btn btn-primary" [disabled]="loading()">
+        {{ loading() ? 'Creating account...' : 'Create Account' }}
+      </button>
+    </form>
+
+    <p class="auth-link">
+      Already have an account? <a routerLink="/login">Sign in</a>
+    </p>
+  </div>
+</div>

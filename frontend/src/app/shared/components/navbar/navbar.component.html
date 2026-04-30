@@ -1,0 +1,28 @@
+<nav class="navbar">
+  <div class="navbar-brand">
+    <a routerLink="/dashboard" class="logo">PubAds</a>
+  </div>
+
+  <div class="navbar-end">
+    <span class="role-badge" [attr.data-role]="role()">{{ role() }}</span>
+    <div class="user-menu">
+      <button class="avatar-btn" (click)="menuOpen = !menuOpen">
+        <span class="avatar">{{ initials() }}</span>
+      </button>
+      @if (menuOpen) {
+        <div class="dropdown" (click)="menuOpen = false">
+          <div class="dropdown-header">
+            <strong>{{ user()?.name }}</strong>
+            <small>{{ user()?.email }}</small>
+          </div>
+          <hr />
+          <button class="dropdown-item" (click)="logout()">Sign Out</button>
+        </div>
+      }
+    </div>
+  </div>
+</nav>
+
+@if (menuOpen) {
+  <div class="backdrop" (click)="menuOpen = false"></div>
+}
