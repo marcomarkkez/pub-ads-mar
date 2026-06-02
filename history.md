@@ -576,5 +576,140 @@ All of these remain pending:
 - Recommended first action next session: `git status` and commit work in logical chunks
   (backend migration + model + service, then frontend space-detail, then the `res.data` batch)
 
+## Session 13 - 2026-04-12
+
+### Summary
+Audit and cleanup session focused on git hygiene and Windows environment fixes. No feature code written — but a major hidden issue was discovered: the `backend/` folder was registered as a gitlink (embedded git repo), meaning none of the actual Laravel code was being tracked in the parent repo. Fixed it, removed a stale `nul` file blocking `git add`, and diagnosed the `ng not recognized` PowerShell error.
+
+### Tasks Completed
+- [x] Audited untracked files for sensitive info before potential push to GitHub
+- [x] Diagnosed `backend/` showing as gitlink (mode 160000) — found `backend/.git/` from Laravel installer's auto `git init`
+- [x] Fixed embedded git repo: `rm -rf backend/.git`, `git rm --cached -f backend`, `git add backend/`
+- [x] Removed `backend/nul` — leftover from a previous bash `> NUL` redirect mistake (already documented in claude.md Learnings). Windows treats `nul` as reserved device name so git couldn't open it
+- [x] Diagnosed `ng not recognized` error — Angular CLI installed globally at `C:\Users\mucho\AppData\Roaming\npm\` but that folder not on User PATH
+- [x] Added "Fix `ng` not recognized" section to `useful_commands.md` with 3 solutions (npx, global install, manual PATH edit) + backup table of all PATH entries the project needs
+
+### Key Findings
+- **Embedded repo / gitlink issue:** Laravel installer ran `git init` inside `backend/`. The parent repo then recorded `backend` as a gitlink pointing to commit `51cd697...` instead of tracking the actual files. **Effect:** pushing to GitHub would have resulted in an empty/broken `backend` entry. **Fix verified:** after deleting inner `.git` and re-adding, `git ls-files --stage backend/composer.json` now shows mode `100644` (regular file).
+- **No root `.gitignore` exists** — only `backend/.gitignore` and `frontend/.gitignore`. Anything outside those two folders has no protection. Recommended adding a root `.gitignore` (not yet done).
+- **`useful_commands.md` contains demo passwords** (all `password`) — flagged as a minor concern before pushing publicly.
+- **npm Windows quirk:** Node.js installer adds `C:\Program Files\nodejs\` to PATH (for `node`/`npm`) but does NOT add `%APPDATA%\Roaming\npm\` (where globally-installed CLIs live). Users must add it manually.
+
+### Files Modified
+- `useful_commands.md` — added "Fix `ng` not recognized" section with npx / global install / PATH edit instructions + backup table of all PATH entries
+
+### Outstanding Sensitive-Info Concerns Before Push
+- [ ] Create root `.gitignore` to protect against accidental commits of `.env`, IDE configs, OS files
+- [ ] Sanitize `useful_commands.md` — either remove demo passwords or move them to a gitignored file
+- [ ] Verify `backend/.env` is NOT staged (should be excluded by `backend/.gitignore`)
+- [ ] Run a manual scan: `git diff --cached` before any push
+
+### Outstanding Work (carried over)
+- [ ] Commit all changes from Sessions 10 + 11 + 13 (Leaflet/w3w map, calendar sync, `calendar_keyword`, photo `file_url` fix, `res.data` batch, seeder, useful_commands additions, backend re-tracking)
+- [ ] End-to-end smoke test with both servers (`php artisan serve` + `ng serve` / `npx ng serve`)
+- [ ] Verify photo upload after `file_url` accessor fix
+- [ ] Test calendar sync flow with a real Google Calendar public iCal URL
+- [ ] Test calendar keyword filtering
+- [ ] Add file preview components for media (image/video/audio)
+- [ ] Get a what3words API key (optional)
+- [ ] Permanently fix `ng` on PATH via PowerShell `[Environment]::SetEnvironmentVariable` snippet provided in chat
+
+## Session 14 - 2026-05-21
+
+### Summary
+Documentation audit and cleanup session. Updated README.md (was empty), fixed ARCHITECTURE.md (frontend was marked as "Pending" despite 40+ files being implemented), initialized beads issue tracker, and created 6 tracking issues for outstanding work.
+
+### Tasks Completed
+- [x] Wrote README.md — project overview, tech stack, quick start, user roles, demo accounts, project structure, API overview, key features, documentation links
+- [x] Updated ARCHITECTURE.md — replaced "scaffold only" frontend tree with actual implemented structure, replaced "Planned Frontend Structure" with feature component table, changed status from "Pending" to "Done" with details
+- [x] Initialized beads (`bd init`) — previous DB was missing
+- [x] Created 6 beads issues for outstanding work (E2E test, photo upload, calendar sync, file previews, root .gitignore, pending commit)
+- [x] Updated history.md with this session entry
+
+### Beads Issues Created
+| ID | Title |
+|----|-------|
+| pub-ads-mar-o60 | End-to-end smoke test |
+| pub-ads-mar-5uo | Verify photo upload flow |
+| pub-ads-mar-un1 | Test calendar sync flow |
+| pub-ads-mar-do3 | Add file preview components |
+| pub-ads-mar-ajb | Create root .gitignore |
+| pub-ads-mar-3sv | Commit all pending changes |
+
+### Files Modified
+- `README.md` — full rewrite (was "Nothing here")
+- `ARCHITECTURE.md` — frontend tree, feature table, implementation status
+- `history.md` — this entry
+- `CLAUDE.md` — beads integration section appended by `bd init`
+
+### Notes
+- Beads dolt auto-push fails due to missing git auth — issues are saved locally only
+- All uncommitted work from Sessions 10-13 is still in the working tree
+- Next priority: commit everything, then run E2E smoke test
+
+## Session 15 - 2026-05-31
+
+### Summary
+Dockerized the full stack to eliminate host PHP/extension/Postgres-version drift. Triggered by `php artisan serve` failing because composer.lock pins PHP 8.4 packages while host has PHP 8.3.6 with missing ext-dom/xml. Designed the architecture in SDC mode, then scaffolded all Docker files. Build succeeded after fixing Docker credential helper config and regenerating the frontend npm lockfile.
+
+### Tasks Completed
+- [x] SDC planning session — wrote full implementation plan to `.claude/plans/dockerize-stack.md`
+- [x] Created `backend/Dockerfile` (php:8.4-fpm-alpine + ext-pdo_pgsql/dom/xml/mbstring/zip/gd/bcmath/intl/opcache + Composer)
+- [x] Created `backend/docker/entrypoint.sh` (auto `.env`, `storage:link`, optional `migrate`)
+- [x] Created `backend/docker/nginx.conf` (Laravel vhost, fastcgi_pass backend:9000)
+- [x] Created `frontend/Dockerfile` (node:20-alpine + ng serve with polling for WSL HMR)
+- [x] Created `docker-compose.yml` (4 services: db, backend, nginx, frontend; named volumes for vendor/node_modules/pgdata/storage; healthchecks; bridge network)
+- [x] Created `.dockerignore` at repo root, `backend/`, `frontend/`
+- [x] Updated `backend/.env.example` — DB_CONNECTION=pgsql, DB_HOST=db, DB_PORT=5432
+- [x] Updated `useful_commands.md` — Docker-first commands, demoted bare-metal to legacy section
+- [x] Updated `ARCHITECTURE.md` — added Docker section to Dev Commands
+- [x] Updated `CLAUDE.md` — added Docker Workflow section, marked PG troubleshooting as legacy
+- [x] Pre-flight: stopped host PG17 service (`Stop-Service postgresql-x64-17` as Admin), fixed CRLF on entrypoint.sh
+- [x] Fixed Docker credsStore error (`sed -i '/credsStore/d' ~/.docker/config.json`)
+- [x] Regenerated `frontend/package-lock.json` (chokidar/readdirp drift broke `npm ci`)
+- [x] `docker compose build` succeeded for both backend and frontend images
+
+### Beads Issues Created
+| ID | Title | Status |
+|----|-------|--------|
+| pub-ads-mar-q08 | Dockerize backend (PHP 8.4-fpm + extensions + Composer) | in_progress |
+| pub-ads-mar-bmx | Dockerize frontend (Node 20 + Angular dev server) | open |
+| pub-ads-mar-5q4 | Add docker-compose.yml orchestrating backend/nginx/frontend/db | open |
+| pub-ads-mar-ulf | Migrate Postgres data from host PG17 (5434) into containerized db | open |
+| pub-ads-mar-44h | Update CLAUDE.md/ARCHITECTURE.md/useful_commands.md for Docker workflow | open |
+
+### Files Created
+- `docker-compose.yml`
+- `.dockerignore` (root)
+- `backend/Dockerfile`, `backend/.dockerignore`, `backend/docker/entrypoint.sh`, `backend/docker/nginx.conf`
+- `frontend/Dockerfile`, `frontend/.dockerignore`
+- `.claude/plans/dockerize-stack.md`
+
+### Files Modified
+- `backend/.env.example` — switched sqlite → pgsql pointing at `db:5432`
+- `useful_commands.md` — Docker section added on top, bare-metal kept as legacy
+- `ARCHITECTURE.md` — Docker section under Dev Commands
+- `CLAUDE.md` — Docker Workflow section added; PG Troubleshooting demoted to legacy
+- `history.md` — this entry
+
+### Architectural Decisions
+- **Image base:** PHP 8.4-fpm-alpine (satisfies lockfile's symfony 8 / nesbot 3.11 requirement)
+- **Port mapping for db:** host `5435` → container `5432` (avoids collision with host PG17 on 5434)
+- **HMR:** `--poll 2000` + `CHOKIDAR_USEPOLLING=true` for WSL bind-mount file watching
+- **Volumes:** named volumes for `vendor`, `node_modules`, `storage`, `pgdata` (avoid `/mnt/c` I/O penalty + persist across `down`)
+- **Bare-metal kept as fallback** — Docker is canonical but legacy commands remain in docs
+
+### Pitfalls Hit & Fixed
+- `composer install` failed: host PHP 8.3 vs lockfile PHP 8.4 → Docker solves at runtime
+- Docker pull failed with credentials error → removed `credsStore` from `~/.docker/config.json`
+- `npm ci` failed: chokidar/readdirp version mismatch → ran `npm install` on host to regen lockfile
+- CRLF on `entrypoint.sh` from Windows editor → `sed -i 's/\r$//'`
+
+### Notes
+- Stack built successfully but `docker compose up -d` + smoke tests not yet executed at session end
+- Next session: bring stack up, verify endpoints (curl /api/me 401, /api/login 200, frontend :4200), run migrations + seed, document any boot-time fixes needed
+- Data migration from host PG17 → containerized db is tracked as `pub-ads-mar-ulf` (deferred — start with fresh seeded DB for now)
+- Dolt auto-push still failing (no git auth) — beads issues are local-only
+
 <!-- Add new sessions above this line -->
 

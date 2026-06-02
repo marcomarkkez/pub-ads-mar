@@ -1,0 +1,17 @@
+vendor/
+node_modules/
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/app/public/*
+!storage/app/public/.gitignore
+tests/
+.phpunit.result.cache
+Dockerfile
+.dockerignore

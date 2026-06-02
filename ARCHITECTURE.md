@@ -88,9 +88,26 @@ pub-ads-mar/
 │   ├── storage/app/public/          # Uploaded files (space photos, ads)
 │   └── .env                         # DB_CONNECTION=pgsql, DB_PORT=5434, DB_DATABASE=pub_ads_mar
 │
-├── frontend/                        # Angular 18 SPA (scaffold only — no custom code yet)
+├── frontend/                        # Angular 18 SPA (fully implemented)
 │   ├── src/
-│   │   └── app/                     # Default scaffold (app.component, app.routes, app.config)
+│   │   └── app/
+│   │       ├── core/
+│   │       │   ├── guards/          # authGuard, guestGuard, roleGuard
+│   │       │   ├── interceptors/    # Auth interceptor (Bearer token, error handling)
+│   │       │   ├── models/          # TypeScript interfaces for all entities
+│   │       │   └── services/        # AuthService (signals), NotificationService
+│   │       ├── features/
+│   │       │   ├── admin/           # User list/form (CRM), Permissions editor (RBAC matrix)
+│   │       │   ├── auth/            # Login, Register (with role selector)
+│   │       │   ├── client/          # Campaigns, Adsets, Ads, Space search (Leaflet), Bookings, Invoices
+│   │       │   ├── dashboard/       # Role-specific quick actions
+│   │       │   ├── payments/        # Payment list (approve/reject), Proof review
+│   │       │   ├── provider/        # Spaces (list/form/detail + photos + calendar sync), Bookings, Proofs
+│   │       │   ├── shared/          # Conversations + chat, Tickets
+│   │       │   └── support/         # Ticket list + detail (status update + reply)
+│   │       └── shared/
+│   │           ├── components/      # Navbar, Sidebar, NotificationToast, LocationPicker (Leaflet+w3w)
+│   │           └── layouts/         # MainLayout, AuthLayout
 │   └── angular.json
 │
 ├── AGENTS.md                        # Agent onboarding (beads)
@@ -101,23 +118,18 @@ pub-ads-mar/
 └── install_beads.md                 # bd CLI install guide
 ```
 
-### Planned Frontend Structure (not yet created)
+### Frontend Feature Components
 
-```
-frontend/src/app/
-├── core/
-│   ├── guards/                      # AuthGuard, RoleGuard
-│   ├── interceptors/                # TokenInterceptor (Sanctum token)
-│   └── services/                    # AuthService, ApiService
-├── features/
-│   ├── auth/                        # login, register pages
-│   ├── client/                      # campaigns, adsets, ads, bookings, space search
-│   ├── provider/                    # spaces, photos, availabilities, bookings, dashboard
-│   └── manager/                     # CRM user management
-└── shared/
-    ├── components/                  # map, media-preview, booking-card
-    └── models/                      # TypeScript interfaces
-```
+| Module | Components |
+|--------|-----------|
+| admin | User list (CRM table + pagination), User form (create/edit), Permissions editor (RBAC matrix) |
+| auth | Login page, Register page (with role selector) |
+| client | Campaign list/form/detail, Space search (Leaflet map), Booking list, Invoice list |
+| dashboard | Role-specific quick actions |
+| payments | Payment list (approve/reject), Proof review list (approve/reject) |
+| provider | Space list/form/detail (photos + availability + calendar sync), Booking list, Proof list |
+| shared | Conversation list + chat detail, Ticket list/form/detail |
+| support | Ticket list (status filter), Ticket detail (status update + reply) |
 
 ---
 
@@ -257,6 +269,31 @@ PostgreSQL 17 (localhost:5434 / pub_ads_mar)
 
 ## Dev Commands
 
+### Docker (canonical — recommended)
+
+```bash
+# Build + start all services (backend + nginx + frontend + postgres)
+docker compose up -d --build
+
+# Logs
+docker compose logs -f backend
+
+# Artisan / composer inside container
+docker compose exec backend php artisan migrate:fresh --seed
+docker compose exec backend composer install
+
+# psql into containerized DB
+docker compose exec db psql -U postgres -d pub_ads_mar
+
+# Stop / reset
+docker compose down            # stop containers, keep data
+docker compose down -v         # stop + delete DB volume
+```
+
+Ports: API `localhost:8000` · Frontend `localhost:4200` · DB `localhost:5435`.
+
+The bare-metal commands below are kept as a fallback. New work should use Docker.
+
 ### Backend (Laravel)
 
 ```bash
@@ -332,7 +369,9 @@ ng generate component features/...  # Generate component
 | Demo seeders | ✅ Done | 7 users (5 roles), 4 spaces, 2 campaigns, default permissions |
 | Fake data script | ✅ Done | insert_data.py (--scale small/medium/large) |
 | Endpoint test script | ✅ Done | test_all_endpoints.py — 96/96 passing |
-| Angular features | ⏳ Pending | Not started |
+| Angular features (40+ files) | ✅ Done | 8 feature modules, core services, guards, interceptors, Leaflet maps, global styles |
+| LocationPicker component | ✅ Done | Leaflet + what3words autosuggest, drag-to-pick |
+| Calendar sync UI | ✅ Done | iCal URL input, keyword filter, Sync Now, Upload .ics |
 
 ---
 

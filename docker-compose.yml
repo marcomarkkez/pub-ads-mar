@@ -1,0 +1,88 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: pubads_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pub_ads_mar
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pub_ads_mar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - pubads_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pubads_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: pub_ads_mar
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      MIGRATE_ON_BOOT: "true"
+    volumes:
+      - ./backend:/var/www
+      - backend_vendor:/var/www/vendor
+      - backend_storage:/var/www/storage
+    networks:
+      - pubads_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: pubads_nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www:ro
+      - ./backend/docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - pubads_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pubads_frontend
+    restart: unless-stopped
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    networks:
+      - pubads_net
+
+volumes:
+  pgdata:
+  backend_vendor:
+  backend_storage:
+  frontend_node_modules:
+
+networks:
+  pubads_net:
+    driver: bridge
