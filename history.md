@@ -711,5 +711,157 @@ Dockerized the full stack to eliminate host PHP/extension/Postgres-version drift
 - Data migration from host PG17 → containerized db is tracked as `pub-ads-mar-ulf` (deferred — start with fresh seeded DB for now)
 - Dolt auto-push still failing (no git auth) — beads issues are local-only
 
+## Session 16 - 2026-06-02
+
+### Summary
+SDC-mode planning session focused on user-scenario backlog design. The user identified a real UX gap (no link between Explore Spaces and campaign/ad creation, no way to attach a space to an ad in any flow), then drove a multi-round refinement of a v2 backlog. Spawned 4 parallel review agents, then a 5th agent to integrate user comments into a refined version. Output saved to `.claude/plans/cases-v2.md` for review. No production code touched.
+
+### Tasks Completed
+- [x] Entered SDC mode; read `~/.claude/agents/sensory_deprivation_chamber.md` for rules
+- [x] Read `design.md` to anchor on existing terminology and original Case 1 narrative
+- [x] Proposed v1 of 14 user scenarios across 5 roles
+- [x] Spawned 3 parallel Explore agents to review v1 from UX, schema, and RBAC perspectives — consolidated into 28-scenario expansion proposal
+- [x] Spawned 4 parallel Plan agents in a second round: (a) make 3 aspirational scenarios testable, (b) design proof-of-display 5-day SLA lifecycle, (c) redesign conversations as polymorphic threads, (d) decide cases.md organization (role vs object vs journey)
+- [x] Synthesized agent outputs into a coherent v1.5 plan (price negotiation schema, ad rotation Option B, proof state machine, polymorphic conversations, hybrid-axis cases doc)
+- [x] Refocused per user feedback onto pure narrative backlog stories (no schema/API talk)
+- [x] Integrated user edits: removed all price-negotiation language; expanded provider "List a space" to require both physical and media-delivery specs; added dedicated notification/alert schema covering all refund-adjacent events
+- [x] Spawned a 5th Plan agent to produce v2 with user comments baked in
+- [x] Saved v2 to `.claude/plans/cases-v2.md` (~480 lines)
+
+### Key Design Decisions Locked In
+- **Prices are fixed** — no negotiation, no counter-offers. Provider queue actions are Approve / Reject only. (Reverses earlier `booking_offers` schema plan from this session.)
+- **Conversations become polymorphic** — `conversation_subjects(conversation_id, subject_type, subject_id, role)` + `conversation_participants` (multi-party). A thread = identity; objects (space/booking/ad/ticket/campaign/adset) are attached metadata. Kind stored explicitly: `inquiry | booking_chat | support_ticket | dispute`. Same thread can travel inquiry → booking → ticket.
+- **Proof-of-display 5-day SLA** — primary vs secondary proof distinction. Provider uploads PRIMARY (only this triggers payout). Client collaborators upload SECONDARY (verifications and mismatch flags). Day-3 / day-4 reminders. Day-5 auto-cancel + refund + strike. 3 strikes / 90 days → admin flag for freeze review. Implemented via `php artisan proofs:enforce-deadlines` daily cron.
+- **Collaborator clarification** — design.md contradiction resolved: providers (not collaborators) own primary proof. Collaborators only file secondaries and mismatch flags. Verbatim paragraph drafted for design.md.
+- **Ad rotation** — Option B (`ad_rotation_slots` with time-sliced weighted slots), keeping `bookings.ad_id` as default for backward compat. Time-sliced rotation needed; junction table alone (Option A) loses that.
+- **Media-delivery specs per space type** — provider declares TWO sets: physical specs (size/resolution/frequency) AND media-file specs the client must conform to (PDF/X-1a, CMYK, 150 DPI, 1cm bleed, −14 LUFS, etc.). Validated at upload time with hard-fail and concrete error message.
+- **Notification & alert schema** — 28-row table covering every refund-adjacent event (cancel pre/post-approval, provider cancel, auto-cancel, refund issued/failed, dispute opened/resolved, payout held/released, strike accrued, 3-strike alert) plus non-refund events. SMS added for day-4 reminder, provider-cancel, refund-failed, auto-cancel.
+- **Cases doc structure** — hybrid axis: journey-primary, role+object+testability as tags. ID scheme `SC-NN-slug` (single namespace). 5×8 coverage matrix at the end for completeness verification.
+- **PII filter becomes kind-aware** — strict in `inquiry`; relaxed in `booking_chat`; relaxed when Support/Payments joins (system message announces it).
+
+### Files Created
+- `.claude/plans/cases-v2.md` — full v2 backlog (15 client + 10 provider + 5 support + 5 payments + 5 admin scenarios; 3 cross-cutting sections incl. the 28-row alert table + media-specs table; 9 journeys; diff summary vs v1)
+
+### Files Modified
+- `history.md` — this entry
+
+### Pitfalls Hit
+- First pass tried to organize scenarios by actor only (Agent 3's recommendation) and missed end-to-end journey readability. Second pass argued by object only and hid the actor. Resolved with hybrid.
+- v1 included three aspirational scenarios (price negotiation, media-type validation, ad rotation) that had no schema backing — flagged by data-model agent. User then deprecated negotiation entirely, simplifying scope.
+- Initial conversation model assumed booking-tied threads; user correctly reframed conversations as polymorphic identity-first.
+- Original design.md had a contradiction between "providers take proof photos" and "clients can add collaborators to upload proofs." Resolved as primary/secondary split.
+
+### Open Questions for Next Session
+- Should `cases-v2.md` be promoted to a canonical `cases.md` at repo root, or stay in `.claude/plans/`?
+- Need a `design-clarifications.md` patch to fold the proof-collaborator clarification + the no-negotiation decision back into design.md.
+- Technical-plan companion file (`*-technical-*.md`) for the schema migrations implied by v2: drop negotiation work, keep proof lifecycle + polymorphic conversations + ad rotation + media-spec storage on spaces.
+- Red-team v2 for missing edge cases (collaborator declines invite, SMS provider outage, partial refund policy %, etc.).
+
+### Beads Issues
+- No new beads issues created this session (planning only; user has not asked to file work yet).
+- Still open from session 15: pub-ads-mar-ulf (Postgres data migration into containerized db).
+- Pending docker stack verification (todo items 10-12) carried over.
+
+### Notes
+- Session was entirely SDC-mode — no source code edited.
+- Plan file (`cases-v2.md`) is the deliverable; user signed off on saving it for review.
+- Next concrete action will likely be either red-team round, or `design.md` clarification patch, or filing beads issues for the v2 work (proof lifecycle, polymorphic conversations, media specs, alert schema, ad rotation).
+
+## Session 17 - 2026-06-04
+
+### Summary
+SDC-mode planning session that pivoted `cases-v2.md` from a design.md replacement into a **compliance lens** and produced two new companion plan files that map every scenario against the canonical design.md. The header was rewritten: cases-v2 no longer "supersedes" design.md — instead design.md must be able to support every story, and gaps are tracked separately. Several client scenarios were expanded with new product detail, and a full gap analysis + proposed design.md additions were written. No production code touched.
+
+### Tasks Completed
+- [x] Reframed `cases-v2.md` status from "supersedes the v1 narrative in design.md" to "does NOT supersede design.md; isolated scenario backlog used as a compliance lens"
+- [x] Expanded 5 client scenarios in `cases-v2.md` with new product behavior (details below)
+- [x] Authored `.claude/plans/design-md-gap-analysis.md` — per-story compliance matrix classifying each cases-v2 story as COVERED / PARTIAL / SILENT / CONFLICT against verbatim design.md text
+- [x] Authored `.claude/plans/design-md-proposals.md` — proposed module list, role-interaction matrix, paste-ready verbatim insert paragraphs, and 48 owner-only open questions
+
+### Scenario Expansions Added to cases-v2.md (client)
+- **#2 Date-flexibility filter** — ±X days tolerance window (e.g. ±10 days) on top of the date-range filter; greyed out when no date range is set.
+- **#3 Provider star rating** — 1–5 stars + total count on the space detail; average of per-campaign ratings; only clients can rate, only after a campaign with that provider ended OR ran ≥30 days; one rating per client per campaign; optional comment with abuse-flagging.
+- **#5 Orphan spaces list** — campaign view surfaces backlog spaces not yet in any adset; orphans are bulk-movable but cannot reach checkout; one-click "Move all to new adset."
+- **#6 Inline provider upload instructions** — provider's media-delivery summary + free-text note shown next to the upload control (not in a tooltip), persisting through and after upload so the client can compare against the file sent.
+- **#8 Pre-pay waiting list** — for "book it for later" ads, client may Pre-pay; funds captured into escrow and entered on the provider's per-space pre-pay waiting list; provider picks which offer to confirm when the slot opens; unfilled offers refund to wallet credit at expiry. Non-pre-pay entries stay queued (no funds) and resolve first-come-first-served.
+
+### Files Created
+- `.claude/plans/design-md-gap-analysis.md` (~150 lines) — compliance matrix across CLIENT (15) / PROVIDER (10) / and other roles; "biggest gaps" summary (Media-Delivery Spec Validator, 28-event Notification schema, proof upload/rejection workflow, PII masking, collaborator-scope CONFLICT); plus the "5-yo architect" challenger questions (But why? / What if? / Who owns this?).
+- `.claude/plans/design-md-proposals.md` (~292 lines) — proposed module list (extends Campaign/Adset/Ad/Space with Geo Search, Calendar & Availability, Media-Delivery Spec Validator, Notification & Alert Dispatcher, etc.), role-interaction matrix, verbatim paste-in paragraphs, and 48 numbered open questions (Q1–Q48) spanning messaging, calendar, notifications, media specs, RBAC/freeze, geography/scope, and naming/terminology.
+
+### Key Decisions / Reframes
+- **design.md stays canonical.** cases-v2 is a backlog used to pressure-test design.md, not a replacement — reverses Session 16's "supersedes design.md" stance.
+- **Collaborator scope is a known CONFLICT** — design.md says collaborators only "upload proofs"; cases-v2 grants review + chat (no billing). Flagged for owner resolution, not silently changed.
+- Gap work is kept in three coordinated files: backlog (`cases-v2.md`) → gap matrix (`design-md-gap-analysis.md`) → proposed fixes (`design-md-proposals.md`). design.md itself is untouched until the owner approves.
+
+### Open Questions for Next Session
+- Owner to answer Q1–Q48 in `design-md-proposals.md` (especially the CONFLICT items: collaborator scope, proof ownership, "day 5" anchor, where escrow funds sit).
+- Promote the proposed verbatim inserts into design.md once questions are resolved.
+- Decide whether `cases-v2.md` graduates to a canonical `cases.md` at repo root (carried over from Session 16, still open).
+- File beads issues for the implied work once design.md is reconciled (proof lifecycle, polymorphic conversations, media specs, alert schema, ad rotation, ratings, pre-pay waiting list).
+
+### Beads Issues
+- No new beads issues created (planning only).
+- Still open from earlier sessions: pub-ads-mar-ulf (Postgres data migration into containerized db); docker stack verification carried over.
+
+### Notes
+- Entirely SDC-mode — no source code edited; deliverables are the three plan files under `.claude/plans/`.
+- Dolt auto-push still failing (no git auth) — beads issues remain local-only.
+
+## Session 18 - 2026-06-08
+
+### Summary
+Continued the SDC-style planning thread on the user-scenario backlog and the canonical design. Three phases: (1) folded all 21 bracketed `{...}` author comments in `cases-v2.md` into the scenario prose; (2) ran a 4-agent reconciliation team that produced a 25-question gap analysis and surfaced 6 hard conflicts between `cases-v2.md` and the canonical `design.md`; (3) after the user resolved all 6 conflicts and directed copying cases-v2 logic into design.md, applied the decisions + appended ~17 canonical subsystem sections, then ran a 3-agent review team (congruency / architecture critique / risk) and folded their load-bearing recommendations into a new ARCHITECTURE NOTES block. `design.md` grew 64 → 368 lines. No production code touched.
+
+### Tasks Completed
+- [x] Folded 21 bracketed author comments in `cases-v2.md` into scenario prose (client/provider/support/payments/admin + cross-cutting); only `{template}` placeholders remain in the alert table
+- [x] Spawned 4-agent reconciliation team (CLIENT / PROVIDER / SUPPORT-PAYMENTS-ADMIN / cross-cutting) checking each story against design.md
+- [x] Wrote `.claude/plans/design-md-reconciliation-questions.md` — 25 questions, 6 hard conflicts, silent-subsystem list, undefined-value list
+- [x] User resolved all 6 hard conflicts; applied each as a targeted edit to design.md's top prose
+- [x] Appended ~17 "CANONICAL SUBSYSTEMS" sections to design.md (collaborator roles, booking/proof lifecycle, strikes, wallet/refunds, pre-pay/escrow, ratings, media specs, catalog/search, chat/PII, internal threads, notifications, audit, rate limits, configurations, moderation/freeze, legal docs, calendar alerts)
+- [x] Spawned 3-agent review team (congruency audit + architecture opinion + adversarial risk review)
+- [x] Fixed defects they found: payout trigger (Payments-review gate + 48h re-upload flow), provider-freeze aligned to journey #7, 6 missing notification rows added, Admin health dashboard added
+- [x] Folded architecture recommendations into a new design.md "ARCHITECTURE NOTES (data model & integrity)" section
+- [x] Appended ROUND 2 section to the reconciliation-questions file (fixes applied + Q26–Q31 still open + condensed architecture verdict)
+- [x] Filed 5 beads issues for follow-up work
+
+### Key Decisions Locked In (the 6 conflicts)
+- **Collaborators** get owner-configurable roles (permission sets chosen by the account owner/team; never billing). **Provider owns the PRIMARY proof**; collaborators file secondaries + flags.
+- **Admin = eagle-eye** — sees everything incl. internal Support↔Payments threads.
+- **Proof deadline** is Admin-configurable (default 5 days) via a System Configurations menu, not hard-coded.
+- **Provider delete** allowed only with no open ticket and no booking in progress; otherwise unpublish and wait for current bookings to end.
+- **File acceptance** — automated upload-time validation AND manual provider approval coexist; passing validation does not guarantee acceptance.
+- **Money powers** — Support only FLAGS a refund/hold; Payments DECIDES and EXECUTES. Strike accrual is not a Payments concern (routes Support→Admin).
+
+### Architecture Verdict (3-agent team)
+Sound and buildable on Laravel+Angular+Postgres; the separation-of-powers model is well designed. **Biggest gap is the schema lagging the design** — ARCHITECTURE.md still has a 3-role user enum, 4-state bookings, and no proofs/wallet/escrow/strike/audit/notification/ratings/collaborator tables. Money must be built on an append-only ledger (MXN centavos) with idempotency + transactional escrow before real payments ship. ARCHITECTURE NOTES now codifies: wallet ledger, refund/payout idempotency, `display_start` anchored to calendar start in America/Monterrey tz, strikes decoupled from notifications + reversible, Postgres `EXCLUDE` against double-booking, per-account collaborator grant overlay, `flag`-vs-`execute` capabilities, separate-row internal threads, DB-level audit immutability.
+
+### Files Created
+- `.claude/plans/design-md-reconciliation-questions.md` — 25 Round-1 questions + ROUND 2 (fixes applied, Q26–Q31 open, verdict)
+
+### Files Modified
+- `design.md` — 6 conflict edits + ~17 canonical subsystem sections + ARCHITECTURE NOTES (64 → 368 lines)
+- `.claude/plans/cases-v2.md` — 21 comments folded in; strike-alert recipients fixed; 6 notification rows added; freeze alert template updated
+- `history.md` — this entry
+
+### Beads Issues Created (this session)
+- `pub-ads-mar-7r7` (P1) — Resolve open design owner-decisions (Q26–Q31 + Round-1 values)
+- `pub-ads-mar-h6a` (P1) — Schema: money subsystem (wallet ledger, escrow, idempotency)
+- `pub-ads-mar-4ri` (P1) — Schema: 5-role user enum + canonical booking/proof state machines
+- `pub-ads-mar-2r6` (P2) — Schema: new subsystem tables (strikes, ratings, audit, notifications, collaborator overlay, media specs, conversations)
+- `pub-ads-mar-8qi` (P2) — Update ARCHITECTURE.md to match design.md canonical subsystems
+
+### Open Questions for Next Session (Q26–Q31)
+- Q26 wallet clawback policy; Q27 config-change effect on in-flight bookings; Q28 pre-pay cross-queue precedence (funded vs older FCFS); Q29 re-upload clock during dispute; Q30 re-upload loop bound; Q31 SMS provider choice/defer. Plus residual values: refund-tier %, escrow expiry, rate-limit thresholds, audit retention, ratings comment visibility, date-flexibility semantics.
+
+### Pitfalls Hit
+- Folding the "strikes never Payments" comment created an internal contradiction in the cases-v2 notification table (rows still listed Payments / omitted Support) — caught by the review team and fixed.
+- Promoting the cases-v2 alert table to "canonical" in design.md while it was still missing 6 events — fixed by adding the rows.
+- Repeated transient `ENOENT`/"file modified since read" errors on `design.md` edits (OneDrive sync); edits still landed — verified each via grep.
+
+### Beads / Git Notes
+- `bd create`/`bd dep add` succeed locally but the auto-push to GitHub fails ("could not read Username for https://github.com") — beads remain local-only, consistent with prior sessions.
+- Recommended next concrete step: reconcile ARCHITECTURE.md schema to design.md, starting with the money/ledger tables and the canonical booking/proof state enums (issues 4ri, h6a).
+
 <!-- Add new sessions above this line -->
 
