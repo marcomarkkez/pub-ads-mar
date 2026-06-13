@@ -25,13 +25,14 @@
   ],
   "workstreams": [
     { "id": "WS-beads", "title": "Diagnose + restore beads", "status": "done" },
-    { "id": "WS-audit", "title": "Audit 13 checklist items + doc state vs code (Workflow 1)", "status": "todo" },
-    { "id": "WS-impl", "title": "Implement gaps, file-partitioned (Workflow 2)", "status": "todo" },
-    { "id": "WS-4ri", "title": "Canonical 5-role + collaborator subroles + booking/proof state machines", "status": "todo" },
-    { "id": "WS-h6a", "title": "Money: payout/refund flows (wallet/escrow as MVP-scoped)", "status": "todo" },
-    { "id": "WS-2r6", "title": "Subsystem tables/automation: auto-ticket on flag, masking, admin eagle-eye, configs", "status": "todo" },
-    { "id": "WS-8qi", "title": "Doc sync: reconcile ARCHITECTURE.md to design.md + actual migrations", "status": "todo" },
-    { "id": "WS-verify", "title": "Run migrations + ng build, fix integration, verify checklist", "status": "todo" },
-    { "id": "WS-history", "title": "Append session summary to history.md; remove reconciliation file", "status": "todo" }
-  ]
+    { "id": "WS-audit", "title": "Audit 13 checklist items + doc state vs code", "status": "done", "note": "one-pass build team; aborted partway but 64 files landed" },
+    { "id": "WS-impl", "title": "Implement gaps", "status": "mostly-done", "note": "agent team + manual C03 finish; 4 packets failed but most work landed coherent" },
+    { "id": "WS-4ri", "title": "Canonical 5-role + collaborator subroles + booking/proof state machines", "status": "done", "note": "5 roles pre-existed; collaborator subroles installator/publicist/manager added" },
+    { "id": "WS-h6a", "title": "Money: payout/refund flows (wallet/escrow as MVP-scoped)", "status": "done", "note": "wallet_entries table + idempotent refund/payout in PaymentController; full ledger deferred" },
+    { "id": "WS-2r6", "title": "Subsystem tables/automation: auto-ticket on flag, masking, admin eagle-eye, configs", "status": "done", "note": "ProofFlagController auto-ticket, PiiMaskingService, OversightController, ConfigurationController" },
+    { "id": "WS-8qi", "title": "Doc sync: reconcile ARCHITECTURE.md to design.md + actual migrations", "status": "done" },
+    { "id": "WS-verify", "title": "Static verify (php -l, routes, ng build); runtime BLOCKED on DB down", "status": "partial", "note": "static all-green; runtime untested because PG 5434 is down" },
+    { "id": "WS-history", "title": "Append session summary to history.md; remove reconciliation file", "status": "done" }
+  ],
+  "blocker": "PostgreSQL is down (port 5434 refused; no Docker in WSL). Runtime verification of the 13 flows requires starting PG17 then: cd backend && php artisan migrate (7 additive migrations) + db:seed."
 }

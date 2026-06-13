@@ -911,5 +911,71 @@ code touched.
 - Planning-only session; deliverables are `design.md` (fully reconciled) and the
   Round-4 closure in `design-md-reconciliation-questions.md`.
 
+## Session 20 - 2026-06-13
+
+### Summary
+MVP push toward a complete local version against a 13-item checklist. Diagnosed and
+fixed beads (was on an unreadable dolt backend), ran a one-pass agent build team that
+got 64 files in before aborting (parallel writes collided with the user's open IDE
+files + 4 packets failed), checkpointed that work on a `mvp-build` branch, then
+verified it statically and finished the one real gap (C03/C13 search→campaign frontend)
+by hand. Runtime verification is BLOCKED because PostgreSQL is down.
+
+### Beads diagnosis + fix
+- `bd.exe` v0.49.3 (dev, no CGO) cannot open the configured **dolt** backend; it had
+  only worked while a background sqlite daemon (dead now) served it over a socket.
+- Fix: re-init to **sqlite** (`metadata.json` backend=sqlite, `bd init --backend sqlite`),
+  23 issues restored from JSONL. Session-18 dolt-only issues were lost; recreated 5 fresh
+  MVP issues (nez/5gk/4v7/wl7/c9x). Old `.beads` (incl. dolt) backed up at `.beads-backup-20260613/`.
+
+### Build team (one-pass workflow, PARTIAL)
+- 8 read-only audits → consolidation into file-partitioned packets → shared-core →
+  parallel implementers → docsync → verify. Aborted mid-run (AbortError; 21 agents,
+  ~919k tokens). 4 implement packets failed but most output landed coherent.
+- Landed (php-lint clean): new controllers ConfigurationController, OversightController,
+  BacklogController, ProofFlagController, WalletController; models SystemConfiguration,
+  WalletEntry; PiiMaskingService; 7 migrations (thread cols, collaborators.role→string,
+  ads.adset_id nullable + campaign_id, spaces.calendar_synced_at, wallet_entries,
+  system_configurations, bookings.config_snapshot); plus wired routes/RBAC/models/Angular.
+- Checkpointed as commit `60741f0` on branch `mvp-build`.
+
+### Verification (static — DB down, no runtime test)
+- `php -l` clean across all changed PHP; 95 routes all resolve to real Controller@method;
+  model helpers/relations/columns all present; `ng build` SUCCESS (exit 0).
+- Logic spot-checks passed: auto-ticket on proof flag (C09), render-time PII masking +
+  space-address whitelist (C06), admin eagle-eye no-filter reads incl is_internal (C11),
+  config apply-scope new_only|all + in-flight snapshot (C12), idempotent wallet refund/
+  payout (C10), collaborator subroles installator/publicist/manager (C02), ticket-from-
+  object (C04).
+
+### Manual finish
+- GAP found: C03/C13 frontend `space-search.component.ts` had single-select only and no
+  "add to campaign". Added (by hand, sequential) a selection basket + "Add to new/existing
+  campaign" wiring the existing backend backlog/orphan endpoints. `ng build` re-verified.
+
+### Tasks Completed
+- [x] Diagnose + fix beads (dolt→sqlite); recreate MVP issues
+- [x] JSON todo tracker (`.claude/todos/mvp-sprint.json`) + change log (`.claude/mvp-changelog.md`)
+- [x] One-pass agent build team (partial) + checkpoint commit on `mvp-build`
+- [x] Static verification (php -l, route/method, model wiring, ng build)
+- [x] Build C03/C13 frontend accumulate→campaign flow by hand
+- [x] Reconcile ARCHITECTURE.md (agent docsync)
+- [x] Remove `design-md-reconciliation-questions.md` (decisions folded into design.md; refs scrubbed)
+- [x] Add 4 entries to CLAUDE.md Learnings (beads/CGO, parallel-write conflicts, OneDrive ENOENT, PG-down)
+
+### Pitfalls Hit
+- Parallel agents writing files the user had OPEN in the IDE → "content is newer" save
+  conflicts + 4 packet failures. Lesson now in CLAUDE.md: write sequentially, log changes.
+- Beads dolt/CGO trap (above).
+- OneDrive transient ENOENT on edits (some landed twice; deduped).
+
+### Blocker / Next Session
+- **PostgreSQL is DOWN** (port 5434 refused; no Docker in WSL). To finish runtime verification:
+  start PG17 (or Docker Desktop), then `cd backend && php artisan migrate` (7 additive migrations)
+  + `php artisan db:seed`, then exercise the 13 flows. Until then the agent-written controllers
+  are runtime-UNVERIFIED.
+- Work lives on branch `mvp-build` (commit `60741f0` + follow-ups); `main` is the clean baseline.
+  Not pushed (git auth still blocked).
+
 <!-- Add new sessions above this line -->
 

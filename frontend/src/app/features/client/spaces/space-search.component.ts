@@ -2,10 +2,14 @@ import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, NgZ
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { Router } from '@angular/router';
 import * as L from 'leaflet';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
 import { Space, PaginatedResponse } from '../../../core/models';
+
+// Minimal shape for the campaign picker (avoids coupling to the full Campaign model barrel).
+interface CampaignLite { id: number; name: string; }
 
 // Custom icons using div elements — no asset files needed
 const CENTER_ICON = L.divIcon({
@@ -87,6 +91,48 @@ const SPACE_ICON_SELECTED = L.divIcon({
       </form>
     </div>
 
+    <!-- Selection basket (C03): accumulate across searches, then add to a campaign -->
+    @if (selection().length > 0) {
+      <div class="card" style="margin-bottom:24px;border:2px solid var(--primary);">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
+          <div style="font-weight:600;">
+            {{ selection().length }} space{{ selection().length === 1 ? '' : 's' }} selected
+            <span style="color:var(--text-muted);font-weight:400;font-size:13px;">
+              — {{ selectionNames() }}
+            </span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn" style="background:var(--primary);color:#fff;border-color:var(--primary);"
+              [disabled]="submitting()" (click)="addToNewCampaign()">
+              @if (submitting()) { <span class="spinner"></span> } @else { Add to new campaign }
+            </button>
+            <button type="button" class="btn" [disabled]="submitting()" (click)="openExistingPicker()">
+              Add to existing campaign
+            </button>
+            <button type="button" class="btn" [disabled]="submitting()" (click)="clearSelection()">Clear</button>
+          </div>
+        </div>
+
+        @if (showCampaignPicker()) {
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select [(ngModel)]="chosenCampaignId" name="chosenCampaignId" style="min-width:220px;">
+              <option [ngValue]="null">Select a campaign…</option>
+              @for (c of campaigns(); track c.id) {
+                <option [ngValue]="c.id">{{ c.name }}</option>
+              }
+            </select>
+            <button type="button" class="btn" style="background:var(--primary);color:#fff;border-color:var(--primary);"
+              [disabled]="submitting() || chosenCampaignId === null" (click)="addToExistingCampaign()">
+              Add here
+            </button>
+            @if (campaigns().length === 0) {
+              <span style="color:var(--text-muted);font-size:13px;">No campaigns yet — use "Add to new campaign".</span>
+            }
+          </div>
+        }
+      </div>
+    }
+
     <!-- Map View (always rendered so ViewChild is available; shown/hidden via CSS) -->
     <div [style.display]="showMap() ? 'block' : 'none'" class="card" style="margin-bottom:24px;padding:0;overflow:hidden;">
       <div #mapEl style="height:480px;width:100%;"></div>
@@ -146,6 +192,13 @@ const SPACE_ICON_SELECTED = L.divIcon({
                     Provider: <strong>{{ space.provider.company_name || space.provider.name }}</strong>
                   </p>
                 }
+                <button type="button" class="btn"
+                  (click)="$event.stopPropagation(); toggleSelection(space)"
+                  [style.background]="isInSelection(space) ? 'var(--primary)' : ''"
+                  [style.color]="isInSelection(space) ? '#fff' : ''"
+                  style="width:100%;margin-top:8px;">
+                  {{ isInSelection(space) ? '✓ Added to selection' : '+ Add to selection' }}
+                </button>
               </div>
             </div>
           }
@@ -195,6 +248,13 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   showMap = signal(false);
   selectedSpace = signal<Space | null>(null);
 
+  // ── Selection basket (C03) ──────────────────────────────────────────────────
+  selection = signal<Space[]>([]);
+  submitting = signal(false);
+  showCampaignPicker = signal(false);
+  campaigns = signal<CampaignLite[]>([]);
+  chosenCampaignId: number | null = null;
+
   private map: L.Map | null = null;
   private centerMarker: L.Marker | null = null;
   private spaceMarkers: L.Marker[] = [];
@@ -203,6 +263,7 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
     private http: HttpClient,
     private notify: NotificationService,
     private zone: NgZone,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -336,6 +397,80 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
       this.map.setView([+space.latitude, +space.longitude], 15);
       this.zone.runOutsideAngular(() => this.updateMapMarkers());
     }
+  }
+
+  // ── Selection basket (C03) ──────────────────────────────────────────────────
+
+  isInSelection(space: Space): boolean {
+    return this.selection().some(s => s.id === space.id);
+  }
+
+  toggleSelection(space: Space): void {
+    if (this.isInSelection(space)) {
+      this.selection.update(list => list.filter(s => s.id !== space.id));
+    } else {
+      this.selection.update(list => [...list, space]);
+    }
+  }
+
+  selectionNames(): string {
+    const names = this.selection().map(s => s.name);
+    return names.length > 3 ? names.slice(0, 3).join(', ') + ` +${names.length - 3} more` : names.join(', ');
+  }
+
+  clearSelection(): void {
+    this.selection.set([]);
+    this.showCampaignPicker.set(false);
+    this.chosenCampaignId = null;
+  }
+
+  addToNewCampaign(): void {
+    const name = (prompt('Name for the new campaign:', 'Campaign 1') || '').trim();
+    if (!name) return;
+
+    this.submitting.set(true);
+    this.http.post<{ id: number }>(`${this.api}/client/campaigns`, { name }).subscribe({
+      next: (campaign) => this.pushBacklog(campaign.id, true),
+      error: (err) => {
+        this.notify.error(err.error?.message || 'Could not create the campaign.');
+        this.submitting.set(false);
+      },
+    });
+  }
+
+  openExistingPicker(): void {
+    this.showCampaignPicker.update(v => !v);
+    if (this.showCampaignPicker() && this.campaigns().length === 0) {
+      this.http.get<PaginatedResponse<CampaignLite> | CampaignLite[]>(`${this.api}/client/campaigns`).subscribe({
+        next: (res) => this.campaigns.set(Array.isArray(res) ? res : res.data),
+        error: () => this.notify.error('Could not load your campaigns.'),
+      });
+    }
+  }
+
+  addToExistingCampaign(): void {
+    if (this.chosenCampaignId === null) return;
+    this.submitting.set(true);
+    this.pushBacklog(this.chosenCampaignId, false);
+  }
+
+  /** Send the selected space ids to a campaign's backlog as orphan ads. */
+  private pushBacklog(campaignId: number, isNew: boolean): void {
+    const space_ids = this.selection().map(s => s.id);
+    this.http.post(`${this.api}/client/campaigns/${campaignId}/backlog`, { space_ids }).subscribe({
+      next: () => {
+        this.notify.success(`${space_ids.length} space(s) added to the campaign backlog.`);
+        this.clearSelection();
+        this.submitting.set(false);
+        if (isNew) {
+          this.router.navigate(['/client/campaigns', campaignId]);
+        }
+      },
+      error: (err) => {
+        this.notify.error(err.error?.message || 'Could not add spaces to the campaign.');
+        this.submitting.set(false);
+      },
+    });
   }
 
   getFirstPhoto(space: Space): string | null {

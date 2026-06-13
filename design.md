@@ -69,8 +69,9 @@ A user wants several places / locations in an avenue, so he is nearby and with h
 The sections below are now canonical design. They were promoted from the
 use-case backlog at `.claude/plans/cases-v2.md`, which remains the story-level
 source of truth (what users do). When the two ever disagree, design.md wins and
-the difference is reconciled here. Open policy values still pending an owner
-decision are tracked in `.claude/plans/design-md-reconciliation-questions.md`.
+the difference is reconciled here. All owner policy decisions (Rounds 1–4) have
+been resolved and folded into the sections below; the working reconciliation-
+questions file has been removed now that nothing is open.
 
 == Collaborator Roles ==
 
@@ -403,9 +404,9 @@ fix or re-enter it.
 These are load-bearing implementation rules for the subsystems above. They are
 canonical: the current 11-table schema (see ARCHITECTURE.md) predates them and
 must be reconciled before building these features. Source: 2026-06-05 architecture
-review. All prior OWNER-DECISION items have been resolved by the owner (Round 4,
-2026-06-12) and applied above; see `.claude/plans/design-md-reconciliation-questions.md`
-for the decision history.
+review. All prior OWNER-DECISION items have been resolved by the owner (Rounds
+1–4, through 2026-06-12) and applied above. The working reconciliation-questions
+file has been removed; the decision history lives in history.md (Sessions 18–19).
 
 Launch scope
 - First launch target is MONTERREY, Nuevo León, Mexico — Mexico-first, single
