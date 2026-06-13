@@ -28,7 +28,7 @@ class CollaboratorController extends Controller
 
         $validated = $request->validate([
             'email' => 'required|email|max:255',
-            'role' => 'nullable|in:proof_uploader',
+            'role' => 'required|in:installator,publicist,manager',
         ]);
 
         $existingUser = User::where('email', $validated['email'])->first();
@@ -37,7 +37,7 @@ class CollaboratorController extends Controller
             'invited_by_user_id' => $request->user()->id,
             'user_id' => $existingUser?->id,
             'email' => $validated['email'],
-            'role' => $validated['role'] ?? 'proof_uploader',
+            'role' => $validated['role'],
         ]);
 
         return response()->json($collaborator, 201);

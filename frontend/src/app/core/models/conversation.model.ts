@@ -17,6 +17,7 @@ export interface Message {
   conversation_id: number;
   sender_user_id: number;
   body: string;
+  kind?: 'user' | 'system' | string;
   is_read: boolean;
   created_at: string;
   updated_at: string;
@@ -67,6 +68,7 @@ export interface Collaborator {
   campaign_id: number;
   user_id: number;
   email: string;
+  role?: 'installator' | 'publicist' | 'manager' | string;
   created_at: string;
   user?: { id: number; name: string; email: string };
 }

@@ -863,5 +863,53 @@ Sound and buildable on Laravel+Angular+Postgres; the separation-of-powers model 
 - `bd create`/`bd dep add` succeed locally but the auto-push to GitHub fails ("could not read Username for https://github.com") — beads remain local-only, consistent with prior sessions.
 - Recommended next concrete step: reconcile ARCHITECTURE.md schema to design.md, starting with the money/ledger tables and the canonical booking/proof state enums (issues 4ri, h6a).
 
+## Session 19 - 2026-06-12
+
+### Summary
+Closed out the design.md ↔ cases-v2.md reconciliation. The owner answered the
+final ROUND 3 open decisions (O1–O24) in brackets across two turns; I applied all
+24 to `design.md`, cleared every remaining `OWNER-DECISION` marker, and appended a
+ROUND 4 closure section to `design-md-reconciliation-questions.md`. **No design
+questions remain open** — the doc is fully reconciled across Rounds 1–4. Three
+answers were logic-applied per the owner's "don't ask trivial questions" directive
+(O5 cheapest-tier pricing, O8 per-ad go-live, O9 no geotag); O21 SMS got a
+recommended default (Twilio/Vonage). `design.md` grew to 517 lines. No production
+code touched.
+
+### Tasks Completed
+- [x] Applied O1–O24 owner decisions to `design.md` (pricing tiers, per-ad
+  go-live, payout/gateway-fee/clawback rules, pre-pay precedence, re-upload
+  bound, no-geotag, config-apply checkbox, removed date-flexibility filter,
+  orphan checkout rule, radio map-range, calendar offline fallback + staleness
+  clock, inquiry→booking transition, masked-thread full history, ticket-close
+  semantics, street-address whitelist, strike appeal via Support, SMS provider,
+  Monterrey launch scope)
+- [x] Cleared all 3 remaining `OWNER-DECISION` markers in ARCHITECTURE NOTES
+  (clawback, config effect, cross-queue precedence) → RESOLVED
+- [x] Added a "Launch scope" block (Monterrey/Mexico-first, MXN centavos,
+  America/Monterrey tz)
+- [x] Appended ROUND 4 closure to `design-md-reconciliation-questions.md`
+- [x] Appended this history entry
+
+### Pitfalls Hit
+- Recurring OneDrive `ENOENT`/"file modified since read" on `design.md` edits
+  (known from Sessions 16/18). Two edits that reported ENOENT actually landed —
+  and a couple landed TWICE; caught the duplicate "Go-live is PER-AD" and
+  "Street-address whitelisting" blocks via grep and removed them. Lesson:
+  grep-verify after every ENOENT instead of blindly retrying.
+
+### Open Items / Next Session
+- Design is done; the next concrete step is SCHEMA work, not design. Beads
+  issues `4ri` (5-role enum + booking/proof state machines), `h6a` (money
+  ledger/escrow), `2r6` (new subsystem tables), `8qi` (update ARCHITECTURE.md).
+- `bd` CLI is not installed in this shell and `.beads/issues.jsonl` export is
+  stale (Apr 29) — could not verify/update beads live. Dolt/git push still
+  blocked (no auth), consistent with prior sessions.
+- Carried over: whether `cases-v2.md` graduates to a canonical `cases.md`.
+
+### Notes
+- Planning-only session; deliverables are `design.md` (fully reconciled) and the
+  Round-4 closure in `design-md-reconciliation-questions.md`.
+
 <!-- Add new sessions above this line -->
 

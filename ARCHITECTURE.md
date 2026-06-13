@@ -69,14 +69,16 @@ pub-ads-mar/
 │   │       ├── TicketMessage.php
 │   │       ├── Collaborator.php
 │   │       ├── Invoice.php
-│   │       └── RolePermission.php       # RBAC with caching
+│   │       ├── RolePermission.php       # RBAC with caching
+│   │       ├── WalletEntry.php          # client wallet ledger
+│   │       └── SystemConfiguration.php  # admin-tunable key/value settings
 │   ├── bootstrap/
 │   │   └── app.php                  # statefulApi(), role + permission middleware
 │   ├── config/
 │   │   ├── cors.php                 # CORS: allow localhost:4200, credentials: true
 │   │   └── sanctum.php              # Stateful domains incl. localhost:4200
 │   ├── database/
-│   │   ├── migrations/              # 20 total (users, cache, jobs, tokens + 16 domain)
+│   │   ├── migrations/              # 26 total (users, cache, jobs, tokens + 22 domain/alter)
 │   │   └── seeders/
 │   │       ├── DatabaseSeeder.php   # Demo: 7 users, 4 spaces, 2 campaigns
 │   │       └── RolePermissionSeeder.php  # Default RBAC permissions (~66 rows)
@@ -139,7 +141,7 @@ pub-ads-mar/
 
 ```
 users
-  id, name, email, password, role (enum: client|provider|manager),
+  id, name, email, password, role (enum: client|provider|admin|support|payments),
   phone, company_name, address, is_active, remember_token, timestamps
 
 personal_access_tokens  [Sanctum]
@@ -152,51 +154,111 @@ campaigns  [belongs to: user(client)]
 adsets  [belongs to: campaign]
   id, campaign_id, name, latitude, longitude, location_name, radius_km, status, timestamps
 
-ads  [belongs to: adset]
-  id, adset_id, name, media_type (enum: image|video|sound|gif),
-  file_path, file_name, timestamps
+ads  [belongs to: adset (nullable) + space + provider_user; reached from campaign via adset]
+  id, adset_id (nullable — backlog/orphan ads), space_id, provider_user_id,
+  name, media_type (enum: image|video|sound|gif), file_path, file_name,
+  price, pricing_unit (day|month|custom), start_date, end_date,
+  status (enum: draft|pending_approval|approved|rejected|active|paused|completed|cancelled),
+  proof_deadline, timestamps
 
 spaces  [belongs to: user(provider)]
-  id, user_id, name, type, latitude, longitude, price_per_day,
-  width, height, is_active, timestamps
+  id, user_id, name, type, latitude, longitude,
+  price_per_day, price_per_month, pricing_unit (day|month|custom),
+  description, location_text, width, height,
+  ical_url, calendar_keyword, is_active, timestamps
 
 space_photos  [belongs to: space]
   id, space_id, file_path, file_name, is_primary, sort_order, timestamps
 
 space_availabilities  [belongs to: space]
   id, space_id, start_date, end_date,
-  status (enum: available|booked|blocked), timestamps
+  status (enum: available|booked|blocked), source (manual|ical), timestamps
 
-bookings  [belongs to: client_user + space + adset]
-  id, client_user_id, space_id, adset_id,
+bookings  [belongs to: client_user + space + ad + adset]
+  id, client_user_id, space_id, ad_id (nullable), adset_id (nullable),
   start_date, end_date, total_price,
-  status (enum: pending|confirmed|cancelled|rejected), timestamps
+  status (enum: pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected),
+  config_snapshot (json — e.g. proof_deadline_days), timestamps
 
 payments  [belongs to: booking]
-  id, booking_id, amount, status,
-  payment_method (mocked), transaction_id, timestamps
+  id, booking_id, amount,
+  status (enum: pending|completed|failed|refunded|held|released),
+  payment_method (mocked), payment_platform (mercadopago|paypal),
+  transaction_id, approved_by_payments, approved_by_user_id, timestamps
 
 conversations  [belongs to: space + client_user + provider_user]
   id, space_id, client_user_id, provider_user_id,
+  type (direct|support…), support_joined_at,
   unique(space_id, client_user_id), timestamps
 
 messages  [belongs to: conversation + sender_user]
-  id, conversation_id, sender_user_id, body, is_read, timestamps
+  id, conversation_id, sender_user_id, body, kind (user|system…), is_read, timestamps
+
+proofs  [belongs to: ad + booking + uploaded_by_user]
+  id, ad_id, booking_id, uploaded_by_user_id, media_type (image|video),
+  file_path, file_name, notes,
+  status (enum: pending_review|approved|rejected),
+  reviewed_by_user_id, reviewed_at, deadline, timestamps
+
+tickets  [belongs to: user(reporter) + assigned_to_user; polymorphic ticketable]
+  id, user_id, ticketable_type, ticketable_id, subject, description,
+  status (enum: open|in_progress|waiting_user|resolved|closed),
+  priority (enum: low|medium|high|urgent),
+  assigned_to_user_id, timestamps
+  -- ticketable_type covers App\Models\Ad|Adset|Campaign|Space
+
+ticket_messages  [belongs to: ticket + user]
+  id, ticket_id, user_id, body, is_internal (staff-only notes), timestamps
+
+collaborators  [belongs to: campaign + invited_by_user + user]
+  id, campaign_id, invited_by_user_id, user_id (nullable until registered),
+  email, role (enum: proof_uploader),
+  status (enum: pending|accepted|revoked),
+  unique(campaign_id, email), timestamps
+
+invoices  [belongs to: campaign]
+  id, campaign_id, invoice_number (unique), total_amount,
+  status (enum: draft|issued|paid|overdue|cancelled),
+  issued_at, due_at, timestamps
+
+role_permissions  [RBAC]
+  id, role, resource, action, allowed,
+  unique(role, resource, action), timestamps
+
+wallet_entries  [belongs to: user]
+  id, user_id, amount_centavos (signed),
+  type (enum: refund|withdrawal|escrow_capture|escrow_release|adjustment),
+  ref_type, ref_id, idempotency_key (unique), timestamps
+
+system_configurations  [admin-tunable settings, e.g. proof_deadline_days]
+  id, key (unique), value, updated_by_user_id, timestamps
 ```
 
 ### Relationship Map
 
 ```
-User (client)  ──< Campaign ──< Adset ──< Ad
+User (client)  ──< Campaign ──< Adset ──< Ad   (adset_id nullable → orphan/backlog ads)
+                       │                  └──> Space + User(provider)   (ad belongs to space + provider)
+                       ├──< Collaborator   (campaign invites, proof_uploader)
+                       └──< Invoice
 User (provider) ──< Space ──< SpacePhoto
-                          └──< SpaceAvailability
-Space + Adset + User(client) ──> Booking ──> Payment
+                          └──< SpaceAvailability   (source: manual | ical)
+Space + Ad + Adset + User(client) ──> Booking ──> Payment
+Ad + Booking + User(uploader) ──> Proof
 Space + User(client) + User(provider) ──> Conversation ──< Message
+User ──< Ticket >── ticketable (polymorphic: Ad | Adset | Campaign | Space) ──< TicketMessage
+User ──< WalletEntry
+RolePermission        (role × resource × action — RBAC matrix)
+SystemConfiguration   (admin-tunable key/value, e.g. proof_deadline_days)
 ```
 
 ---
 
 ## API Routes
+
+> Every route below `auth:sanctum` also carries a granular
+> `permission:resource,action` middleware (RBAC via `role_permissions`).
+> The `permission:` clause is omitted here for brevity — see `routes/api.php`.
 
 ```
 POST   /api/register
@@ -210,10 +272,19 @@ GET|PUT|DELETE        /api/client/campaigns/{campaign}
 GET|POST              /api/client/campaigns/{campaign}/adsets
 GET|PUT|DELETE        /api/client/campaigns/{campaign}/adsets/{adset}
 GET|POST              /api/client/campaigns/{campaign}/adsets/{adset}/ads
-GET|DELETE            /api/client/campaigns/{campaign}/adsets/{adset}/ads/{ad}
+GET|PUT|DELETE        /api/client/campaigns/{campaign}/adsets/{adset}/ads/{ad}
 GET|POST              /api/client/bookings
 GET|PUT               /api/client/bookings/{booking}
 GET                   /api/client/spaces/search
+GET|POST              /api/client/campaigns/{campaign}/collaborators
+DELETE                /api/client/campaigns/{campaign}/collaborators/{collaborator}
+GET                   /api/client/invoices
+GET                   /api/client/invoices/{invoice}
+POST                  /api/client/campaigns/{campaign}/backlog       # add backlog/orphan ad
+GET                   /api/client/campaigns/{campaign}/orphans       # list orphan ads
+POST                  /api/client/campaigns/{campaign}/adsets/move   # move ad into adset
+POST                  /api/client/proofs/{proof}/flag-mismatch
+GET                   /api/client/wallet
 
 # Provider routes — middleware: auth:sanctum, role:provider
 GET|POST              /api/provider/spaces
@@ -222,18 +293,49 @@ POST                  /api/provider/spaces/{space}/photos
 DELETE                /api/provider/spaces/{space}/photos/{photo}
 GET|POST              /api/provider/spaces/{space}/availabilities
 DELETE                /api/provider/spaces/{space}/availabilities/{availability}
+POST                  /api/provider/spaces/{space}/sync-ical         # pull from ical_url
+POST                  /api/provider/spaces/{space}/import-ical       # upload .ics file
 GET                   /api/provider/bookings
 PUT                   /api/provider/bookings/{booking}
 GET                   /api/provider/dashboard
+GET|POST              /api/provider/proofs
+GET                   /api/provider/proofs/{proof}
 
-# Manager routes — middleware: auth:sanctum, role:manager
-GET|POST              /api/manager/users
-GET|PUT|DELETE        /api/manager/users/{user}
+# Admin routes — middleware: auth:sanctum, role:admin
+GET|POST              /api/admin/users
+GET|PUT|DELETE        /api/admin/users/{user}
+GET                   /api/admin/permissions                         # no permission mw (anti-lockout)
+GET|PUT               /api/admin/permissions/{role}
+PATCH                 /api/admin/permissions/{role}/{resource}
+GET                   /api/admin/oversight/conversations             # eagle-eye, read-only
+GET                   /api/admin/oversight/conversations/{conversation}/messages
+GET                   /api/admin/oversight/tickets
+GET                   /api/admin/oversight/tickets/{ticket}
+GET|PUT               /api/admin/configurations                      # system_configurations
 
-# Shared — middleware: auth:sanctum
+# Support routes — middleware: auth:sanctum, role:support
+GET                   /api/support/tickets
+GET|PUT               /api/support/tickets/{ticket}
+POST                  /api/support/tickets/{ticket}/reply
+
+# Payments routes — middleware: auth:sanctum, role:payments
+GET                   /api/payments/payments
+GET                   /api/payments/payments/{payment}
+POST                  /api/payments/payments/{payment}/approve
+POST                  /api/payments/payments/{payment}/reject
+POST                  /api/payments/payments/{payment}/refund        # permission:payments,refund
+POST                  /api/payments/payments/{payment}/payout/release
+POST                  /api/payments/payments/{payment}/payout/hold
+GET                   /api/payments/proofs
+POST                  /api/payments/proofs/{proof}/approve
+POST                  /api/payments/proofs/{proof}/reject
+
+# Shared — middleware: auth:sanctum (any authenticated role)
 GET|POST              /api/conversations
-GET                   /api/conversations/{conversation}/messages
-POST                  /api/conversations/{conversation}/messages
+GET|POST              /api/conversations/{conversation}/messages
+GET|POST              /api/tickets
+GET                   /api/tickets/{ticket}
+POST                  /api/tickets/{ticket}/reply
 ```
 
 ---
@@ -355,9 +457,9 @@ ng generate component features/...  # Generate component
 | Sanctum install | ✅ Done | v4.3.1 via `php artisan install:api` |
 | CORS config | ✅ Done | Allow localhost:4200 with credentials |
 | Users migration | ✅ Done | role/phone/company_name/address/is_active added |
-| Domain migrations (×10) | ✅ Done | campaigns → messages, all FK constraints |
-| User model | ✅ Done | HasApiTokens + role helpers + relationships |
-| Eloquent models (×10) | ✅ Done | All with relationships and casts |
+| Domain migrations | ✅ Done | 26 total: 3 framework + personal_access_tokens + 15 domain (campaigns → invoices) + role_permissions + 2 alters (calendar_keyword, thread cols) + wallet_entries + system_configurations |
+| User model | ✅ Done | HasApiTokens + role helpers + relationships + walletEntries |
+| Eloquent models (×18) | ✅ Done | User + 17 domain models, all with relationships and casts |
 | RoleMiddleware | ✅ Done | Checks user role, returns 403 |
 | PermissionMiddleware | ✅ Done | Granular RBAC: permission:resource,action per route |
 | RBAC permissions table | ✅ Done | role_permissions with cached lookups (60min) |

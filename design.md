@@ -11,7 +11,7 @@ Campaign: Is a unit where clients can put a budget, ad one or more adsets with o
 
 Adset: Is the group of ads, in this middle level adsets can be groups of ads for one place in particular, let's say, multiple image ads, that are being displayed in displays in the streets or maybe in taxis, for example, so the adset is a group where multiple ads from multiple providers can be, is not other thing than a "tag", it has no other purpose than order and group ads.
 
-Ad: Is the basic unit of the publicity and can be audios (for radio), can be images (for billboards), can be videos (for big scren billboards) and other types of advertisment, the provider is responsible for approving the files uploaded (manual approval, which coexists with an automated upload-time validation against the space's media-delivery specs — BOTH gates apply, and a file may pass automated validation yet still be manually rejected by the provider), in order to be displayed in different places or printed or maybe played in radio stations, every ad has a cost and can be from different providers, but the invoice is printed in campaign level, each ad has its own price and time span for the place, and even diferent provider.
+Ad: Is the basic unit of the publicity and can be audios (for radio), can be images (for billboards), can be videos (for big scren billboards) and other types of advertisment, the provider is responsible for approving the files uploaded (manual approval, which coexists with an automated upload-time validation against the space's media-delivery specs — BOTH gates apply, and a file may pass automated validation yet still be manually rejected by the provider), in order to be displayed in different places or printed or maybe played in radio stations, every ad has a cost and can be from different providers, but the invoice is printed in campaign level, each ad has its own price and time span for the place, and even diferent provider. When a booked window straddles two of a provider's pricing tiers (e.g. a per-day and a per-month rate), the price is the CHEAPEST valid decomposition — the system fits the largest cheaper blocks first (e.g. 40 days = 1 month + 10 days if that beats 40 × daily) so a longer booking is never penalized.
 
 The backend should be Laravel and it will be a service for a headless website, and possible an app in the near future. Create fake endpoint requests, to test every endpoint with fake data, and create a script to send the fake tests or erase everything, this script should be called by terminal like "python insert_data.py", with options like "messaging", or "support ticket", and an option like "erase-all-data" to clear the whole database.
 
@@ -107,6 +107,14 @@ with Installator-role collaborators (see Collaborator Roles) who view the
 installation list and upload proof for physical-ad install crews. "live" is a
 first-class state.
 
+Go-live is PER-AD, not all-or-nothing: each ad in a campaign is approved and
+goes live independently, and bills on its own approval. If 9 of 12 ads are
+approved, those 9 run as soon as their window opens while the other 3 stay
+pending/rejected — a slow or rejected provider never blocks the rest of the
+campaign. (Invoicing is already per-ad at campaign level.) An inquiry chat
+becomes a confirmed booking thread only when BOTH the provider approval AND the
+client payment are complete; either one alone leaves it an inquiry.
+
 == Proof of Display ==
 
 The PROVIDER owns the PRIMARY proof of display — only the primary proof makes a
@@ -130,6 +138,14 @@ released) | (rejected → re-upload) | (deadline missed → auto-cancel + refund
 strike). Secondary proofs and mismatch flags may be filed up until payout
 release.
 
+The reject→re-upload loop is not unbounded: if a proof is still unresolved after
+the re-upload window (default 48 h) elapses, Support intervenes to adjudicate
+rather than letting the cycle repeat indefinitely. Proof photos are NOT
+automatically geotag-checked against the space lat/long — the space belongs to
+the provider, who knows exactly where it is, so there is no "wrong space"
+mismatch to detect automatically; a proof that does not match the booked ad is
+caught by the client/collaborator mismatch-flag → Support path instead.
+
 == Strike System ==
 
 Strikes are accrued by the system on: missed proof deadline, provider cancel of
@@ -138,6 +154,10 @@ power — it routes to Support first, then Admin, because a strike is not a
 payment situation. Three strikes within a trailing 90-day window flag the
 account for Admin review (which may lead to a freeze). Strike count over the
 trailing 90 days is shown on the provider revenue dashboard.
+
+A provider may appeal a strike by opening a support ticket; SUPPORT can remove
+the strike from the 90-day counter (a reversible, audited action). Strike removal
+is a Support power, not a Payments one.
 
 == Client Wallet and Refunds ==
 
@@ -159,6 +179,23 @@ configurable window (default 24 h) to stop it; if Admin does not stop it within
 the window, the funds are released to the provider's Mercado Pago / PayPal
 account automatically.
 
+Gateway fees are paid by the CLIENT (gross): the processing fee is added on top
+at checkout, not absorbed by the platform or netted from the provider's payout.
+
+Payouts are PER-PROVIDER, even within a single multi-provider campaign invoice:
+each provider sets their own pay day, and the platform pays each provider on
+their schedule rather than on one unified campaign date.
+
+A payout held by an open dispute has no hard auto-resolve cap — it simply stays
+held until the dispute is resolved, then pays in full if resolved in the
+provider's favor (or is refunded per the outcome). Disputes resolve by human
+adjudication, not by a timer.
+
+Clawback (a refunded client later suspended for fraud): the platform FREEZES the
+client's wallet and alerts Payments; Payments cannot pull money out — the frozen
+balance waits for an Admin decision (claw back via a negative ledger entry, keep
+frozen, or release).
+
 == Book-for-later, Pre-pay Waiting List and Escrow ==
 
 When a requested window is not yet free, the client sees "Book it for later".
@@ -174,6 +211,11 @@ wallet credit, gets a notification, and the refund is recorded in the logs for
 Payments/Admin. (2) NON-PRE-PAY — queued with no funds captured, resolved
 first-come-first-served when the calendar frees. One checkout per campaign
 covers all ads regardless of provider.
+
+Cross-queue precedence is the PROVIDER's choice — there is no automatic rule
+that a funded pre-pay offer beats an older unfunded FCFS entry. When the provider
+confirms one booking for a freed slot, every other pre-pay offer for that slot is
+cancelled and refunded to wallet credit.
 
 == Provider Ratings ==
 
@@ -203,14 +245,19 @@ is not charged. The full per-type spec table lives in cases-v2.md.
 == Catalog, Search and Campaign Organization ==
 
 Map-centered catalog with a nearest-first sidebar; changing the map center
-re-sorts and re-queries radio stations in range. Filters: space type, date
-range, budget per day, and a date-flexibility filter of ±X days (inactive until
-a date range is set). Spaces whose calendar doesn't coincide are tagged, not
-hidden, and remain bookable "for later". Adsets are pure grouping labels (no
-price/date effect). The campaign view shows an Orphan-spaces list (backlog
-spaces not yet placed in any adset); orphans can be bulk-moved but cannot reach
-checkout while orphan. The upload control shows the provider's media-delivery
-summary + free-text instructions inline, kept visible during/after upload.
+re-sorts and re-queries radio stations in range. "In range" for a radio station
+means inside the current MAP view range (typically a whole city) — not listener
+location or broadcast footprint; pan/zoom the map and the station list updates.
+Filters: space type, date range, and budget per day. There is NO date-flexibility
+(±X days) filter — dates are exact; clients and providers add their own slack by
+choosing wider windows or "book for later". Spaces whose calendar doesn't
+coincide are tagged, not hidden, and remain bookable "for later". Adsets are pure
+grouping labels (no price/date effect). The campaign view shows an Orphan-spaces
+list (backlog spaces not yet placed in any adset); a client MAY check out a
+partial campaign, but any ad still orphaned (not in an adset) cannot go live and
+its payment cannot be processed — orphans can be bulk-moved into an adset to
+become bookable. The upload control shows the provider's media-delivery summary +
+free-text instructions inline, kept visible during/after upload.
 
 == Chat Surfaces and PII Masking ==
 
@@ -220,10 +267,19 @@ campaign; (2) a global Help-menu chat available to every user on an account;
 payment status, proof state). PII (phone, email, full URL, off-space street
 address) is masked in client↔provider chat; masking relaxes when Support or
 Payments joins (announced by a system message) and NEVER applies on internal
-Support/Payments/Admin threads. Admin is the exception to the announcement rule:
+Support/Payments/Admin threads. When Support joins a masked thread it sees the
+FULL prior history unmasked (Support is effectively near-admin level), not only
+messages posted after joining. Admin is the exception to the announcement rule:
 Admin can read (and post into) any thread SILENTLY/incognito — no system message
 announces that Admin entered. A conversation can travel (inquiry → booking →
 support ticket) as one chronological thread with system-message transitions.
+
+Street-address whitelisting: the booked space has an OWNER who registered its
+exact street address as a stored field. In a thread tied to that space's booking,
+that one stored address (and close variants) is whitelisted and shown normally —
+the client legitimately needs it to install/photograph the ad — while every OTHER
+address-like string in chat is still masked. So the space's own address passes;
+off-platform addresses do not.
 
 == Support, Payments and Internal Threads ==
 
@@ -235,13 +291,21 @@ is itself an object). Support-initiated ad-hoc tickets are visible only to the
 provider involved. Admin can observe all internal threads AND post messages into
 them (e.g. to Support and Payments about that thread) — eagle-eye with write.
 
+Support can CLOSE a ticket on the support side without the user's consent (the
+operational queue is Support's to manage), but closing only resolves the ticket
+state — the conversation itself stays LIVE and visible historically to the user,
+who can keep reading it and can re-open/continue the thread. Closing is not
+deletion and not a gag.
+
 == Notifications and Alerts ==
 
 A notification/alert dispatcher delivers events. Most notifications are SIMPLE
 TEXT shown at the top of the UI (in-app); some events are instead surfaced as a
 ticket/chat with Support or Payments (those are explicitly chats, not toasts).
 SMS is reserved for Payments alerts and cancellations only — not every critical
-event. The full event schema (≈28+ rows: new booking, approve/reject, day-3/4
+event. SMS provider: Twilio is the chosen default (best Mexico deliverability,
+clean Laravel SDK); Vonage is the documented fallback. (MSG91 is a cheaper
+MX-local option if cost matters later.) SMS is mocked until keys are configured. The full event schema (≈28+ rows: new booking, approve/reject, day-3/4
 proof reminders, proof uploaded/approved/rejected, mismatch flagged, cancels,
 auto-cancel, refunds issued/failed, disputes, payout held/released, strike
 accrued, 3-strike admin alert, collaborator invited, listing takedown/restore,
@@ -279,8 +343,11 @@ admin-configurable (defaults in parentheses):
 - currency (MXN) and amount unit (centavos)
 - rate-limit thresholds (per-action caps, burst, retry-after)
 - audit-log retention: number of logs kept per role
-Changing a value's effect on in-flight vs new bookings is a pending policy
-decision (design recommends snapshotting config onto a booking at creation).
+When an Admin changes a configurable value, the Configurations screen offers a
+CHECKBOX: "apply to existing/in-flight bookings too" vs "apply to new bookings
+only". Unchecked (the default and recommended path) snapshots config onto each
+booking at creation, so a live deal is not changed mid-flight; checked re-applies
+the new value to currently-running bookings as well.
 
 == Admin Moderation: Takedown, Restore, Freeze ==
 
@@ -321,13 +388,31 @@ current. If a space's calendar setup is older than the staleness threshold
 (default 7 days, configurable), an alert is raised next to that space in the
 provider's spaces list, prompting a refresh.
 
+The staleness clock is measured from the LAST SUCCESSFUL SYNC for URL/iCal-
+imported calendars, or from the LAST MANUAL EDIT for hand-managed availability —
+never from space creation. A healthy auto-syncing URL therefore never fires the
+alert (its last-sync timestamp keeps refreshing); the alert only fires when a
+manual calendar sits untouched past the threshold, or an imported URL has failed
+to sync for that long. If an imported calendar goes OFFLINE (URL unreachable),
+the space FALLS BACK to its last-known/manual availability range rather than
+having its availability vanish — and the staleness alert prompts the provider to
+fix or re-enter it.
+
 == ARCHITECTURE NOTES (data model & integrity) ==
 
 These are load-bearing implementation rules for the subsystems above. They are
 canonical: the current 11-table schema (see ARCHITECTURE.md) predates them and
 must be reconciled before building these features. Source: 2026-06-05 architecture
-review. Items marked OWNER-DECISION are still open and tracked in
-`.claude/plans/design-md-reconciliation-questions.md`.
+review. All prior OWNER-DECISION items have been resolved by the owner (Round 4,
+2026-06-12) and applied above; see `.claude/plans/design-md-reconciliation-questions.md`
+for the decision history.
+
+Launch scope
+- First launch target is MONTERREY, Nuevo León, Mexico — Mexico-first, single
+  city to start. Single currency MXN (centavos), all deadline math in
+  America/Monterrey timezone. Multi-country, multi-currency, and non-Spanish UI
+  are out of scope for the initial launch (the currency unit is admin-
+  configurable to leave the door open later).
 
 Money & wallet
 - The wallet is an append-only, double-entry ledger (`wallet_entries`: signed
@@ -349,8 +434,10 @@ Money & wallet
 - Gateway webhooks: signature-verified, persisted raw, idempotent by gateway
   event id, with a nightly reconciliation job (gateway ledger vs local ledger).
 - Wallet has states {active|frozen}; withdraw is blocked while any dispute/hold
-  is open. Clawback is a negative ledger entry. (OWNER-DECISION: clawback policy
-  when a client is suspended after a refund.)
+  is open. Clawback is a negative ledger entry. RESOLVED: when a client is
+  suspended for fraud after a refund, the wallet is FROZEN and Payments is
+  alerted; Payments cannot pull funds — the frozen balance waits for an Admin
+  decision (claw back / keep frozen / release).
 
 State machines & time
 - ONE canonical booking/ad state enum: draft → waiting-approval → waiting-
@@ -369,7 +456,9 @@ State machines & time
   provider edits to the live space specs do not retroactively fail a paid file.
   Likewise, snapshot relevant config values (proof deadline, etc.) onto the
   booking at creation so admin config edits don't change a live deal.
-  (OWNER-DECISION: in-flight vs new-booking effect of config changes.)
+  RESOLVED: snapshot-at-creation is the default; the Configurations screen has an
+  "apply to in-flight bookings too" checkbox to opt into re-applying a changed
+  value to currently-running bookings.
 
 Concurrency
 - A Postgres exclusion constraint prevents overlapping CONFIRMED bookings on the
@@ -380,8 +469,10 @@ Concurrency
   refund-to-wallet in the same transaction.
 - The day-5 auto-cancel cron locks the booking and re-checks `proof IS NULL`
   inside the transaction (avoids racing a last-minute upload).
-- OWNER-DECISION: cross-queue precedence — does a funded pre-pay offer beat an
-  older unfunded FCFS "book for later" entry when a slot frees?
+- RESOLVED: cross-queue precedence is the PROVIDER's choice — no automatic rule
+  that a funded pre-pay offer beats an older unfunded FCFS entry. Confirming one
+  booking atomically cancels + wallet-refunds all other pre-pay offers for that
+  slot.
 
 RBAC & collaborators
 - The global `role_permissions` matrix governs system roles only. Collaborators
@@ -422,5 +513,6 @@ Audit log
 Notifications
 - Emit domain events (BookingApproved, ProofRejected, StrikeAccrued, …) and let
   queued listeners fan out over channels via a channel/urgency lookup; do not
-  scatter Notification::send through controllers. SMS needs a real provider
-  (e.g. Twilio) — currently unspecified/deferred.
+  scatter Notification::send through controllers. SMS uses Twilio (default) with
+  Vonage as fallback, mocked until keys exist; SMS fires only for Payments alerts
+  and cancellations.

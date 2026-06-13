@@ -6,8 +6,10 @@ export interface Booking {
   start_date: string;
   end_date: string;
   total_price: number;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'waiting_approval' | 'confirmed' | 'cancelled' | 'completed';
   notes: string | null;
+  book_for_later?: boolean;
+  config_snapshot?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
   space?: { id: number; name: string; type: string; location_name: string | null };
@@ -31,12 +33,12 @@ export interface Payment {
 export interface Proof {
   id: number;
   booking_id: number;
-  user_id: number;
+  uploaded_by_user_id: number;
   file_path: string;
   file_name: string;
   file_url: string;
   notes: string | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending_review' | 'approved' | 'rejected';
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;

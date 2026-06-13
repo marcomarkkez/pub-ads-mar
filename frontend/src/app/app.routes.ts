@@ -36,6 +36,7 @@ export const routes: Routes = [
           { path: 'spaces', loadComponent: () => import('./features/client/spaces/space-search.component').then(m => m.SpaceSearchComponent) },
           { path: 'bookings', loadComponent: () => import('./features/client/bookings/booking-list.component').then(m => m.BookingListComponent) },
           { path: 'invoices', loadComponent: () => import('./features/client/invoices/invoice-list.component').then(m => m.InvoiceListComponent) },
+          { path: 'wallet', loadComponent: () => import('./features/client/wallet/wallet.component').then(m => m.WalletComponent) },
         ],
       },
 
@@ -62,6 +63,8 @@ export const routes: Routes = [
           { path: 'users/new', loadComponent: () => import('./features/admin/users/user-form.component').then(m => m.UserFormComponent) },
           { path: 'users/:id', loadComponent: () => import('./features/admin/users/user-form.component').then(m => m.UserFormComponent) },
           { path: 'permissions', loadComponent: () => import('./features/admin/permissions/permissions-editor.component').then(m => m.PermissionsEditorComponent) },
+          { path: 'oversight', loadComponent: () => import('./features/admin/oversight/oversight.component').then(m => m.OversightComponent) },
+          { path: 'config', loadComponent: () => import('./features/admin/config/config.component').then(m => m.ConfigComponent) },
         ],
       },
 

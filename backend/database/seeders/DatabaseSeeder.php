@@ -14,6 +14,7 @@ use App\Models\Message;
 use App\Models\Invoice;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
@@ -21,6 +22,29 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(RolePermissionSeeder::class);
+
+        // ── System configuration defaults (C12) ───────────────────────
+        // Guarded so it runs only after P9's migration creates the table.
+        if (Schema::hasTable('system_configurations') && class_exists(\App\Models\SystemConfiguration::class)) {
+            $configDefaults = [
+                'proof_deadline_days'    => 5,
+                'reupload_window_hours'  => 48,
+                'strike_window_days'     => 90,
+                'payout_stop_hours'      => 24,
+                'calendar_staleness_days' => 7,
+                'refund_split_client'    => 90,
+                'refund_split_platform'  => 5,
+                'refund_split_provider'  => 5,
+                'currency'               => 'MXN',
+            ];
+
+            foreach ($configDefaults as $key => $value) {
+                \App\Models\SystemConfiguration::updateOrCreate(
+                    ['key' => $key],
+                    ['value' => (string) $value],
+                );
+            }
+        }
 
         // ── System users ──────────────────────────────────────────────
         $admin = User::create([

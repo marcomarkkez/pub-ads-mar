@@ -51,6 +51,7 @@ class RolePermissionSeeder extends Seeder
                 'invoices'              => ['read'],
                 'collaborators'         => ['read'],
                 'dashboard'             => ['read'],
+                'configurations'        => ['read', 'update'],
             ],
 
             'support' => [
@@ -60,7 +61,7 @@ class RolePermissionSeeder extends Seeder
             ],
 
             'payments' => [
-                'payments' => ['read', 'update'],
+                'payments' => ['read', 'update', 'refund'],
                 'proofs'   => ['read', 'update'],
                 'bookings' => ['read'],
                 'invoices' => ['read'],

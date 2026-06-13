@@ -1,15 +1,20 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Admin\ConfigurationController;
+use App\Http\Controllers\Admin\OversightController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Client\AdController;
 use App\Http\Controllers\Client\AdsetController;
+use App\Http\Controllers\Client\BacklogController;
 use App\Http\Controllers\Client\BookingController as ClientBookingController;
 use App\Http\Controllers\Client\CampaignController;
 use App\Http\Controllers\Client\CollaboratorController;
 use App\Http\Controllers\Client\InvoiceController;
+use App\Http\Controllers\Client\ProofFlagController;
 use App\Http\Controllers\Client\SpaceSearchController;
+use App\Http\Controllers\Client\WalletController;
 use App\Http\Controllers\Manager\UserController;
 use App\Http\Controllers\Payments\PaymentController;
 use App\Http\Controllers\Payments\ProofReviewController;
@@ -74,6 +79,17 @@ Route::middleware('auth:sanctum')->group(function () {
         // Invoices
         Route::get('invoices', [InvoiceController::class, 'index'])->middleware('permission:invoices,read');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoices,read');
+
+        // Campaign backlog / orphan ads (C03)
+        Route::post('campaigns/{campaign}/backlog', [BacklogController::class, 'addBacklog'])->middleware('permission:campaigns,update');
+        Route::get('campaigns/{campaign}/orphans', [BacklogController::class, 'listOrphans'])->middleware('permission:campaigns,read');
+        Route::post('campaigns/{campaign}/adsets/move', [BacklogController::class, 'moveToAdset'])->middleware('permission:campaigns,update');
+
+        // Proof mismatch flag (C07/C09)
+        Route::post('proofs/{proof}/flag-mismatch', [ProofFlagController::class, 'flagMismatch'])->middleware('permission:proofs,read');
+
+        // Wallet (C10)
+        Route::get('wallet', [WalletController::class, 'index'])->middleware('permission:bookings,read');
     });
 
     // ── Provider routes ─────────────────────────────────────
@@ -123,6 +139,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('permissions/{role}', [PermissionController::class, 'show']);
         Route::put('permissions/{role}', [PermissionController::class, 'update']);
         Route::patch('permissions/{role}/{resource}', [PermissionController::class, 'updateResource']);
+
+        // Eagle-eye oversight (C11) — read-only across conversations + tickets
+        Route::get('oversight/conversations', [OversightController::class, 'conversations'])->middleware('permission:conversations,read');
+        Route::get('oversight/conversations/{conversation}/messages', [OversightController::class, 'conversationMessages'])->middleware('permission:conversations,read');
+        Route::get('oversight/tickets', [OversightController::class, 'tickets'])->middleware('permission:tickets,read');
+        Route::get('oversight/tickets/{ticket}', [OversightController::class, 'ticket'])->middleware('permission:tickets,read');
+
+        // System configurations (C12)
+        Route::get('configurations', [ConfigurationController::class, 'index'])->middleware('permission:configurations,read');
+        Route::put('configurations', [ConfigurationController::class, 'update'])->middleware('permission:configurations,update');
     });
 
     // ── Support routes ──────────────────────────────────────
@@ -139,6 +165,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('payments/{payment}', [PaymentController::class, 'show'])->middleware('permission:payments,read');
         Route::post('payments/{payment}/approve', [PaymentController::class, 'approve'])->middleware('permission:payments,update');
         Route::post('payments/{payment}/reject', [PaymentController::class, 'reject'])->middleware('permission:payments,update');
+
+        // Refunds + payouts (C10)
+        Route::post('payments/{payment}/refund', [PaymentController::class, 'refund'])->middleware('permission:payments,refund');
+        Route::post('payments/{payment}/payout/release', [PaymentController::class, 'releasePayout'])->middleware('permission:payments,update');
+        Route::post('payments/{payment}/payout/hold', [PaymentController::class, 'holdPayout'])->middleware('permission:payments,update');
 
         Route::get('proofs', [ProofReviewController::class, 'index'])->middleware('permission:proofs,read');
         Route::post('proofs/{proof}/approve', [ProofReviewController::class, 'approve'])->middleware('permission:proofs,update');

@@ -57,7 +57,7 @@ Web-based advertising spaces marketplace built with **Laravel 12** (API backend)
 
 | Table | Owner | Key Columns |
 |-------|-------|-------------|
-| users | — | role (client/provider/manager), phone, company_name, address, is_active |
+| users | — | role (client/provider/admin/support/payments), phone, company_name, address, is_active |
 | campaigns | user (client) | name, description, status, start_date, end_date, budget |
 | adsets | campaign | name, latitude, longitude, location_name, radius_km, status |
 | ads | adset | name, media_type (image/video/sound/gif), file_path, file_name |

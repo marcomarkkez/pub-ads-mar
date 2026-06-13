@@ -1,0 +1,37 @@
+{
+  "sprint": "MVP-local-complete",
+  "created": "2026-06-13",
+  "goal": "Bring the existing Laravel+Angular app in line with the reconciled design.md and satisfy the 13-item MVP checklist, as a complete local version.",
+  "canonical": "This JSON is the source of truth for sprint todos; beads mirrors it (sqlite backend, see notes).",
+  "notes": {
+    "beads": "Re-initialized to sqlite backend on 2026-06-13 (dolt backend unreadable: bd.exe v0.49.3 dev build lacks CGO). 23 old issues re-imported from JSONL; session-18 dolt-only issues (4ri/h6a/2r6/8qi/7r7) were lost and are recreated fresh here.",
+    "tooling": "WSL has php 8.3, composer 2.9, node 20, npm 9. No docker. DB = bare-metal PG17 :5434.",
+    "build_state": "App is substantially built: 5 user roles, rich booking/ad/proof state enums, proofs/tickets/collaborators/invoices tables, full Angular feature set. MVP work = closing gaps, not greenfield."
+  },
+  "checklist": [
+    { "id": "C01", "item": "Roles: provider, client(user), support, payments exist", "status": "todo" },
+    { "id": "C02", "item": "Account owner can create subroles: installator, publicist(publisher), manager", "status": "todo" },
+    { "id": "C03", "item": "Multi-search select: search a space, select an item, search again, select another, accumulate", "status": "todo" },
+    { "id": "C04", "item": "Every item has a Support button; the item is attached to the support ticket as context", "status": "todo" },
+    { "id": "C05", "item": "Provider sets up each space + Google Calendar availability or a date range", "status": "todo" },
+    { "id": "C06", "item": "Provider and user can chat with contact info masked", "status": "todo" },
+    { "id": "C07", "item": "Provider uploads proof of the installed ad (video for radio, photo/video per media type)", "status": "todo" },
+    { "id": "C08", "item": "Support sees new requests with items attached (or not)", "status": "todo" },
+    { "id": "C09", "item": "Automatic requests to support, e.g. when a proof is rejected by client (mismatch flag)", "status": "todo" },
+    { "id": "C10", "item": "Payments role makes deposits (payouts) and refunds", "status": "todo" },
+    { "id": "C11", "item": "Admin eagle-eye: sees all, including support and payments chats", "status": "todo" },
+    { "id": "C12", "item": "Admin configurations; some apply to new objects only or to all objects (apply-scope checkbox)", "status": "todo" },
+    { "id": "C13", "item": "End-to-end: map-select -> campaign -> adset -> availability/book-later -> provider accept/chat/reject -> auto-reject on file specs -> provider reject -> user refund -> support chat from any object", "status": "todo" }
+  ],
+  "workstreams": [
+    { "id": "WS-beads", "title": "Diagnose + restore beads", "status": "done" },
+    { "id": "WS-audit", "title": "Audit 13 checklist items + doc state vs code (Workflow 1)", "status": "todo" },
+    { "id": "WS-impl", "title": "Implement gaps, file-partitioned (Workflow 2)", "status": "todo" },
+    { "id": "WS-4ri", "title": "Canonical 5-role + collaborator subroles + booking/proof state machines", "status": "todo" },
+    { "id": "WS-h6a", "title": "Money: payout/refund flows (wallet/escrow as MVP-scoped)", "status": "todo" },
+    { "id": "WS-2r6", "title": "Subsystem tables/automation: auto-ticket on flag, masking, admin eagle-eye, configs", "status": "todo" },
+    { "id": "WS-8qi", "title": "Doc sync: reconcile ARCHITECTURE.md to design.md + actual migrations", "status": "todo" },
+    { "id": "WS-verify", "title": "Run migrations + ng build, fix integration, verify checklist", "status": "todo" },
+    { "id": "WS-history", "title": "Append session summary to history.md; remove reconciliation file", "status": "todo" }
+  ]
+}

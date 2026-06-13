@@ -78,7 +78,7 @@ import { Ticket, TicketMessage } from '../../core/models';
             @if (ticket()!.reference_type) {
               <div class="info-item">
                 <span class="info-label">Reference</span>
-                <span>{{ ticket()!.reference_type }} #{{ ticket()!.reference_id }}</span>
+                <span>{{ referenceLabel() }} #{{ ticket()!.reference_id }}</span>
               </div>
             }
             @if (ticket()!.assigned_to) {
@@ -272,6 +272,17 @@ export class SupportTicketDetailComponent implements OnInit {
   ngOnInit(): void {
     this.ticketId = Number(this.route.snapshot.paramMap.get('id'));
     this.loadTicket();
+  }
+
+  /**
+   * The API exposes reference_type as the raw morph class
+   * (e.g. "App\\Models\\Space"). Render a clean, human label.
+   */
+  referenceLabel(): string {
+    const raw = this.ticket()?.reference_type;
+    if (!raw) return '';
+    const base = raw.split('\\').pop() || raw;
+    return base.charAt(0).toUpperCase() + base.slice(1);
   }
 
   loadTicket(): void {

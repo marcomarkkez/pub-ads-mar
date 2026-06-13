@@ -22,7 +22,7 @@ class TicketController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'ticketable_type' => 'nullable|in:ad,adset,campaign',
+            'ticketable_type' => 'nullable|in:ad,adset,campaign,space',
             'ticketable_id' => 'nullable|integer',
             'subject' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -30,9 +30,10 @@ class TicketController extends Controller
         ]);
 
         $typeMap = [
-            'ad' => 'App\Models\Ad',
-            'adset' => 'App\Models\Adset',
-            'campaign' => 'App\Models\Campaign',
+            'ad' => \App\Models\Ad::class,
+            'adset' => \App\Models\Adset::class,
+            'campaign' => \App\Models\Campaign::class,
+            'space' => \App\Models\Space::class,
         ];
 
         $ticketableType = isset($validated['ticketable_type'])
@@ -57,7 +58,17 @@ class TicketController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        return response()->json($ticket->load(['ticketable', 'assignedTo', 'messages.user']));
+        $ticket->load(['ticketable', 'assignedTo', 'messages.user']);
+
+        // C11 guard: only staff (admin/support/payments) may see internal notes.
+        if (! in_array($request->user()->role, ['admin', 'support', 'payments'], true)) {
+            $ticket->setRelation(
+                'messages',
+                $ticket->messages->reject(fn ($m) => $m->is_internal)->values()
+            );
+        }
+
+        return response()->json($ticket);
     }
 
     public function reply(Request $request, Ticket $ticket): JsonResponse

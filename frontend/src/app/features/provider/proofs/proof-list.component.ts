@@ -37,11 +37,12 @@ import { Proof } from '../../../core/models';
 
           <div class="form-group">
             <label for="proof_file">Proof File *</label>
-            <input id="proof_file" type="file" accept="image/*,video/*,.pdf"
+            <input id="proof_file" type="file" accept="image/*,video/*"
                    (change)="onFileSelected($event)" class="file-input">
             @if (selectedFileName()) {
               <span class="file-name">{{ selectedFileName() }}</span>
             }
+            <span class="hint">Radio/audio ads must be proven with a short video of the ad being aired.</span>
           </div>
 
           <div class="form-group">
@@ -135,6 +136,13 @@ import { Proof } from '../../../core/models';
       color: var(--text-muted);
       margin-top: 4px;
     }
+    .hint {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-style: italic;
+    }
     .notes-cell {
       max-width: 200px;
       overflow: hidden;
@@ -215,9 +223,9 @@ export class ProofListComponent implements OnInit {
       formData.append('notes', this.uploadForm.notes);
     }
 
-    this.http.post<{ data: Proof }>(`${this.api}/provider/proofs`, formData).subscribe({
+    this.http.post<Proof>(`${this.api}/provider/proofs`, formData).subscribe({
       next: (res) => {
-        this.proofs.update(list => [res.data, ...list]);
+        this.proofs.update(list => [res, ...list]);
         this.notify.success('Proof uploaded successfully.');
         this.resetUploadForm();
         this.uploading.set(false);

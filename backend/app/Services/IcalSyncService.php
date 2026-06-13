@@ -39,6 +39,9 @@ class IcalSyncService
         $events = $this->parseIcalEvents($icsContent);
         $errors = [];
 
+        // Offline-safe: a zero-event parse (transient empty/garbage fetch)
+        // must NOT wipe the last-known ical availabilities. Bail out early
+        // and preserve whatever is currently stored.
         if (empty($events)) {
             return ['synced' => 0, 'errors' => ['No VEVENT entries found in iCal data.']];
         }
@@ -98,6 +101,11 @@ class IcalSyncService
                 ]);
             }
         }
+
+        // Successful parse (>=1 VEVENT) — stamp the staleness marker so the
+        // UI can flag calendars that haven't refreshed recently.
+        $space->calendar_synced_at = now();
+        $space->save();
 
         return ['synced' => $synced, 'errors' => $errors];
     }

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\WalletEntry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
@@ -47,5 +49,80 @@ class PaymentController extends Controller
         ]);
 
         return response()->json($payment->load('approvedBy'));
+    }
+
+    /**
+     * Refund a payment (mocked gateway): credit the client's wallet and mark refunded.
+     * Idempotent via a deterministic idempotency_key on the unique wallet entry.
+     */
+    public function refund(Payment $payment): JsonResponse
+    {
+        $payment->loadMissing('booking');
+        $clientId = $payment->booking?->client_user_id;
+
+        if (! $clientId) {
+            return response()->json(['message' => 'Booking client not found.'], 422);
+        }
+
+        $amountCentavos = (int) round(((float) $payment->amount) * 100);
+        $key = "refund:payment:{$payment->id}";
+
+        DB::transaction(function () use ($payment, $clientId, $amountCentavos, $key) {
+            WalletEntry::firstOrCreate(
+                ['idempotency_key' => $key],
+                [
+                    'user_id' => $clientId,
+                    'amount_centavos' => $amountCentavos,
+                    'type' => 'refund',
+                    'ref_type' => Payment::class,
+                    'ref_id' => $payment->id,
+                ]
+            );
+
+            $payment->update(['status' => 'refunded']);
+        });
+
+        return response()->json($payment->fresh()->load('approvedBy'));
+    }
+
+    /**
+     * Release the payout to the provider: mark released + escrow_release wallet entry.
+     */
+    public function releasePayout(Payment $payment): JsonResponse
+    {
+        $payment->loadMissing('booking.space');
+        $providerId = $payment->booking?->space?->user_id;
+
+        $amountCentavos = (int) round(((float) $payment->amount) * 100);
+        $key = "escrow_release:payment:{$payment->id}";
+
+        DB::transaction(function () use ($payment, $providerId, $amountCentavos, $key) {
+            if ($providerId) {
+                WalletEntry::firstOrCreate(
+                    ['idempotency_key' => $key],
+                    [
+                        'user_id' => $providerId,
+                        'amount_centavos' => $amountCentavos,
+                        'type' => 'escrow_release',
+                        'ref_type' => Payment::class,
+                        'ref_id' => $payment->id,
+                    ]
+                );
+            }
+
+            $payment->update(['status' => 'released']);
+        });
+
+        return response()->json($payment->fresh()->load('approvedBy'));
+    }
+
+    /**
+     * Hold the payout (escrow): mark held. Mocked gateway, no funds move.
+     */
+    public function holdPayout(Payment $payment): JsonResponse
+    {
+        $payment->update(['status' => 'held']);
+
+        return response()->json($payment->fresh()->load('approvedBy'));
     }
 }

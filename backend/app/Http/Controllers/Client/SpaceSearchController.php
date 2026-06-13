@@ -18,6 +18,8 @@ class SpaceSearchController extends Controller
             'min_price' => 'nullable|numeric|min:0',
             'max_price' => 'nullable|numeric|min:0',
             'type' => 'nullable|string',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
 
         $query = Space::where('is_active', true)->with(['photos', 'user', 'availabilities']);
@@ -50,6 +52,22 @@ class SpaceSearchController extends Controller
         }
 
         $spaces = $query->latest()->paginate(20);
+
+        // P2: when a date range is provided, annotate each space with an
+        // `available` boolean (true when an available range coincides). Spaces
+        // that do not coincide are NOT hidden — the frontend renders red/green.
+        if ($request->filled('date_from') && $request->filled('date_to')) {
+            $from = $request->date_from;
+            $to = $request->date_to;
+
+            $spaces->getCollection()->transform(function ($space) use ($from, $to) {
+                $space->available = $space->availabilities
+                    ->where('status', 'available')
+                    ->contains(fn ($a) => $a->start_date <= $to && $a->end_date >= $from);
+
+                return $space;
+            });
+        }
 
         return response()->json($spaces);
     }

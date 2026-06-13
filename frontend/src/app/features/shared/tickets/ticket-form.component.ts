@@ -1,7 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -61,7 +61,7 @@ import { Ticket } from '../../../core/models';
         <div class="form-row">
           <div class="form-group">
             <label for="reference_type">Reference Type (optional)</label>
-            <select id="reference_type" [(ngModel)]="reference_type" name="reference_type">
+            <select id="reference_type" [(ngModel)]="reference_type" name="reference_type" [disabled]="lockReference()">
               <option value="">None</option>
               <option value="campaign">Campaign</option>
               <option value="adset">Adset</option>
@@ -80,6 +80,7 @@ import { Ticket } from '../../../core/models';
               name="reference_id"
               placeholder="ID"
               min="1"
+              [disabled]="lockReference()"
             />
           </div>
         </div>
@@ -119,7 +120,7 @@ import { Ticket } from '../../../core/models';
     }
   `],
 })
-export class TicketFormComponent {
+export class TicketFormComponent implements OnInit {
   private readonly api = environment.apiUrl;
 
   subject = '';
@@ -130,12 +131,37 @@ export class TicketFormComponent {
 
   submitting = signal(false);
   error = signal('');
+  lockReference = signal(false);
 
   constructor(
     private http: HttpClient,
     private router: Router,
+    private route: ActivatedRoute,
     private notify: NotificationService,
   ) {}
+
+  ngOnInit(): void {
+    // Prefill + lock the reference when arriving from a per-item Support button.
+    // Accept both key styles (ref_type/ref_id and type/id) for robustness.
+    const qp = this.route.snapshot.queryParamMap;
+    const refType = qp.get('ref_type') ?? qp.get('type');
+    const refId = qp.get('ref_id') ?? qp.get('id');
+    const subject = qp.get('subject');
+
+    if (subject) {
+      this.subject = subject;
+    }
+    if (refType) {
+      this.reference_type = refType;
+    }
+    if (refId !== null && refId !== '') {
+      this.reference_id = Number(refId);
+    }
+    // Lock the type/id controls only when a valid reference came in via query params.
+    if (refType && refId !== null && refId !== '') {
+      this.lockReference.set(true);
+    }
+  }
 
   onSubmit(): void {
     if (!this.subject.trim() || !this.description.trim()) {
@@ -152,7 +178,7 @@ export class TicketFormComponent {
       priority: this.priority,
     };
 
-    if (this.reference_type && ['ad', 'adset', 'campaign'].includes(this.reference_type)) {
+    if (this.reference_type && ['ad', 'adset', 'campaign', 'space'].includes(this.reference_type)) {
       payload['ticketable_type'] = this.reference_type;
       payload['ticketable_id'] = this.reference_id;
     }

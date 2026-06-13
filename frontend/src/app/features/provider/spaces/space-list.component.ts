@@ -13,8 +13,24 @@ import { Space } from '../../../core/models';
   template: `
     <div class="page-header">
       <h1>My Spaces</h1>
-      <a routerLink="/provider/spaces/new" class="btn btn-primary" style="width:auto">+ Add Space</a>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button type="button" class="btn btn-sm help-btn" (click)="showIcalHelp.set(true)" title="How to get a public calendar (ICS) URL">?</button>
+        <a routerLink="/provider/spaces/new" class="btn btn-primary" style="width:auto">+ Add Space</a>
+      </div>
     </div>
+
+    @if (showIcalHelp()) {
+      <div class="modal-backdrop" (click)="showIcalHelp.set(false)">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <h2>Getting a public calendar (ICS) URL</h2>
+          <p>Connect a calendar so booked dates block automatically. You need a <strong>public ICS link</strong>:</p>
+          <p><strong>Google Calendar:</strong> open Settings &rarr; select your calendar &rarr; "Integrate calendar" &rarr; copy the <em>Public address in iCal format</em> (ends in <code>.ics</code>). The calendar must be set to public.</p>
+          <p><strong>Outlook / Microsoft 365:</strong> open Calendar settings &rarr; "Shared calendars" &rarr; Publish a calendar &rarr; choose permissions &rarr; copy the <em>ICS</em> link.</p>
+          <p>Paste that link into a space's iCal URL field. We re-sync daily; the badge below shows when a calendar hasn't refreshed in over {{ stalenessDays }} days.</p>
+          <button type="button" class="btn btn-primary" style="width:auto" (click)="showIcalHelp.set(false)">Got it</button>
+        </div>
+      </div>
+    }
 
     @if (loading()) {
       <div class="loading-container"><span class="spinner"></span></div>
@@ -46,6 +62,11 @@ import { Space } from '../../../core/models';
                 <tr>
                   <td>
                     <a [routerLink]="['/provider/spaces', space.id]" class="link">{{ space.name }}</a>
+                    @if (isStale(space)) {
+                      <span class="badge badge-stale" [title]="'Calendar last synced ' + staleDays(space) + ' days ago'">
+                        Calendar {{ staleDays(space) }} days old &mdash; refresh
+                      </span>
+                    }
                   </td>
                   <td>
                     <span class="badge" [class]="'badge type-' + space.type">
@@ -92,6 +113,50 @@ import { Space } from '../../../core/models';
     .type-little_screen { background: #fce7f3; color: #9d174d; }
     .type-radio_station { background: #fef3c7; color: #92400e; }
     .type-other { background: #f3f4f6; color: #374151; }
+    .badge-stale {
+      display: inline-block;
+      margin-left: 8px;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+      font-size: 11px;
+    }
+    .help-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      padding: 0;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+    .modal-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .modal-card h2 { margin-top: 0; }
+    .modal-card p { line-height: 1.5; }
+    .modal-card code {
+      background: #f3f4f6;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 13px;
+    }
   `],
 })
 export class SpaceListComponent implements OnInit {
@@ -99,6 +164,11 @@ export class SpaceListComponent implements OnInit {
   loading = signal(false);
   error = signal('');
   deleting = signal(false);
+  showIcalHelp = signal(false);
+
+  // Staleness threshold in days. No frontend SystemConfiguration service is
+  // available, so default to 7 per the calendar_staleness_days config.
+  readonly stalenessDays = 7;
 
   private readonly api = environment.apiUrl;
 
@@ -148,5 +218,23 @@ export class SpaceListComponent implements OnInit {
 
   formatType(type: string): string {
     return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  /** Whole days since the calendar was last synced, or null if never synced. */
+  staleDays(space: Space): number | null {
+    if (!space.calendar_synced_at) {
+      return null;
+    }
+    const synced = new Date(space.calendar_synced_at).getTime();
+    if (isNaN(synced)) {
+      return null;
+    }
+    return Math.floor((Date.now() - synced) / 86_400_000);
+  }
+
+  /** True when a synced calendar has gone stale (older than the threshold). */
+  isStale(space: Space): boolean {
+    const days = this.staleDays(space);
+    return days !== null && days > this.stalenessDays;
   }
 }

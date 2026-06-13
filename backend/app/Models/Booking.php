@@ -18,6 +18,7 @@ class Booking extends Model
         'end_date',
         'total_price',
         'status',
+        'config_snapshot',
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class Booking extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'total_price' => 'decimal:2',
+            'config_snapshot' => 'array',
         ];
     }
 

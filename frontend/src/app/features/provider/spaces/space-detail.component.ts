@@ -21,6 +21,9 @@ import { Space, SpacePhoto, SpaceAvailability } from '../../../core/models';
         <h1>{{ space()!.name }}</h1>
         <div class="header-actions">
           <a [routerLink]="['/provider/spaces', space()!.id, 'edit']" class="btn">Edit</a>
+          <a routerLink="/tickets/new"
+            [queryParams]="{ ref_type: 'space', ref_id: space()!.id, subject: 'Issue with space: ' + space()!.name }"
+            class="btn">🎫 Support</a>
           <a routerLink="/provider/spaces" class="btn">Back to Spaces</a>
         </div>
       </div>
@@ -189,9 +192,21 @@ import { Space, SpacePhoto, SpaceAvailability } from '../../../core/models';
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div class="form-group" style="margin-bottom:0;">
-            <label for="ical-url">Public iCal URL</label>
+            <label for="ical-url">
+              Public iCal URL
+              <button type="button" class="help-btn" (click)="showIcalHelp.set(!showIcalHelp())"
+                title="How does calendar sync work?">?</button>
+            </label>
             <input id="ical-url" type="url" [(ngModel)]="icalUrl" name="icalUrl"
               placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
+            @if (showIcalHelp()) {
+              <p class="help-text">
+                Paste a public iCal/Google Calendar link (ending in <code>.ics</code>).
+                Days with calendar events are marked occupied; blank days stay available.
+                Use the optional keyword to count only matching events. You can also upload
+                an <code>.ics</code> file directly. Synced calendars refresh daily.
+              </p>
+            }
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label for="cal-keyword">Calendar Keyword <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(optional)</span></label>
@@ -322,6 +337,29 @@ import { Space, SpacePhoto, SpaceAvailability } from '../../../core/models';
       opacity: 0.5;
       pointer-events: none;
     }
+
+    .help-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      margin-left: 6px;
+      padding: 0;
+      font-size: 11px;
+      line-height: 1;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg-muted, #f3f4f6);
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .help-text {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
   `],
 })
 export class SpaceDetailComponent implements OnInit {
@@ -338,6 +376,7 @@ export class SpaceDetailComponent implements OnInit {
   syncingCalendar = signal(false);
   uploadingIcal = signal(false);
   calendarSyncResult = signal<string | null>(null);
+  showIcalHelp = signal(false);
 
   icalUrl = '';
   calendarKeyword = '';
@@ -510,7 +549,7 @@ export class SpaceDetailComponent implements OnInit {
     if (!input.files?.length) return;
 
     const formData = new FormData();
-    formData.append('ics_file', input.files[0]);
+    formData.append('file', input.files[0]);
 
     this.uploadingIcal.set(true);
     this.calendarSyncResult.set(null);

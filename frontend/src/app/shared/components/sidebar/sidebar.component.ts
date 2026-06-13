@@ -31,6 +31,7 @@ export class SidebarComponent {
           { label: 'Campaigns', icon: '📢', route: '/client/campaigns' },
           { label: 'Bookings', icon: '📅', route: '/client/bookings' },
           { label: 'Invoices', icon: '📄', route: '/client/invoices' },
+          { label: 'Wallet', icon: '👛', route: '/client/wallet' },
           { label: 'Messages', icon: '💬', route: '/conversations' },
           { label: 'Support', icon: '🎫', route: '/tickets' },
         ];
@@ -48,6 +49,8 @@ export class SidebarComponent {
           { label: 'Dashboard', icon: '📊', route: '/dashboard' },
           { label: 'Users', icon: '👥', route: '/admin/users' },
           { label: 'Permissions', icon: '🔐', route: '/admin/permissions' },
+          { label: 'Oversight', icon: '👁️', route: '/admin/oversight' },
+          { label: 'Configurations', icon: '⚙️', route: '/admin/config' },
         ];
       case 'support':
         return [

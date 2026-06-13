@@ -95,7 +95,27 @@ interface PaymentWithBooking extends Payment {
                           Reject
                         </button>
                       } @else {
-                        <span class="text-muted">--</span>
+                        <button
+                          class="btn btn-sm btn-secondary"
+                          [disabled]="actionLoading()"
+                          (click)="refundPayment(payment)"
+                        >
+                          Refund
+                        </button>
+                        <button
+                          class="btn btn-sm btn-success"
+                          [disabled]="actionLoading()"
+                          (click)="releasePayout(payment)"
+                        >
+                          Release payout
+                        </button>
+                        <button
+                          class="btn btn-sm btn-warning"
+                          [disabled]="actionLoading()"
+                          (click)="holdPayout(payment)"
+                        >
+                          Hold payout
+                        </button>
                       }
                     </div>
                   </td>
@@ -208,6 +228,39 @@ export class PaymentListComponent implements OnInit {
       error: (err) => {
         this.actionLoading.set(false);
         this.notify.error(err.error?.message || 'Failed to reject payment.');
+      },
+    });
+  }
+
+  refundPayment(payment: PaymentWithBooking): void {
+    if (!confirm(`Refund payment of ${payment.amount} for booking #${payment.booking_id}?`)) return;
+    this.payoutAction(payment, `payments/${payment.id}/refund`, 'Payment refunded.', 'Failed to refund payment.');
+  }
+
+  releasePayout(payment: PaymentWithBooking): void {
+    if (!confirm(`Release payout for booking #${payment.booking_id}?`)) return;
+    this.payoutAction(payment, `payments/${payment.id}/payout/release`, 'Payout released.', 'Failed to release payout.');
+  }
+
+  holdPayout(payment: PaymentWithBooking): void {
+    if (!confirm(`Hold payout for booking #${payment.booking_id}?`)) return;
+    this.payoutAction(payment, `payments/${payment.id}/payout/hold`, 'Payout held.', 'Failed to hold payout.');
+  }
+
+  private payoutAction(payment: PaymentWithBooking, path: string, ok: string, fail: string): void {
+    this.actionLoading.set(true);
+
+    this.http.post<PaymentWithBooking>(`${this.api}/payments/${path}`, {}).subscribe({
+      next: (res) => {
+        this.payments.update(list =>
+          list.map(p => p.id === payment.id ? { ...p, ...res } : p)
+        );
+        this.actionLoading.set(false);
+        this.notify.success(`${ok} Status: ${res.status}`);
+      },
+      error: (err) => {
+        this.actionLoading.set(false);
+        this.notify.error(err.error?.message || fail);
       },
     });
   }

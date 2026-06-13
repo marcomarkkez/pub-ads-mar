@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Shared;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Services\PiiMaskingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,7 +24,16 @@ class MessageController extends Controller
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
-        return response()->json($conversation->messages()->with('sender')->oldest()->get());
+        $masker = app(PiiMaskingService::class);
+
+        $messages = $conversation->messages()->with('sender')->oldest()->get()
+            ->map(function ($message) use ($masker, $user, $conversation) {
+                $message->body = $masker->mask($message->body, $user, $conversation);
+
+                return $message;
+            });
+
+        return response()->json($messages);
     }
 
     public function store(Request $request, Conversation $conversation): JsonResponse
@@ -38,29 +48,13 @@ class MessageController extends Controller
             'body' => 'required|string|max:5000',
         ]);
 
-        // Filter contact info from message body
-        $body = $this->filterContactInfo($validated['body']);
-
+        // C06: persist the RAW body — PII is masked at render time (index)
+        // by the PiiMaskingService so admins can still read originals.
         $message = $conversation->messages()->create([
             'sender_user_id' => $user->id,
-            'body' => $body,
+            'body' => $validated['body'],
         ]);
 
         return response()->json($message->load('sender'), 201);
-    }
-
-    private function filterContactInfo(string $body): string
-    {
-        // Strip phone numbers (various formats)
-        $body = preg_replace('/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/', '[phone removed]', $body);
-
-        // Strip email addresses
-        $body = preg_replace('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', '[email removed]', $body);
-
-        // Strip URLs
-        $body = preg_replace('/https?:\/\/[^\s]+/', '[link removed]', $body);
-        $body = preg_replace('/www\.[^\s]+/', '[link removed]', $body);
-
-        return $body;
     }
 }

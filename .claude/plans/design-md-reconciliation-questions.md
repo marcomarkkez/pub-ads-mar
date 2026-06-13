@@ -239,22 +239,22 @@ block + an "ARCHITECTURE NOTES" block were appended to design.md. A 3-agent team
 
 ## Still OPEN — owner decisions (new or still unresolved)
 - **Q26. Clawback policy** — client suspended/fraudulent after a refund landed in
-  (and possibly withdrawn from) their wallet: claw back, freeze wallet, or write off?
+  (and possibly withdrawn from) their wallet: claw back, freeze wallet, or write off? {freeze until admin decide, payments can't take any money}
 - **Q27. Config change effect on in-flight bookings** — when Admin changes proof
   deadline / re-upload window / strike threshold, apply to live bookings or only
-  new ones? (design.md recommends snapshot-at-creation; confirm.)
+  new ones? (design.md recommends snapshot-at-creation; confirm.) {make a checkbox to apply changes to old bookings}
 - **Q28. Pre-pay cross-queue precedence** — does a funded pre-pay offer beat an
-  older unfunded FCFS "book for later" entry when a slot frees?
+  older unfunded FCFS "book for later" entry when a slot frees? {that's provider decision I think, please use logic}
 - **Q29. Re-upload clock during dispute** — does the 48 h proof re-upload window
-  pause while a provider's dispute is open?
+  pause while a provider's dispute is open? {No, in this case don't stop}
 - **Q30. Proof re-upload loop bound** — max number of reject→re-upload cycles
-  before escalation / hard final deadline?
+  before escalation / hard final deadline? {2 strikes, configurable by admin}
 - **Q31. SMS provider** — three+ events require SMS; pick a provider (Twilio?) or
-  formally defer SMS to a later phase.
-- Plus still-open value questions from Round 1: refund-tier % (Q9), pre-pay
-  escrow expiry length (Q10), rate-limit thresholds (Q11), audit retention (Q14),
-  currency unit confirmed centavos (Q16, now defaulted), ratings comment
-  visibility + abuse reviewer (Q17), date-flexibility semantics (Q18).
+  formally defer SMS to a later phase. {suggest providers for SMS}
+- Plus still-open value questions from Round 1: refund-tier % (Q9) {admin config}, pre-pay
+  escrow expiry length (Q10) {Admin config}, rate-limit thresholds (Q11) {explain this}, audit retention (Q14) {explain this},
+  currency unit confirmed centavos (Q16, now defaulted) {yes}, ratings comment
+  visibility + abuse reviewer (Q17) {explain}, date-flexibility semantics (Q18) {I think dates should be exact, but please explain}.
 
 ## Architecture verdict (team opinion, condensed)
 Sound and buildable on Laravel+Angular+Postgres; the separation-of-powers model
@@ -379,3 +379,73 @@ Policy / scope
   GDPR / LFPDPPP obligations in scope?
 - **O24. Calendar-staleness clock** — measured from last manual edit, last
   successful sync, or space creation? does it fire for a live auto-syncing URL?
+
+---
+
+# ROUND 4 — 2026-06-12 (owner answered O1–O24; all applied to design.md, nothing left open)
+
+The owner answered every O-question. Decisions applied to `design.md` and all
+remaining `OWNER-DECISION` markers cleared. **No reconciliation questions remain
+open.** This file is now decision history only; `design.md` is the authority.
+
+## Decisions applied this round
+Money & payout
+- **O1 Gateway fees** → CLIENT pays (gross; fee added on top at checkout).
+- **O2 Multi-provider payout** → PER-PROVIDER; each provider sets their own pay day.
+- **O3 Payout-hold on dispute** → no hard auto-resolve cap; stays held until the
+  dispute is resolved by human adjudication, then pays in full if upheld.
+- **O4 Clawback** → FREEZE the client's wallet + alert Payments; Payments can't
+  pull funds; frozen balance waits for an Admin decision.
+- **O5 Straddling pricing tiers** → CHEAPEST valid decomposition (largest cheaper
+  blocks first; e.g. 1 month + 10 days if it beats 40 × daily). [logic-applied]
+
+Booking / proof / pre-pay
+- **O6 Pre-pay precedence** → PROVIDER chooses; confirming one offer cancels +
+  wallet-refunds all other pre-pay offers for that slot.
+- **O7 Re-upload loop** → Support intervenes once the 48 h re-upload window
+  elapses (no unbounded cycling).
+- **O8 Partial go-live** → PER-AD; approved ads run independently; a slow/rejected
+  provider never blocks the rest. [logic-applied]
+- **O9 Proof geotag** → NO automated geotag check (space belongs to the provider,
+  no "wrong space" to detect); mismatches caught by client flag → Support. [logic-applied]
+- **O10 Config change effect** → Configurations screen CHECKBOX "apply to in-flight
+  too" vs "new only"; default = snapshot-at-creation (unchecked).
+
+Catalog / availability
+- **O11 Date-flexibility filter** → REMOVED; dates are exact (users/providers add
+  their own slack via wider windows or "book for later").
+- **O12 Orphan spaces** → client MAY check out a partial campaign, but any ad
+  still orphaned (no adset) can't go live and its payment can't process.
+- **O13 Radio "in range"** → the current MAP view range (typically a whole city);
+  not listener location or broadcast footprint.
+- **O14 Imported calendar offline** → fall back to last-known/manual range;
+  availability does NOT vanish; staleness alert prompts a fix.
+
+Conversations / support
+- **O15 Inquiry→booking transition** → on BOTH provider approval AND client payment.
+- **O16 Support joins masked thread** → sees FULL prior history unmasked (near-admin).
+- **O17 Support closing a ticket** → may close the ticket state without consent,
+  but the conversation stays LIVE/visible historically and is re-openable.
+- **O18 Mismatch-flag authority** → a flag FREEZES the payout and alerts Support
+  (adjudicates). (Existing proof-section text already covered this.)
+- **O19 Street-address masking** → whitelist the space's OWN stored address (it
+  has an owner); mask every other address in chat.
+
+Policy / scope
+- **O20 Strike appeal** → SUPPORT can remove a strike when the provider opens a
+  ticket (reversible, audited).
+- **O21 SMS provider** → Twilio default, Vonage fallback (MSG91 cheaper-MX option);
+  mocked until keys; SMS only for Payments alerts + cancellations. [recommended-default]
+- **O22 Legal docs** → standing documents that apply to everyone using the
+  platform; surfaced in footer + checkout link (already in design.md).
+- **O23 Launch scope** → MONTERREY, Mexico first; Mexico-first, single city; MXN
+  centavos; America/Monterrey tz; multi-country/non-Spanish out of initial scope.
+- **O24 Calendar-staleness clock** → from last successful SYNC (URL/iCal) or last
+  manual EDIT (hand-managed); never from creation; a healthy auto-syncing URL
+  never fires. [logic-applied]
+
+## Status
+design.md is fully reconciled with cases-v2.md across Rounds 1–4. Next concrete
+step is no longer a design question — it is the SCHEMA work (beads `4ri`, `h6a`,
+`2r6`, `8qi`): reconcile ARCHITECTURE.md to design.md, starting with the money
+ledger + canonical booking/proof state enums.

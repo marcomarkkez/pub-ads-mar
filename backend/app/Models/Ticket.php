@@ -20,6 +20,18 @@ class Ticket extends Model
         'assigned_to_user_id',
     ];
 
+    protected $appends = ['reference_type', 'reference_id'];
+
+    public function getReferenceTypeAttribute(): ?string
+    {
+        return $this->ticketable_type;
+    }
+
+    public function getReferenceIdAttribute(): ?int
+    {
+        return $this->ticketable_id;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

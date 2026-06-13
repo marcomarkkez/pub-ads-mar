@@ -13,6 +13,8 @@ export interface Space {
   height: number | null;
   ical_url: string | null;
   calendar_keyword: string | null;
+  calendar_synced_at: string | null;
+  address: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -20,6 +22,7 @@ export interface Space {
   availabilities?: SpaceAvailability[];
   provider?: { id: number; name: string; company_name: string | null };
   distance_km?: number;
+  available?: boolean;
 }
 
 export interface SpacePhoto {

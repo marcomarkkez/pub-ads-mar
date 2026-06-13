@@ -86,7 +86,7 @@ interface ProofWithBooking extends Proof {
               <span>{{ proof.created_at | date:'short' }}</span>
             </div>
 
-            @if (proof.status === 'pending') {
+            @if (proof.status === 'pending_review') {
               <div class="proof-actions">
                 <button
                   class="btn btn-sm btn-success"
@@ -199,9 +199,9 @@ export class ProofReviewListComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
 
-    this.http.get<ProofWithBooking[]>(`${this.api}/payments/proofs`).subscribe({
+    this.http.get<{ data: ProofWithBooking[] }>(`${this.api}/payments/proofs`).subscribe({
       next: (res) => {
-        this.proofs.set(res);
+        this.proofs.set(res.data ?? []);
         this.loading.set(false);
       },
       error: (err) => {
@@ -217,13 +217,13 @@ export class ProofReviewListComponent implements OnInit {
 
     this.actionLoading.set(true);
 
-    this.http.post<{ data: ProofWithBooking }>(
+    this.http.post<ProofWithBooking>(
       `${this.api}/payments/proofs/${proof.id}/approve`,
       {}
     ).subscribe({
       next: (res) => {
         this.proofs.update(list =>
-          list.map(p => p.id === proof.id ? { ...p, ...res.data } : p)
+          list.map(p => p.id === proof.id ? { ...p, ...res } : p)
         );
         this.actionLoading.set(false);
         this.notify.success('Proof approved.');
@@ -240,13 +240,13 @@ export class ProofReviewListComponent implements OnInit {
 
     this.actionLoading.set(true);
 
-    this.http.post<{ data: ProofWithBooking }>(
+    this.http.post<ProofWithBooking>(
       `${this.api}/payments/proofs/${proof.id}/reject`,
       {}
     ).subscribe({
       next: (res) => {
         this.proofs.update(list =>
-          list.map(p => p.id === proof.id ? { ...p, ...res.data } : p)
+          list.map(p => p.id === proof.id ? { ...p, ...res } : p)
         );
         this.actionLoading.set(false);
         this.notify.success('Proof rejected.');

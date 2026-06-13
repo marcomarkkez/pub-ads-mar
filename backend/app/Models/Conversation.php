@@ -12,7 +12,16 @@ class Conversation extends Model
         'space_id',
         'client_user_id',
         'provider_user_id',
+        'type',
+        'support_joined_at',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'support_joined_at' => 'datetime',
+        ];
+    }
 
     public function space(): BelongsTo
     {

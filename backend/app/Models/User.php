@@ -88,4 +88,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Conversation::class, 'provider_user_id');
     }
+
+    public function walletEntries(): HasMany
+    {
+        return $this->hasMany(WalletEntry::class);
+    }
 }
