@@ -110,8 +110,25 @@ backlog flow is complete (POST campaigns/{c}/backlog, GET .../orphans, POST .../
 - Undo any single fix: `git checkout main -- <path>` (or revert the relevant commit).
 - TODO after this: `ng build` to verify TS, then bring up full stack + walk the 13 flows.
 
-## OUTSTANDING (needs the DB up to verify at runtime)
-- PostgreSQL is DOWN (port 5434 refused). Cannot run `php artisan migrate` / seed / endpoint tests.
-- TO FINISH: start PG17 (or Docker), then: `cd backend && php artisan migrate` (7 new migrations are
-  additive/alters), `php artisan db:seed` if needed, then exercise the 13 flows. Runtime behaviour of
-  the agent-written controllers is UNVERIFIED until then.
+### [2026-06-13] STEP 7 — RUNTIME VERIFICATION (DONE, against Docker "publisher" DB)
+DB now up via Docker. Ran `migrate:fresh --seed` from host against containerized PG (port 5435):
+- ALL 30 migrations applied cleanly (incl. all 8 new ones). Seed OK: 7 users, 6 spaces, 3 campaigns.
+- DB confirms B1: client role HAS proofs.read; M6 resource/action present.
+Smoke-tested real endpoints (host `php artisan serve` :8001 → container DB):
+- C01 roles: client/support/payments/admin all log in (25/5/7/20 perms). ✓
+- B1/M7: /me for client returns proofs.read=true. ✓
+- C03/C13 FULL FLOW: search (6 spaces) → create campaign → POST backlog (orphan ad) → GET orphans →
+  POST adsets/move → "Adset 1" with the ad. ✓  (this was the biggest gap — now works end-to-end)
+- C04/B2: reference-less support ticket created (ticketable=null). ✓
+- B3: support ticket queue returns an ARRAY (was a broken paginator). ✓
+- C10: payments refund → status refunded + wallet_entry written (77,500 MXN credited). ✓
+- C11: admin eagle-eye /admin/oversight/conversations → HTTP 200. ✓
+- ng build: exit 0 (all frontend fixes compile). ✓
+NOT runtime-tested (no seeded proofs / need UI interaction): C09 proof-flag, C05 calendar, C06 masking,
+C07 proof upload, C08 support-attach, C12 config apply-scope — all static/lint verified.
+
+## OUTSTANDING — full Docker "publisher" stack
+- `publisher_db` is UP + migrated + seeded. backend/nginx/frontend images still need BUILDING.
+- The image build must run in FOREGROUND (or by the user in PowerShell): backgrounding docker.exe
+  cancels the BuildKit context. Command: `docker compose up -d --build` (project name is "publisher").
+- Once up: API at http://localhost:8000, SPA at http://localhost:4200. Backend auto-migrates on boot.
