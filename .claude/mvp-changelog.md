@@ -127,8 +127,23 @@ Smoke-tested real endpoints (host `php artisan serve` :8001 → container DB):
 NOT runtime-tested (no seeded proofs / need UI interaction): C09 proof-flag, C05 calendar, C06 masking,
 C07 proof upload, C08 support-attach, C12 config apply-scope — all static/lint verified.
 
-## OUTSTANDING — full Docker "publisher" stack
-- `publisher_db` is UP + migrated + seeded. backend/nginx/frontend images still need BUILDING.
-- The image build must run in FOREGROUND (or by the user in PowerShell): backgrounding docker.exe
-  cancels the BuildKit context. Command: `docker compose up -d --build` (project name is "publisher").
-- Once up: API at http://localhost:8000, SPA at http://localhost:4200. Backend auto-migrates on boot.
+### [2026-06-14] STEP 8 — Full Docker "publisher" stack UP (DONE)
+ROOT CAUSE of the build cancellations: **Docker Desktop BuildKit context streaming is broken on this
+machine** — every `compose build`/`build` cancels at "transferring context" (~0.7s), foreground OR
+background, and regardless of pulls (plain `docker pull` works fine). This also explains why the user's
+PowerShell `compose up --build` only produced the db.
+FIX: **disable BuildKit — use the classic builder.** `DOCKER_BUILDKIT=0` (propagated to docker.exe via
+`export WSLENV=DOCKER_BUILDKIT:$WSLENV`) builds cleanly.
+  Command that works:  export WSLENV=DOCKER_BUILDKIT:$WSLENV; DOCKER_BUILDKIT=0 docker compose up -d --build
+Result: all 4 containers running — publisher_db (healthy), publisher_backend, publisher_nginx,
+publisher_frontend. Backend boot: "Nothing to migrate" (schema already applied; seeded data persists).
+VERIFIED LIVE through the real stack:
+- API via nginx http://localhost:8000 → login HTTP 200; authed space-search returns 6 spaces.
+- SPA http://localhost:4200 → ng serve compiled, HTTP 200.
+Login: client1@pubads.test / password (also support@/payments@/admin@pubads.test).
+
+>>> MVP LOCAL STACK IS COMPLETE AND RUNNING. <<<
+To start/stop later (ALWAYS disable BuildKit):
+  export WSLENV=DOCKER_BUILDKIT:$WSLENV
+  DOCKER_BUILDKIT=0 docker compose up -d        # start (no --build needed once images exist)
+  docker compose down                            # stop (keeps db volume + data)

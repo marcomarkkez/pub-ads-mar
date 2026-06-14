@@ -1006,5 +1006,33 @@ Verdict "Go, conditionally". Bug class: Angular↔Laravel response-shape boundar
 - Work on branch `mvp-build`; not pushed (git auth blocked). DB up via Docker "publisher".
 - Detailed per-fix log in `.claude/mvp-changelog.md` STEP 6.
 
+## Session 22 - 2026-06-14
+
+### Summary
+Got the full Docker "publisher" stack running and verified the MVP end-to-end through it.
+
+### Docker build blocker + fix
+- Every `docker compose build`/`docker build` cancelled at "transferring context" (~0.7s),
+  foreground or background, even with all base images pre-pulled (plain `docker pull` works).
+  This is a broken **BuildKit context streaming** on this machine — and is why the user's
+  PowerShell `compose up --build` only produced the db container.
+- FIX: disable BuildKit / use the classic builder:
+  `export WSLENV=DOCKER_BUILDKIT:$WSLENV; DOCKER_BUILDKIT=0 docker.exe compose up -d --build`.
+  Both images built cleanly; all 4 containers came up. (Added to CLAUDE.md Learnings.)
+
+### Stack verified LIVE
+- publisher_db (healthy) + publisher_backend + publisher_nginx + publisher_frontend all running.
+- Backend migrated-on-boot ("Nothing to migrate" — schema from earlier host run; data persists).
+- API via nginx http://localhost:8000 → login HTTP 200; authed space-search → 6 spaces.
+- SPA http://localhost:4200 → ng serve compiled, HTTP 200.
+- Login: client1@pubads.test / password (+ support@/payments@/admin@pubads.test).
+
+### Status
+- **MVP local stack COMPLETE and RUNNING.** Earlier session verified the 13-flow logic
+  (C01/C03/C13/C04/B1/B3/C10/C11) at runtime; remaining items (C05/C06/C07/C09/C12) are
+  static-verified, pending UI walk-through / more seed data.
+- Restart later: `export WSLENV=DOCKER_BUILDKIT:$WSLENV; DOCKER_BUILDKIT=0 docker compose up -d`.
+- Branch `mvp-build`; not pushed (git auth blocked).
+
 <!-- Add new sessions above this line -->
 
