@@ -82,6 +82,34 @@ backlog flow is complete (POST campaigns/{c}/backlog, GET .../orphans, POST .../
   OneDrive ENOENT, PG-down).
 - Closed beads wl7 (doc sync). Updated `.claude/todos/mvp-sprint.json`.
 
+### [2026-06-13] STEP 6 — Docker "publisher" + read-only review team + fixes (IN PROGRESS)
+- docker-compose.yml renamed to project **publisher** (containers publisher_db/backend/nginx/frontend,
+  network publisher_net). Driven via Windows `docker.exe` (WSL `docker` socket is root:docker, muchored
+  not in docker group — docker.exe bypasses it). DB container up; backend/frontend build must be run in
+  FOREGROUND or by the user (backgrounding the docker.exe build gets canceled by BuildKit).
+- Ran a READ-ONLY verification workflow (7 agents): returned "Go, conditionally" + 5 blocking + 7 major
+  + 6 minor, all located. Dominant bug class = Angular↔Laravel response-shape boundary (bare model vs
+  {data} envelope, centavos, snake_case relations) + 3 RBAC/schema gaps. Most backend logic confirmed sound.
+- FIXES APPLIED (sequential, by hand — no parallel agents):
+  Backend:
+  - B1 RolePermissionSeeder: client gets proofs=>[read] (unblocks proof-flag/auto-ticket C07/C09).
+  - B2 migration 2026_06_13_000100: tickets.ticketable_type/id nullable (reference-less tickets C04).
+  - B3 Support/TicketController index: paginate(20) -> latest()->get() (queue was always empty).
+  - B4 Proof model: $appends file_url + getFileUrlAttribute (reviewer/provider can see proof C05/C07).
+  - M6 RolePermission: add 'configurations' RESOURCE + 'refund' ACTION (admin roles editor).
+  - M7 AuthController register: include permissions (gated UI after register C01).
+  - M11 ProofFlagController: ownership guard (abort_unless booking.client_user_id == user) + preserve notes.
+  Frontend:
+  - M8 payment-list approve/reject: read res (not res.data).
+  - M9 wallet.component: balance_centavos/amount_centavos (÷100), ref_type instead of description.
+  - M10 campaign-detail addAdset/addAd/addCollaborator: push res (not res.data); ALSO send collaborator role.
+  - M12 proof-review-list: uploaded_by (not uploader).
+  - B5 campaign-detail: NEW orphan-backlog section + loadOrphans() + moveOrphansToAdset() (POST adsets/move)
+    — added spaces from search are now visible and become bookable.
+  - minor: oversight.component ticketable_type/id (was reference_type/id, badge never rendered).
+- Undo any single fix: `git checkout main -- <path>` (or revert the relevant commit).
+- TODO after this: `ng build` to verify TS, then bring up full stack + walk the 13 flows.
+
 ## OUTSTANDING (needs the DB up to verify at runtime)
 - PostgreSQL is DOWN (port 5434 refused). Cannot run `php artisan migrate` / seed / endpoint tests.
 - TO FINISH: start PG17 (or Docker), then: `cd backend && php artisan migrate` (7 new migrations are

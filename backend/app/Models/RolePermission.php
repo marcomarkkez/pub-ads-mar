@@ -38,10 +38,11 @@ class RolePermission extends Model
         'conversations',
         'invoices',
         'collaborators',
+        'configurations',
         'dashboard',
     ];
 
-    public const ACTIONS = ['create', 'read', 'update', 'delete'];
+    public const ACTIONS = ['create', 'read', 'update', 'delete', 'refund'];
 
     public static function roleHasPermission(string $role, string $resource, string $action): bool
     {

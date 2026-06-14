@@ -14,7 +14,7 @@ interface ProofWithBooking extends Proof {
     space?: { id: number; name: string };
     client?: { id: number; name: string };
   };
-  uploader?: { id: number; name: string };
+  uploaded_by?: { id: number; name: string };
 }
 
 @Component({
@@ -80,8 +80,8 @@ interface ProofWithBooking extends Proof {
             }
 
             <div class="proof-meta">
-              @if (proof.uploader) {
-                <span>Uploaded by: {{ proof.uploader.name }}</span>
+              @if (proof.uploaded_by) {
+                <span>Uploaded by: {{ proof.uploaded_by.name }}</span>
               }
               <span>{{ proof.created_at | date:'short' }}</span>
             </div>

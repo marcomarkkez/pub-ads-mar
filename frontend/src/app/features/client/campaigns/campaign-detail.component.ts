@@ -49,6 +49,32 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
         </div>
       </div>
 
+      <!-- Orphan Backlog (C03): spaces added from search, not yet in an adset -->
+      @if (orphans().length > 0) {
+        <div class="card" style="margin-bottom:24px;border:2px solid var(--warning, #f59e0b);">
+          <div class="card-header">
+            <h2>Unassigned spaces ({{ orphans().length }})</h2>
+          </div>
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
+            These spaces were added to the campaign but are not in an adset yet, so they can't be booked.
+            Move them into a new adset to continue.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+            @for (orphan of orphans(); track orphan.id) {
+              <span class="badge" style="background:var(--hover);padding:6px 10px;">{{ orphan.name }}</span>
+            }
+          </div>
+          <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
+            (click)="moveOrphansToAdset()" [disabled]="movingOrphans()">
+            @if (movingOrphans()) {
+              <span class="spinner"></span>
+            } @else {
+              Move all to a new adset
+            }
+          </button>
+        </div>
+      }
+
       <!-- Adsets Section -->
       <div class="card" style="margin-bottom:24px;">
         <div class="card-header">
@@ -173,6 +199,12 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
             placeholder="Collaborator email..."
             style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;"
           />
+          <select [(ngModel)]="newCollabRole" name="newCollabRole"
+            style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+            <option value="installator">Installator (proofs only)</option>
+            <option value="publicist">Publicist (campaigns/ads, no money)</option>
+            <option value="manager">Manager (everything incl. money)</option>
+          </select>
           <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
             (click)="addCollaborator()" [disabled]="addingCollab()">
             @if (addingCollab()) {
@@ -222,7 +254,12 @@ export class CampaignDetailComponent implements OnInit {
 
   // Collaborator form
   newCollabEmail = '';
+  newCollabRole: 'installator' | 'publicist' | 'manager' = 'publicist';
   addingCollab = signal(false);
+
+  // Orphan ads (backlog spaces added from search, not yet in an adset) — C03
+  orphans = signal<Ad[]>([]);
+  movingOrphans = signal(false);
 
   constructor(
     private http: HttpClient,
@@ -235,6 +272,7 @@ export class CampaignDetailComponent implements OnInit {
     this.loadCampaign();
     this.loadAdsets();
     this.loadCollaborators();
+    this.loadOrphans();
   }
 
   /* ── Data Loading ── */
@@ -266,6 +304,33 @@ export class CampaignDetailComponent implements OnInit {
     });
   }
 
+  loadOrphans(): void {
+    this.http.get<Ad[]>(`${this.api}/client/campaigns/${this.campaignId}/orphans`).subscribe({
+      next: (res) => this.orphans.set(res),
+      error: () => {},
+    });
+  }
+
+  /* ── Orphan backlog (C03) ── */
+
+  moveOrphansToAdset(): void {
+    const ad_ids = this.orphans().map(a => a.id);
+    if (ad_ids.length === 0) return;
+    this.movingOrphans.set(true);
+    this.http.post(`${this.api}/client/campaigns/${this.campaignId}/adsets/move`, { ad_ids }).subscribe({
+      next: () => {
+        this.movingOrphans.set(false);
+        this.notify.success('Spaces moved into a new adset — they are now bookable.');
+        this.loadAdsets();
+        this.loadOrphans();
+      },
+      error: (err) => {
+        this.movingOrphans.set(false);
+        this.notify.error(err.error?.message || 'Failed to move spaces into an adset.');
+      },
+    });
+  }
+
   /* ── Adsets ── */
 
   addAdset(): void {
@@ -274,11 +339,11 @@ export class CampaignDetailComponent implements OnInit {
       return;
     }
     this.addingAdset.set(true);
-    this.http.post<{ data: Adset }>(`${this.api}/client/campaigns/${this.campaignId}/adsets`, {
+    this.http.post<Adset>(`${this.api}/client/campaigns/${this.campaignId}/adsets`, {
       name: this.newAdsetName.trim(),
     }).subscribe({
       next: (res) => {
-        this.adsets.update(list => [...list, res.data]);
+        this.adsets.update(list => [...list, res]);
         this.newAdsetName = '';
         this.addingAdset.set(false);
         this.notify.success('Adset added.');
@@ -331,14 +396,14 @@ export class CampaignDetailComponent implements OnInit {
     formData.append('media_type', this.newAdMediaType);
     formData.append('file', this.selectedFile);
 
-    this.http.post<{ data: Ad }>(
+    this.http.post<Ad>(
       `${this.api}/client/campaigns/${this.campaignId}/adsets/${adset.id}/ads`,
       formData
     ).subscribe({
       next: (res) => {
         this.adsets.update(list =>
           list.map(a => a.id === adset.id
-            ? { ...a, ads: [...(a.ads || []), res.data] }
+            ? { ...a, ads: [...(a.ads || []), res] }
             : a
           )
         );
@@ -379,11 +444,12 @@ export class CampaignDetailComponent implements OnInit {
       return;
     }
     this.addingCollab.set(true);
-    this.http.post<{ data: Collaborator }>(`${this.api}/client/campaigns/${this.campaignId}/collaborators`, {
+    this.http.post<Collaborator>(`${this.api}/client/campaigns/${this.campaignId}/collaborators`, {
       email: this.newCollabEmail.trim(),
+      role: this.newCollabRole,
     }).subscribe({
       next: (res) => {
-        this.collaborators.update(list => [...list, res.data]);
+        this.collaborators.update(list => [...list, res]);
         this.newCollabEmail = '';
         this.addingCollab.set(false);
         this.notify.success('Collaborator added.');

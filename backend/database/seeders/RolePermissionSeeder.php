@@ -18,6 +18,7 @@ class RolePermissionSeeder extends Seeder
                 'ads'           => ['create', 'read', 'update', 'delete'],
                 'bookings'      => ['create', 'read', 'update'],
                 'spaces'        => ['read'],
+                'proofs'        => ['read'],
                 'conversations' => ['create', 'read'],
                 'tickets'       => ['create', 'read'],
                 'collaborators' => ['create', 'read', 'delete'],

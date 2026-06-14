@@ -977,5 +977,34 @@ by hand. Runtime verification is BLOCKED because PostgreSQL is down.
 - Work lives on branch `mvp-build` (commit `60741f0` + follow-ups); `main` is the clean baseline.
   Not pushed (git auth still blocked).
 
+## Session 21 - 2026-06-13 (continuation)
+
+### Summary
+Docker brought up as project "publisher"; ran a read-only verification agent team that
+returned a precise blocking/major/minor bug list; applied all of it by hand (sequential,
+no parallel writes). Saved mid-way for crash safety.
+
+### Docker
+- docker-compose.yml renamed to project **publisher** (publisher_db/backend/nginx/frontend).
+- WSL `docker` socket is root:docker and muchored isn't in the docker group; use Windows
+  `docker.exe` at "/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" which bypasses it.
+- db container UP and healthy. Backend/frontend image build must run in FOREGROUND (or by the
+  user in PowerShell) — backgrounding the docker.exe build makes BuildKit cancel ("context canceled").
+- Backend auto-migrates on boot (MIGRATE_ON_BOOT=true); compose env (DB_HOST=db) overrides host .env.
+
+### Read-only verification team (7 agents) → fixes applied
+Verdict "Go, conditionally". Bug class: Angular↔Laravel response-shape boundary + 3 RBAC/schema gaps.
+- Backend: client proofs perm (B1); tickets.ticketable nullable migration (B2); Support index
+  get() not paginate (B3); Proof file_url accessor (B4); RolePermission +configurations/+refund (M6);
+  register returns permissions (M7); ProofFlag ownership guard + notes preserve (M11).
+- Frontend: payment approve/reject res shape (M8); wallet centavos (M9); campaign-detail create
+  handlers res shape + collaborator role field (M10); proof-review uploaded_by (M12); NEW orphan
+  backlog UI + move-to-adset (B5); oversight ticketable_type (minor).
+
+### Status / Next
+- All php -l clean; `ng build` re-verify pending (next step). Then bring up full stack + walk 13 flows.
+- Work on branch `mvp-build`; not pushed (git auth blocked). DB up via Docker "publisher".
+- Detailed per-fix log in `.claude/mvp-changelog.md` STEP 6.
+
 <!-- Add new sessions above this line -->
 

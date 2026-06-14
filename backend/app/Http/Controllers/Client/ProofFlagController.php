@@ -14,10 +14,19 @@ class ProofFlagController extends Controller
 {
     public function flagMismatch(Request $request, Proof $proof): JsonResponse
     {
+        // Ownership guard: only the client who owns the proof's booking may flag it.
+        $proof->loadMissing('booking');
+        abort_unless(
+            $proof->booking && $proof->booking->client_user_id === $request->user()->id,
+            403,
+            'You can only flag proofs on your own bookings.'
+        );
+
         DB::transaction(function () use ($request, $proof) {
             $proof->update([
                 'status' => 'rejected',
-                'notes' => 'mismatch flagged by client',
+                // Preserve the provider's original notes; append the flag marker.
+                'notes' => trim(($proof->notes ? $proof->notes . ' | ' : '') . 'mismatch flagged by client'),
             ]);
 
             Ticket::create([

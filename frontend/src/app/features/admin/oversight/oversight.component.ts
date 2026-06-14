@@ -35,8 +35,8 @@ interface OversightTicket {
   subject: string;
   status?: string;
   priority?: string;
-  reference_type?: string | null;
-  reference_id?: number | null;
+  ticketable_type?: string | null;
+  ticketable_id?: number | null;
   user?: OversightUser;
   assignedTo?: OversightUser;
   messages?: OversightMessage[];
@@ -118,7 +118,7 @@ interface OversightTicket {
             </div>
             <div class="list__sub">
               {{ t.user?.name || '—' }}
-              <ng-container *ngIf="t.reference_type"> · {{ t.reference_type }}#{{ t.reference_id }}</ng-container>
+              <ng-container *ngIf="t.ticketable_type"> · {{ t.ticketable_type }}#{{ t.ticketable_id }}</ng-container>
             </div>
           </li>
           <li *ngIf="!tickets().length && !loading()" class="muted">No tickets.</li>

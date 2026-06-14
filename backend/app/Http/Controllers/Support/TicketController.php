@@ -21,7 +21,9 @@ class TicketController extends Controller
             $query->where('priority', $request->priority);
         }
 
-        $tickets = $query->latest()->paginate(20);
+        // Return a plain array (matches the client/shared ticket lists and the
+        // frontend support queue which sets the signal directly from the body).
+        $tickets = $query->latest()->get();
 
         return response()->json($tickets);
     }

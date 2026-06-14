@@ -5,14 +5,15 @@ import { environment } from '../../../../environments/environment';
 
 interface WalletEntry {
   id: number;
-  amount: number;
+  amount_centavos: number;
   type: string;
-  description: string | null;
+  ref_type: string | null;
+  ref_id: number | null;
   created_at: string;
 }
 
 interface WalletResponse {
-  balance: number;
+  balance_centavos: number;
   entries: WalletEntry[];
 }
 
@@ -41,16 +42,16 @@ interface WalletResponse {
           <div class="table-container">
             <table>
               <thead>
-                <tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th></tr>
+                <tr><th>Date</th><th>Type</th><th>Reference</th><th>Amount</th></tr>
               </thead>
               <tbody>
                 @for (entry of entries(); track entry.id) {
                   <tr>
                     <td>{{ entry.created_at | date:'short' }}</td>
                     <td>{{ entry.type }}</td>
-                    <td>{{ entry.description || '—' }}</td>
-                    <td [style.color]="entry.amount < 0 ? 'var(--danger)' : 'var(--success)'">
-                      {{ entry.amount | currency:'MXN' }}
+                    <td>{{ entry.ref_type ? (entry.ref_type + ' #' + entry.ref_id) : '—' }}</td>
+                    <td [style.color]="entry.amount_centavos < 0 ? 'var(--danger)' : 'var(--success)'">
+                      {{ (entry.amount_centavos / 100) | currency:'MXN' }}
                     </td>
                   </tr>
                 }
@@ -75,7 +76,7 @@ export class WalletComponent implements OnInit {
     this.loading.set(true);
     this.http.get<WalletResponse>(`${this.api}/client/wallet`).subscribe({
       next: (res) => {
-        this.balance.set(res.balance ?? 0);
+        this.balance.set((res.balance_centavos ?? 0) / 100);
         this.entries.set(res.entries ?? []);
         this.loading.set(false);
       },

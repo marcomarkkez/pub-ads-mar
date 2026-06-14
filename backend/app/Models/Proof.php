@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Proof extends Model
 {
+    protected $appends = ['file_url'];
+
     protected $fillable = [
         'ad_id',
         'booking_id',
@@ -27,6 +29,11 @@ class Proof extends Model
             'reviewed_at' => 'datetime',
             'deadline' => 'datetime',
         ];
+    }
+
+    public function getFileUrlAttribute(): string
+    {
+        return $this->file_path ? url('storage/' . $this->file_path) : '';
     }
 
     public function ad(): BelongsTo

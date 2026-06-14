@@ -191,13 +191,13 @@ export class PaymentListComponent implements OnInit {
 
     this.actionLoading.set(true);
 
-    this.http.post<{ data: PaymentWithBooking }>(
+    this.http.post<PaymentWithBooking>(
       `${this.api}/payments/payments/${payment.id}/approve`,
       {}
     ).subscribe({
       next: (res) => {
         this.payments.update(list =>
-          list.map(p => p.id === payment.id ? { ...p, ...res.data } : p)
+          list.map(p => p.id === payment.id ? { ...p, ...res } : p)
         );
         this.actionLoading.set(false);
         this.notify.success('Payment approved.');
@@ -214,13 +214,13 @@ export class PaymentListComponent implements OnInit {
 
     this.actionLoading.set(true);
 
-    this.http.post<{ data: PaymentWithBooking }>(
+    this.http.post<PaymentWithBooking>(
       `${this.api}/payments/payments/${payment.id}/reject`,
       {}
     ).subscribe({
       next: (res) => {
         this.payments.update(list =>
-          list.map(p => p.id === payment.id ? { ...p, ...res.data } : p)
+          list.map(p => p.id === payment.id ? { ...p, ...res } : p)
         );
         this.actionLoading.set(false);
         this.notify.success('Payment rejected.');
