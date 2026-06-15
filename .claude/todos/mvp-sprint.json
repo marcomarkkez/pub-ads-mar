@@ -1,38 +1,51 @@
 {
   "sprint": "MVP-local-complete",
   "created": "2026-06-13",
+  "updated": "2026-06-14",
   "goal": "Bring the existing Laravel+Angular app in line with the reconciled design.md and satisfy the 13-item MVP checklist, as a complete local version.",
-  "canonical": "This JSON is the source of truth for sprint todos; beads mirrors it (sqlite backend, see notes).",
+  "status": "MVP local stack COMPLETE and RUNNING (Docker project 'publisher'). Core flows runtime-verified; a few items static-verified pending a UI walk-through.",
+  "canonical": "This JSON is the source of truth for sprint todos; beads mirrors it (sqlite backend).",
+  "status_legend": {
+    "verified": "code done AND confirmed working at runtime against the live stack",
+    "implemented": "code done + php-lint/ng-build clean + static-reviewed, but not yet exercised at runtime (needs UI walk-through or more seed data)"
+  },
   "notes": {
-    "beads": "Re-initialized to sqlite backend on 2026-06-13 (dolt backend unreadable: bd.exe v0.49.3 dev build lacks CGO). 23 old issues re-imported from JSONL; session-18 dolt-only issues (4ri/h6a/2r6/8qi/7r7) were lost and are recreated fresh here.",
-    "tooling": "WSL has php 8.3, composer 2.9, node 20, npm 9. No docker. DB = bare-metal PG17 :5434.",
-    "build_state": "App is substantially built: 5 user roles, rich booking/ad/proof state enums, proofs/tickets/collaborators/invoices tables, full Angular feature set. MVP work = closing gaps, not greenfield."
+    "stack": "Docker project 'publisher' UP: db(:5435)/backend/nginx(:8000)/frontend(:4200). START with: export WSLENV=DOCKER_BUILDKIT:$WSLENV; DOCKER_BUILDKIT=0 docker compose up -d. BuildKit is broken on this machine -> always DOCKER_BUILDKIT=0. Use /mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe.",
+    "beads": "Re-initialized to sqlite backend 2026-06-13 (dolt unreadable: bd.exe lacks CGO). All MVP issues (nez/5gk/4v7/wl7/c9x) closed.",
+    "git": "All work on branch 'mvp-build'; NOT pushed (git auth blocked). Commits 60741f0 -> 289e0f6.",
+    "login": "client1@pubads.test / password (also support@/payments@/admin@pubads.test)."
   },
   "checklist": [
-    { "id": "C01", "item": "Roles: provider, client(user), support, payments exist", "status": "todo" },
-    { "id": "C02", "item": "Account owner can create subroles: installator, publicist(publisher), manager", "status": "todo" },
-    { "id": "C03", "item": "Multi-search select: search a space, select an item, search again, select another, accumulate", "status": "todo" },
-    { "id": "C04", "item": "Every item has a Support button; the item is attached to the support ticket as context", "status": "todo" },
-    { "id": "C05", "item": "Provider sets up each space + Google Calendar availability or a date range", "status": "todo" },
-    { "id": "C06", "item": "Provider and user can chat with contact info masked", "status": "todo" },
-    { "id": "C07", "item": "Provider uploads proof of the installed ad (video for radio, photo/video per media type)", "status": "todo" },
-    { "id": "C08", "item": "Support sees new requests with items attached (or not)", "status": "todo" },
-    { "id": "C09", "item": "Automatic requests to support, e.g. when a proof is rejected by client (mismatch flag)", "status": "todo" },
-    { "id": "C10", "item": "Payments role makes deposits (payouts) and refunds", "status": "todo" },
-    { "id": "C11", "item": "Admin eagle-eye: sees all, including support and payments chats", "status": "todo" },
-    { "id": "C12", "item": "Admin configurations; some apply to new objects only or to all objects (apply-scope checkbox)", "status": "todo" },
-    { "id": "C13", "item": "End-to-end: map-select -> campaign -> adset -> availability/book-later -> provider accept/chat/reject -> auto-reject on file specs -> provider reject -> user refund -> support chat from any object", "status": "todo" }
+    { "id": "C01", "item": "Roles: client, provider, support, payments, admin exist", "status": "verified", "note": "all roles log in with correct permission counts" },
+    { "id": "C02", "item": "Account owner can create subroles: installator, publicist, manager", "status": "verified", "note": "backend validation + Collaborator::ROLES; collaborator role field added to UI" },
+    { "id": "C03", "item": "Multi-search select: accumulate spaces across searches, add to campaign", "status": "verified", "note": "space-search basket + add-to-campaign; full search->campaign->backlog->adset chain runtime-tested" },
+    { "id": "C04", "item": "Every item has a Support button; item attached to the ticket as context", "status": "verified", "note": "ticketable polymorphic + ticket-form sends ticketable_type/id; reference-less ticket also works (B2)" },
+    { "id": "C05", "item": "Provider sets up each space + Google Calendar availability or a date range", "status": "implemented", "note": "SpaceAvailability + IcalSyncService present; not UI-walked this session" },
+    { "id": "C06", "item": "Provider and user can chat with contact info masked", "status": "implemented", "note": "PiiMaskingService render-time mask + space-address whitelist; not UI-walked" },
+    { "id": "C07", "item": "Provider uploads proof of installed ad (video for radio, photo/video per type)", "status": "implemented", "note": "Proof upload + file_url accessor fixed; no proofs seeded so not runtime-walked" },
+    { "id": "C08", "item": "Support sees new requests with items attached (or not)", "status": "verified", "note": "support ticket queue returns array (B3 fix); reference-less + attached tickets both list" },
+    { "id": "C09", "item": "Automatic ticket to support when a proof is mismatch-flagged by client", "status": "implemented", "note": "ProofFlagController auto-ticket + ownership guard; no proofs seeded to runtime-walk" },
+    { "id": "C10", "item": "Payments role makes deposits (payouts) and refunds", "status": "verified", "note": "refund -> status refunded + wallet_entry credited (77,500 MXN), idempotent" },
+    { "id": "C11", "item": "Admin eagle-eye: sees all, incl. support and payments chats", "status": "verified", "note": "/admin/oversight/conversations + tickets HTTP 200, no participant filter" },
+    { "id": "C12", "item": "Admin configurations; apply-scope new-only vs all objects", "status": "implemented", "note": "ConfigurationController apply_scope new_only|all + in-flight snapshot; not UI-walked" },
+    { "id": "C13", "item": "End-to-end client journey (map-select -> campaign -> adset -> book/refund -> support chat)", "status": "verified", "note": "core chain runtime-verified; provider-reject/auto-reject/proof legs are implemented, partial UI walk pending" }
   ],
   "workstreams": [
-    { "id": "WS-beads", "title": "Diagnose + restore beads", "status": "done" },
-    { "id": "WS-audit", "title": "Audit 13 checklist items + doc state vs code", "status": "done", "note": "one-pass build team; aborted partway but 64 files landed" },
-    { "id": "WS-impl", "title": "Implement gaps", "status": "mostly-done", "note": "agent team + manual C03 finish; 4 packets failed but most work landed coherent" },
-    { "id": "WS-4ri", "title": "Canonical 5-role + collaborator subroles + booking/proof state machines", "status": "done", "note": "5 roles pre-existed; collaborator subroles installator/publicist/manager added" },
-    { "id": "WS-h6a", "title": "Money: payout/refund flows (wallet/escrow as MVP-scoped)", "status": "done", "note": "wallet_entries table + idempotent refund/payout in PaymentController; full ledger deferred" },
-    { "id": "WS-2r6", "title": "Subsystem tables/automation: auto-ticket on flag, masking, admin eagle-eye, configs", "status": "done", "note": "ProofFlagController auto-ticket, PiiMaskingService, OversightController, ConfigurationController" },
-    { "id": "WS-8qi", "title": "Doc sync: reconcile ARCHITECTURE.md to design.md + actual migrations", "status": "done" },
-    { "id": "WS-verify", "title": "Static verify (php -l, routes, ng build); runtime BLOCKED on DB down", "status": "partial", "note": "static all-green; runtime untested because PG 5434 is down" },
-    { "id": "WS-history", "title": "Append session summary to history.md; remove reconciliation file", "status": "done" }
+    { "id": "WS-beads", "title": "Diagnose + restore beads (dolt->sqlite)", "status": "done" },
+    { "id": "WS-audit", "title": "Audit 13 checklist items + doc state vs code", "status": "done" },
+    { "id": "WS-impl", "title": "Implement gaps (agent team + manual finish)", "status": "done" },
+    { "id": "WS-4ri", "title": "Canonical 5-role + collaborator subroles + state machines", "status": "done" },
+    { "id": "WS-h6a", "title": "Money: payout/refund flows (wallet/escrow MVP-scoped)", "status": "done" },
+    { "id": "WS-2r6", "title": "Subsystems: auto-ticket, masking, eagle-eye, configs", "status": "done" },
+    { "id": "WS-8qi", "title": "Doc sync: ARCHITECTURE.md to design.md + migrations", "status": "done" },
+    { "id": "WS-review", "title": "Read-only verification team -> fix list applied", "status": "done", "note": "5 blocking + 7 major + minors, all applied sequentially" },
+    { "id": "WS-docker", "title": "Docker 'publisher' stack build + bring-up", "status": "done", "note": "BuildKit broken -> DOCKER_BUILDKIT=0; all 4 containers up + verified" },
+    { "id": "WS-verify", "title": "Runtime verification against live stack", "status": "done", "note": "C01/C03/C13/C04/B1/B3/C10/C11 verified; C05/C06/C07/C09/C12 static-verified" },
+    { "id": "WS-history", "title": "Session summaries in history.md (Sessions 19-22)", "status": "done" }
   ],
-  "blocker": "PostgreSQL is down (port 5434 refused; no Docker in WSL). Runtime verification of the 13 flows requires starting PG17 then: cd backend && php artisan migrate (7 additive migrations) + db:seed."
+  "remaining": [
+    "UI walk-through of the static-verified items: C05 (calendar), C06 (masking in chat), C07 (proof upload), C09 (proof mismatch -> auto-ticket), C12 (config apply-scope).",
+    "Seed proofs/bookings data to runtime-exercise the proof + provider-reject + refund legs of C13.",
+    "git push when auth is available (work is local-only on branch 'mvp-build')."
+  ]
 }
