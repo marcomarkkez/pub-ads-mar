@@ -1034,5 +1034,47 @@ Got the full Docker "publisher" stack running and verified the MVP end-to-end th
 - Restart later: `export WSLENV=DOCKER_BUILDKIT:$WSLENV; DOCKER_BUILDKIT=0 docker compose up -d`.
 - Branch `mvp-build`; not pushed (git auth blocked).
 
+## Session 23 - 2026-06-15
+
+### Summary
+Kicked off the UI/behavior phase against a large owner change-list spanning all five
+role-sides. Per the owner's stated order (graphic → derive UI/endpoint needs → build),
+produced the foundational artifacts and the agreed first build step (seed data), all on
+the running "publisher" Docker stack.
+
+### Delivered
+- **Platform object graph** — `.claude/plans/platform-graph.md`: ASCII node graph
+  (Campaign→Adset→Ad→Space→Booking→Payment/Proof→Ticket→internal thread + Invoice/Wallet/
+  Conversation/Config/Audit) PLUS a role×object capability matrix (inspect/edit/silent🤫/
+  announce📣/money$/logged📝). Encodes: Support = eagle-eye + edit-all-non-money (logged),
+  Payments = only money mover, Admin = silent-by-default eagle-eye over everything,
+  collaborator subroles installator/publicist/manager.
+- **Endpoint audit** — `.claude/plans/ui-endpoint-audit.md`: a read-only analysis agent
+  classified all 26 requested items as UI-ONLY / DATA-ONLY / NEEDS-BACKEND with exact
+  routes. Most client/provider asks are UI-only (endpoints exist). Genuinely-new backend:
+  support edit-any + audit log (neither exists), provider collaborators, provider config,
+  admin per-object eagle-eye + filters, invoice line-items.
+  ROOT CAUSE found: `/conversations/{id}` infinite spinner = MessageController@index returns
+  a bare array but conversation-detail reads `res.data.conversation` → TypeError in next() →
+  loader never clears.
+- **Seed data** (the owner's "add some X to every UI") — `backend/database/seeders/MvpDemoSeeder.php`
+  (additive, idempotent-guarded), run in the publisher_backend container and verified via API:
+  provider bookings 5, payments-to-review 7 + proofs 4, support tickets 5 (Ad/Space attached +
+  internal Support↔Payments thread + reference-less), extra conversations, refund wallet entry.
+
+### Build order set (in ui-endpoint-audit.md)
+B1 UI bug-fixes (map render, conversation spinner, campaign edit+per-ad Book, map landing) →
+B2 provider polish (space view==edit, calendar-preferred accordion, proof booking dropdown) →
+B3 nav/header (Configurations tab, drop Dashboard, welcome+Help button) →
+B4 support powers (edit-any + audit log) → B5 admin eagle-eye (+filters, user split, RBAC employees) →
+B6 provider collaborators/config → B7 invoice per-ad rollup.
+
+### Commits (branch mvp-build, not pushed — git auth blocked)
+- 1bbf483 todo tracker to verified state
+- 6815944 UI phase kickoff: platform graph + endpoint audit + demo seeder
+
+### Next
+- Start B1 sequentially (change-logged; owner to close client component tabs to avoid save conflicts).
+
 <!-- Add new sessions above this line -->
 

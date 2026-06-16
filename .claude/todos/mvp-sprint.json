@@ -44,8 +44,26 @@
     { "id": "WS-history", "title": "Session summaries in history.md (Sessions 19-22)", "status": "done" }
   ],
   "remaining": [
-    "UI walk-through of the static-verified items: C05 (calendar), C06 (masking in chat), C07 (proof upload), C09 (proof mismatch -> auto-ticket), C12 (config apply-scope).",
-    "Seed proofs/bookings data to runtime-exercise the proof + provider-reject + refund legs of C13.",
     "git push when auth is available (work is local-only on branch 'mvp-build')."
-  ]
+  ],
+  "ui_phase": {
+    "started": "2026-06-15",
+    "goal": "Owner UI/behavior change-list (26 items across client/provider/payments/support/admin).",
+    "refs": [".claude/plans/platform-graph.md (object graph + role capabilities)", ".claude/plans/ui-endpoint-audit.md (per-item endpoint classification + build order)"],
+    "done": [
+      "Platform object graph + role-capability matrix (ASCII).",
+      "Endpoint audit of all 26 items (UI-only / data-only / needs-backend).",
+      "MvpDemoSeeder: bookings/proofs/payments/tickets-with-objects/conversations seeded + verified via API (provider bookings 5, payments 7 + proofs 4, support tickets 5)."
+    ],
+    "batches": [
+      { "id": "B1", "title": "UI bug-fixes: map render on click, /conversations spinner (backend shape), campaign spec edit + per-ad Book, map-centered landing", "status": "next" },
+      { "id": "B2", "title": "Provider polish: space view==edit layout, calendar-preferred + Availabilities accordion + ? help, proof booking dropdown, back-to-view", "status": "todo" },
+      { "id": "B3", "title": "Nav/header: Collaborators under Configurations tab, drop Dashboard, header welcome+name, Help ? button (contextual view-only ticket)", "status": "todo" },
+      { "id": "B4", "title": "Support powers (backend): edit-any-non-money object + audit_log table/writes/read", "status": "todo" },
+      { "id": "B5", "title": "Admin eagle-eye: rename Oversight->Activity, per-object 👁 menus + advanced node filters, per-ticket announced/silent, split Users by role, RBAC employees-only + support collab-role editor", "status": "todo" },
+      { "id": "B6", "title": "Provider-side collaborators (provider-scoped) + subroles + provider Configurations menu (account-admin gated)", "status": "todo" },
+      { "id": "B7", "title": "Invoices: per-ad / per-adset breakdown (line-items) per campaign", "status": "todo" },
+      { "id": "B-avail", "title": "Per-ad availability text ('Available' / 'Available in X days until <date>')", "status": "todo" }
+    ]
+  }
 }
