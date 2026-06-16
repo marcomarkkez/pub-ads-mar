@@ -147,3 +147,15 @@ To start/stop later (ALWAYS disable BuildKit):
   export WSLENV=DOCKER_BUILDKIT:$WSLENV
   DOCKER_BUILDKIT=0 docker compose up -d        # start (no --build needed once images exist)
   docker compose down                            # stop (keeps db volume + data)
+
+### [2026-06-15] STEP 9 — UI/behavior phase kickoff (graph + audit + seed)
+- Created `.claude/plans/platform-graph.md` (ASCII object graph + role×object capability matrix).
+- Created `.claude/plans/ui-endpoint-audit.md` (26 requested items classified UI-only / data-only /
+  needs-backend, with exact routes + the conversation-spinner root cause).
+- Added `backend/database/seeders/MvpDemoSeeder.php` (additive, idempotent-guarded) and ran it in the
+  publisher_backend container. Verified via API: provider bookings 5, payments-to-review 7 + proofs 4,
+  support tickets 5 (Ad/Space attached + internal Sup↔Pay thread + reference-less). Re-run:
+  `docker compose exec backend php artisan db:seed --class=MvpDemoSeeder`.
+- Undo seed: rows are additive demo data; to reset, `migrate:fresh --seed` then re-run MvpDemoSeeder.
+- NEXT (build order in ui-endpoint-audit.md): B1 UI bug-fixes (map, conversation spinner, campaign
+  edit+Book, landing) → B2 provider polish → B3 nav/header → B4 support powers → B5 admin eagle-eye → ...
