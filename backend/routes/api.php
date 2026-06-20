@@ -79,6 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Invoices
         Route::get('invoices', [InvoiceController::class, 'index'])->middleware('permission:invoices,read');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoices,read');
+        Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->middleware('permission:invoices,read');
 
         // Campaign backlog / orphan ads (C03)
         Route::post('campaigns/{campaign}/backlog', [BacklogController::class, 'addBacklog'])->middleware('permission:campaigns,update');

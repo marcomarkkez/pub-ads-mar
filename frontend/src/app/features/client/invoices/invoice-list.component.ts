@@ -33,6 +33,7 @@ import { Invoice } from '../../../core/models';
                 <th>Status</th>
                 <th>Issued At</th>
                 <th>Paid At</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -46,6 +47,16 @@ import { Invoice } from '../../../core/models';
                   </td>
                   <td>{{ invoice.issued_at ? (invoice.issued_at | date:'mediumDate') : '-' }}</td>
                   <td>{{ invoice.paid_at ? (invoice.paid_at | date:'mediumDate') : '-' }}</td>
+                  <td>
+                    <button class="btn btn-sm" [disabled]="downloadingId() === invoice.id"
+                      (click)="downloadPdf(invoice)" title="Download PDF">
+                      @if (downloadingId() === invoice.id) {
+                        <span class="spinner"></span>
+                      } @else {
+                        ⬇ PDF
+                      }
+                    </button>
+                  </td>
                 </tr>
               }
             </tbody>
@@ -70,6 +81,7 @@ export class InvoiceListComponent implements OnInit {
 
   invoices = signal<Invoice[]>([]);
   loading = signal(true);
+  downloadingId = signal<number | null>(null);
   currentPage = signal(1);
   lastPage = signal(1);
   pages = signal<number[]>([]);
@@ -93,6 +105,26 @@ export class InvoiceListComponent implements OnInit {
       error: (err) => {
         this.notify.error(err.error?.message || 'Failed to load invoices.');
         this.loading.set(false);
+      },
+    });
+  }
+
+  downloadPdf(invoice: Invoice): void {
+    this.downloadingId.set(invoice.id);
+    // Bearer token is added by the auth interceptor; fetch the PDF as a blob.
+    this.http.get(`${this.api}/client/invoices/${invoice.id}/pdf`, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice-${invoice.invoice_number}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.downloadingId.set(null);
+      },
+      error: () => {
+        this.notify.error('Failed to download the invoice PDF.');
+        this.downloadingId.set(null);
       },
     });
   }
