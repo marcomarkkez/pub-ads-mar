@@ -159,3 +159,31 @@ To start/stop later (ALWAYS disable BuildKit):
 - Undo seed: rows are additive demo data; to reset, `migrate:fresh --seed` then re-run MvpDemoSeeder.
 - NEXT (build order in ui-endpoint-audit.md): B1 UI bug-fixes (map, conversation spinner, campaign
   edit+Book, landing) → B2 provider polish → B3 nav/header → B4 support powers → B5 admin eagle-eye → ...
+
+### [2026-06-18] STEP 10 — B1 UI bug-fixes (sequential, single-writer)
+Files changed (B1 of the UI phase; see .claude/plans/ui-endpoint-audit.md):
+- backend/app/Http/Controllers/Shared/MessageController.php — index() now returns
+  {data:{conversation(loaded space/client/provider), messages}}; store() returns {data: message}.
+  Fixes #14 /conversations/{id} infinite spinner (frontend already consumed res.data.*).
+  RUNTIME-VERIFIED: GET messages → top key 'data' + conversation.space present + 2 msgs;
+  POST message → {data: body}.
+- frontend/src/app/core/models/campaign.model.ts — Ad interface: adset_id now nullable,
+  added space_id + optional space{} (needed by per-ad Book).
+- frontend/src/app/features/client/campaigns/campaign-detail.component.ts — #3:
+  (a) campaign spec inline edit form (name/description/status/budget/start/end) → PUT
+      /client/campaigns/{id} (startEditCampaign/saveCampaign + editingCampaign/savingCampaign).
+  (b) per-ad Book button + inline date form → POST /client/bookings with
+      {space_id, ad_id, adset_id, start_date, end_date} (openBookForm/bookAd + showBookFormFor/booking).
+  RUNTIME-VERIFIED: booking created id 8, status waiting_approval, ad_id 7, total 12500.
+- frontend/src/app/features/client/spaces/space-search.component.ts — #1/#2:
+  default to map view (showMap=true); new [map | results] split layout (.split-view CSS,
+  map sticky left + scrollable results right, single-col cards in map mode, responsive <880px);
+  initMap now invalidateSize()+updateMapMarkers() on a 0ms timeout so the map renders and draws
+  markers on first load even when mounted in a flex column. (Map render not headless-verifiable.)
+Gates: php -l clean (MessageController); ng build SUCCESS (campaign-detail + space-search chunks).
+Stack: publisher containers restarted (were Exited 39h); used to runtime-verify above.
+
+Also this step:
+- Renamed .claude/plans/cases-v2.md → cases.md (story backlog / compliance lens vs design.md).
+- platform-graph.md collaborator note corrected: collaborators are TWO separate ecosystems
+  (client-side + provider-side), each with its own subroles, scoped to their ecosystem.

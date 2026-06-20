@@ -33,7 +33,13 @@ class MessageController extends Controller
                 return $message;
             });
 
-        return response()->json($messages);
+        // Frontend (conversation-detail) expects { data: { conversation, messages } }.
+        return response()->json([
+            'data' => [
+                'conversation' => $conversation->load(['space', 'client', 'provider']),
+                'messages' => $messages,
+            ],
+        ]);
     }
 
     public function store(Request $request, Conversation $conversation): JsonResponse
@@ -55,6 +61,7 @@ class MessageController extends Controller
             'body' => $validated['body'],
         ]);
 
-        return response()->json($message->load('sender'), 201);
+        // Frontend (conversation-detail) expects { data: message }.
+        return response()->json(['data' => $message->load('sender')], 201);
     }
 }

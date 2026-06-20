@@ -22,31 +22,76 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
     } @else if (campaign()) {
       <!-- Campaign Info Card -->
       <div class="card" style="margin-bottom:24px;">
-        <div class="card-header">
-          <h2>{{ campaign()!.name }}</h2>
-          <span class="badge" [class]="'badge badge-' + campaign()!.status">{{ campaign()!.status }}</span>
-        </div>
-        @if (campaign()!.description) {
-          <p style="color:var(--text-muted);margin-bottom:12px;">{{ campaign()!.description }}</p>
+        @if (!editingCampaign()) {
+          <div class="card-header">
+            <h2>{{ campaign()!.name }}</h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="badge" [class]="'badge badge-' + campaign()!.status">{{ campaign()!.status }}</span>
+              <button class="btn btn-sm" (click)="startEditCampaign()">Edit</button>
+            </div>
+          </div>
+          @if (campaign()!.description) {
+            <p style="color:var(--text-muted);margin-bottom:12px;">{{ campaign()!.description }}</p>
+          }
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;font-size:13px;">
+            <div>
+              <span style="color:var(--text-muted);display:block;">Budget</span>
+              <strong>{{ campaign()!.budget !== null ? ('$' + campaign()!.budget) : 'Not set' }}</strong>
+            </div>
+            <div>
+              <span style="color:var(--text-muted);display:block;">Start Date</span>
+              <strong>{{ campaign()!.start_date || 'Not set' }}</strong>
+            </div>
+            <div>
+              <span style="color:var(--text-muted);display:block;">End Date</span>
+              <strong>{{ campaign()!.end_date || 'Not set' }}</strong>
+            </div>
+            <div>
+              <span style="color:var(--text-muted);display:block;">Created</span>
+              <strong>{{ campaign()!.created_at | date:'mediumDate' }}</strong>
+            </div>
+          </div>
+        } @else {
+          <div class="card-header"><h2>Edit Campaign</h2></div>
+          <div class="form-group">
+            <label>Name *</label>
+            <input type="text" [(ngModel)]="editForm.name" name="editName" />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea [(ngModel)]="editForm.description" name="editDescription" rows="2"></textarea>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div class="form-group" style="flex:1;min-width:140px;">
+              <label>Status</label>
+              <select [(ngModel)]="editForm.status" name="editStatus">
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:120px;">
+              <label>Budget</label>
+              <input type="number" [(ngModel)]="editForm.budget" name="editBudget" min="0" step="any" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:130px;">
+              <label>Start Date</label>
+              <input type="date" [(ngModel)]="editForm.start_date" name="editStart" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:130px;">
+              <label>End Date</label>
+              <input type="date" [(ngModel)]="editForm.end_date" name="editEnd" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
+              (click)="saveCampaign()" [disabled]="savingCampaign()">
+              @if (savingCampaign()) { <span class="spinner"></span> } @else { Save }
+            </button>
+            <button class="btn btn-sm" (click)="editingCampaign.set(false)">Cancel</button>
+          </div>
         }
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;font-size:13px;">
-          <div>
-            <span style="color:var(--text-muted);display:block;">Budget</span>
-            <strong>{{ campaign()!.budget !== null ? ('$' + campaign()!.budget) : 'Not set' }}</strong>
-          </div>
-          <div>
-            <span style="color:var(--text-muted);display:block;">Start Date</span>
-            <strong>{{ campaign()!.start_date || 'Not set' }}</strong>
-          </div>
-          <div>
-            <span style="color:var(--text-muted);display:block;">End Date</span>
-            <strong>{{ campaign()!.end_date || 'Not set' }}</strong>
-          </div>
-          <div>
-            <span style="color:var(--text-muted);display:block;">Created</span>
-            <strong>{{ campaign()!.created_at | date:'mediumDate' }}</strong>
-          </div>
-        </div>
       </div>
 
       <!-- Orphan Backlog (C03): spaces added from search, not yet in an adset -->
@@ -139,8 +184,29 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
                       <div style="font-weight:600;font-size:13px;">{{ ad.name }}</div>
                       <div style="font-size:12px;color:var(--text-muted);">{{ ad.media_type }} {{ ad.file_name ? '- ' + ad.file_name : '' }}</div>
                     </div>
+                    @if (ad.space_id) {
+                      <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
+                        (click)="openBookForm(ad)">Book</button>
+                    }
                     <button class="btn btn-sm btn-danger" (click)="deleteAd(adset, ad)">Delete</button>
                   </div>
+                  @if (showBookFormFor() === ad.id) {
+                    <div style="border:1px solid var(--border);border-radius:6px;padding:12px;margin:0 0 6px;background:var(--hover);display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+                      <div class="form-group" style="margin-bottom:0;">
+                        <label>Start Date *</label>
+                        <input type="date" [(ngModel)]="bookStart" name="bookStart" />
+                      </div>
+                      <div class="form-group" style="margin-bottom:0;">
+                        <label>End Date *</label>
+                        <input type="date" [(ngModel)]="bookEnd" name="bookEnd" />
+                      </div>
+                      <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
+                        (click)="bookAd(ad)" [disabled]="booking()">
+                        @if (booking()) { <span class="spinner"></span> } @else { Confirm booking }
+                      </button>
+                      <button class="btn btn-sm" (click)="showBookFormFor.set(null)">Cancel</button>
+                    </div>
+                  }
                 }
               </div>
             }
@@ -257,6 +323,24 @@ export class CampaignDetailComponent implements OnInit {
   newCollabRole: 'installator' | 'publicist' | 'manager' = 'publicist';
   addingCollab = signal(false);
 
+  // Campaign spec edit (#3)
+  editingCampaign = signal(false);
+  savingCampaign = signal(false);
+  editForm: {
+    name: string;
+    description: string;
+    status: 'draft' | 'active' | 'paused' | 'completed';
+    budget: number | null;
+    start_date: string;
+    end_date: string;
+  } = { name: '', description: '', status: 'draft', budget: null, start_date: '', end_date: '' };
+
+  // Per-ad booking (#3)
+  showBookFormFor = signal<number | null>(null);
+  bookStart = '';
+  bookEnd = '';
+  booking = signal(false);
+
   // Orphan ads (backlog spaces added from search, not yet in an adset) — C03
   orphans = signal<Ad[]>([]);
   movingOrphans = signal(false);
@@ -308,6 +392,84 @@ export class CampaignDetailComponent implements OnInit {
     this.http.get<Ad[]>(`${this.api}/client/campaigns/${this.campaignId}/orphans`).subscribe({
       next: (res) => this.orphans.set(res),
       error: () => {},
+    });
+  }
+
+  /* ── Campaign spec edit (#3) ── */
+
+  startEditCampaign(): void {
+    const c = this.campaign();
+    if (!c) return;
+    this.editForm = {
+      name: c.name,
+      description: c.description ?? '',
+      status: (c.status === 'cancelled' ? 'paused' : c.status) as 'draft' | 'active' | 'paused' | 'completed',
+      budget: c.budget,
+      start_date: c.start_date ?? '',
+      end_date: c.end_date ?? '',
+    };
+    this.editingCampaign.set(true);
+  }
+
+  saveCampaign(): void {
+    if (!this.editForm.name.trim()) {
+      this.notify.warning('Campaign name is required.');
+      return;
+    }
+    this.savingCampaign.set(true);
+    const payload = {
+      name: this.editForm.name.trim(),
+      description: this.editForm.description || null,
+      status: this.editForm.status,
+      budget: this.editForm.budget,
+      start_date: this.editForm.start_date || null,
+      end_date: this.editForm.end_date || null,
+    };
+    this.http.put<Campaign>(`${this.api}/client/campaigns/${this.campaignId}`, payload).subscribe({
+      next: (res) => {
+        this.campaign.set(res);
+        this.editingCampaign.set(false);
+        this.savingCampaign.set(false);
+        this.notify.success('Campaign updated.');
+      },
+      error: (err) => {
+        this.savingCampaign.set(false);
+        this.notify.error(err.error?.message || 'Failed to update campaign.');
+      },
+    });
+  }
+
+  /* ── Per-ad booking (#3) ── */
+
+  openBookForm(ad: Ad): void {
+    this.showBookFormFor.set(ad.id);
+    this.bookStart = '';
+    this.bookEnd = '';
+  }
+
+  bookAd(ad: Ad): void {
+    if (!ad.space_id) return;
+    if (!this.bookStart || !this.bookEnd) {
+      this.notify.warning('Please pick a start and end date.');
+      return;
+    }
+    this.booking.set(true);
+    this.http.post(`${this.api}/client/bookings`, {
+      space_id: ad.space_id,
+      ad_id: ad.id,
+      adset_id: ad.adset_id,
+      start_date: this.bookStart,
+      end_date: this.bookEnd,
+    }).subscribe({
+      next: () => {
+        this.booking.set(false);
+        this.showBookFormFor.set(null);
+        this.notify.success('Booking requested.');
+      },
+      error: (err) => {
+        this.booking.set(false);
+        this.notify.error(err.error?.message || 'Failed to create booking.');
+      },
     });
   }
 

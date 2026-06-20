@@ -133,13 +133,15 @@ const SPACE_ICON_SELECTED = L.divIcon({
       </div>
     }
 
-    <!-- Map View (always rendered so ViewChild is available; shown/hidden via CSS) -->
-    <div [style.display]="showMap() ? 'block' : 'none'" class="card" style="margin-bottom:24px;padding:0;overflow:hidden;">
-      <div #mapEl style="height:480px;width:100%;"></div>
-    </div>
+    <!-- Map-centered split layout (#2): [map | results]. In list view results go full-width. -->
+    <div [class.split-view]="showMap()">
+      <!-- Map (always rendered so ViewChild is available; shown/hidden via CSS) -->
+      <div [style.display]="showMap() ? 'block' : 'none'" class="card map-card">
+        <div #mapEl class="map-el"></div>
+      </div>
 
-    <!-- List Results -->
-    @if (!showMap()) {
+      <!-- Results pane -->
+      <div class="results-pane">
       @if (loading()) {
         <div class="loading-container"><span class="spinner"></span></div>
       } @else if (searched() && spaces().length === 0) {
@@ -148,7 +150,7 @@ const SPACE_ICON_SELECTED = L.divIcon({
           <p>No spaces found for this search. Try expanding your radius or changing filters.</p>
         </div>
       } @else if (spaces().length > 0) {
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+        <div [class]="showMap() ? 'cards-col' : 'cards-grid'">
           @for (space of spaces(); track space.id) {
             <div class="card" style="padding:0;overflow:hidden;cursor:pointer;"
               [class.selected-card]="selectedSpace()?.id === space.id"
@@ -219,10 +221,24 @@ const SPACE_ICON_SELECTED = L.divIcon({
           Showing {{ spaces().length }} of {{ total() }} results
         </p>
       }
-    }
+      </div><!-- /results-pane -->
+    </div><!-- /split-view -->
   `,
   styles: [`
     .selected-card { outline: 2px solid var(--primary); }
+    .map-card { margin-bottom: 24px; padding: 0; overflow: hidden; }
+    .map-el { height: 480px; width: 100%; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .cards-col { display: flex; flex-direction: column; gap: 12px; }
+    /* Map-centered split: map left, scrollable results right (#2) */
+    .split-view { display: flex; gap: 16px; align-items: flex-start; }
+    .split-view .map-card { flex: 1 1 60%; margin-bottom: 0; position: sticky; top: 16px; }
+    .split-view .map-el { height: calc(100vh - 240px); min-height: 480px; }
+    .split-view .results-pane { flex: 1 1 40%; max-height: calc(100vh - 240px); overflow-y: auto; padding-right: 4px; }
+    @media (max-width: 880px) {
+      .split-view { flex-direction: column; }
+      .split-view .map-card, .split-view .results-pane { width: 100%; max-height: none; position: static; }
+    }
   `],
 })
 export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -245,7 +261,7 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   lastPage = signal(1);
   total = signal(0);
   pages = signal<number[]>([]);
-  showMap = signal(false);
+  showMap = signal(true);
   selectedSpace = signal<Space | null>(null);
 
   // ── Selection basket (C03) ──────────────────────────────────────────────────
@@ -302,6 +318,13 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
         this.search();
       });
     });
+
+    // The map can mount inside a flex column whose size settles after layout —
+    // invalidate once and draw any spaces already loaded by the initial search.
+    setTimeout(() => {
+      this.map?.invalidateSize();
+      this.updateMapMarkers();
+    }, 0);
   }
 
   private updateMapMarkers(): void {

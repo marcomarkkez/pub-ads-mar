@@ -1,7 +1,7 @@
 {
   "sprint": "MVP-local-complete",
   "created": "2026-06-13",
-  "updated": "2026-06-14",
+  "updated": "2026-06-18",
   "goal": "Bring the existing Laravel+Angular app in line with the reconciled design.md and satisfy the 13-item MVP checklist, as a complete local version.",
   "status": "MVP local stack COMPLETE and RUNNING (Docker project 'publisher'). Core flows runtime-verified; a few items static-verified pending a UI walk-through.",
   "canonical": "This JSON is the source of truth for sprint todos; beads mirrors it (sqlite backend).",
@@ -56,8 +56,8 @@
       "MvpDemoSeeder: bookings/proofs/payments/tickets-with-objects/conversations seeded + verified via API (provider bookings 5, payments 7 + proofs 4, support tickets 5)."
     ],
     "batches": [
-      { "id": "B1", "title": "UI bug-fixes: map render on click, /conversations spinner (backend shape), campaign spec edit + per-ad Book, map-centered landing", "status": "next" },
-      { "id": "B2", "title": "Provider polish: space view==edit layout, calendar-preferred + Availabilities accordion + ? help, proof booking dropdown, back-to-view", "status": "todo" },
+      { "id": "B1", "title": "UI bug-fixes: map render on click, /conversations spinner (backend shape), campaign spec edit + per-ad Book, map-centered landing", "status": "done", "note": "S24: MessageController index/store now return {data:...} (runtime-verified, spinner gone); campaign-detail spec edit form (PUT) + per-ad Book inline date form (booking runtime-verified id8 waiting_approval); space-search default map view + [map|results] split layout (.split-view CSS) + invalidateSize/markers on load. php -l + ng build clean." },
+      { "id": "B2", "title": "Provider polish: space view==edit layout, calendar-preferred + Availabilities accordion + ? help, proof booking dropdown, back-to-view", "status": "next" },
       { "id": "B3", "title": "Nav/header: Collaborators under Configurations tab, drop Dashboard, header welcome+name, Help ? button (contextual view-only ticket)", "status": "todo" },
       { "id": "B4", "title": "Support powers (backend): edit-any-non-money object + audit_log table/writes/read", "status": "todo" },
       { "id": "B5", "title": "Admin eagle-eye: rename Oversight->Activity, per-object 👁 menus + advanced node filters, per-ticket announced/silent, split Users by role, RBAC employees-only + support collab-role editor", "status": "todo" },

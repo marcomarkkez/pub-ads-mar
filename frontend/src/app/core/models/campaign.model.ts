@@ -30,12 +30,14 @@ export interface Adset {
 
 export interface Ad {
   id: number;
-  adset_id: number;
+  adset_id: number | null;
+  space_id: number | null;
   name: string;
   media_type: 'image' | 'video' | 'sound' | 'gif';
   file_path: string | null;
   file_name: string | null;
   file_url: string | null;
+  space?: { id: number; name: string } | null;
   created_at: string;
   updated_at: string;
 }

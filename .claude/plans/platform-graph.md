@@ -8,7 +8,11 @@ Capability legend (role → object):
   🤫 silent (observe a thread without announcing)   📣 announce (join is visible)
   $ money action      ·  = no access      📝 = action is audit-logged
 
-ROLES: Client · Provider · Collaborator{installator|publicist|manager} · Support · Payments · Admin
+ROLES: Client · Provider · Collaborator{subroles} · Support · Payments · Admin
+{Collaborators are subroles that exist in TWO separate ecosystems — client-side and provider-side.
+ Each ecosystem has its OWN subroles (client: publicist, manager, …; provider: installator, manager, …).
+ A subrole exists ONLY within its ecosystem; the two collaborator sets are separated from each other
+ and from the rest of the platform. "manager" on the client side ≠ "manager" on the provider side.}
 
 ================================================================================
 1. OBJECT GRAPH (ownership + flow)
@@ -55,6 +59,8 @@ ROLES: Client · Provider · Collaborator{installator|publicist|manager} · Supp
                                                                │TICKET_MSG  │ +is_internal
                                                                │(support↔pay)│ (client never sees)
                                                                └────────────┘
+
+{All logs can be seen by admin}
 
 KEY EDGES (for eagle-eye filters — "navigate between nodes"):
   Ad ─┬─ belongs to → Adset → Campaign → Client(+publicist collabs)
