@@ -27,12 +27,14 @@ class BookingController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        // 'cancelled' added so the provider Cancel button works (UI sends it).
         $validated = $request->validate([
-            'status' => 'required|in:confirmed,rejected,active,waiting_proof,completed',
+            'status' => 'required|in:confirmed,rejected,active,waiting_proof,completed,cancelled',
         ]);
 
         $booking->update($validated);
 
-        return response()->json($booking->load(['client', 'space', 'ad', 'adset']));
+        // Frontend (provider-booking-list) expects { data: booking }.
+        return response()->json(['data' => $booking->load(['client', 'space', 'ad', 'adset'])]);
     }
 }

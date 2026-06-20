@@ -187,3 +187,30 @@ Also this step:
 - Renamed .claude/plans/cases-v2.md → cases.md (story backlog / compliance lens vs design.md).
 - platform-graph.md collaborator note corrected: collaborators are TWO separate ecosystems
   (client-side + provider-side), each with its own subroles, scoped to their ecosystem.
+
+### [2026-06-19] STEP 11 — 4-agent design/cases compliance audit + contract-bug fixes (B1b)
+Renamed .claude/plans/cases-v2.md → cases.md (already in STEP 10 note); ran 4 read-only audit agents
+(client / provider / staff / doc+contract-logic) comparing design.md + cases.md vs ARCHITECTURE.md +
+actual routes/controllers/components. Findings folded into .claude/todos/mvp-sprint.json
+(ui_phase.audit_2026_06_18, re-annotated batches B2-B7/B-avail, new_subsystems N1-N8).
+
+Contract-shape bugs fixed this step (same class as B1's #14; all RUNTIME-VERIFIED on live stack):
+- frontend payments/payment-list.component.ts — GET /payments/payments paginates ({data:[...]}) but
+  component set the whole paginator as the list → Payments queue rendered EMPTY. Fix: read res.data.
+  Verified: data is list, count 8.
+- backend Provider/BookingController@update — (a) added 'cancelled' to the status enum (UI Cancel button
+  sent it → was 422); (b) wrapped return in {data:...} (frontend reads res.data). Verified: cancel →
+  {data:{status:cancelled}}.
+- backend Shared/TicketController@reply — returned bare message; frontend reads res.data → pushed
+  undefined bubble. Fix: wrap {data:...}. Verified: reply → {data:{body}}.
+Gates: php -l clean (both controllers); ng build SUCCESS.
+
+Convention going forward (recorded in todos B1b): mutating endpoints return {data:...}; list endpoints
+may paginate but the UI must read res.data. Audit also flagged design subsystems with NO backing at all
+(ratings, media-specs+upload-validation, one-checkout-per-campaign, pre-pay/escrow, audit log,
+notifications, strikes, tiered refunds) — see new_subsystems N1-N8. Conflict: cases.md date-flexibility
+(±X days) filter is KILLED by design.md (exact dates) → do not build.
+
+Doc drift (docsync TODO, not yet applied): ARCHITECTURE.md says 26 migrations (actual 29) and 18 models
+(actual 19); Admin/ tree omits ConfigurationController+OversightController; Manager\UserController is an
+unrouted dead import.

@@ -48,22 +48,53 @@
   ],
   "ui_phase": {
     "started": "2026-06-15",
-    "goal": "Owner UI/behavior change-list (26 items across client/provider/payments/support/admin).",
-    "refs": [".claude/plans/platform-graph.md (object graph + role capabilities)", ".claude/plans/ui-endpoint-audit.md (per-item endpoint classification + build order)"],
+    "goal": "Owner UI/behavior change-list + full design.md/cases.md compliance (clients/providers/payments/support/admin).",
+    "refs": [
+      ".claude/plans/platform-graph.md (object graph + role capabilities; collaborator note = TWO ecosystems)",
+      ".claude/plans/ui-endpoint-audit.md (original 26-item endpoint classification + build order)",
+      ".claude/plans/cases.md (story backlog / compliance lens; renamed from cases-v2.md)",
+      "design.md (canonical design — wins over cases.md on conflicts)"
+    ],
+    "audit_2026_06_18": {
+      "method": "4 read-only agents: client / provider / staff / doc+contract-logic, comparing design.md+cases.md vs ARCHITECTURE.md + actual routes/controllers/components.",
+      "verdict": "Original 26-item list was UI-focused; the audit found whole DESIGN subsystems with NO schema/route backing. MVP demo works, but design-completeness is far from done.",
+      "conflicts_design_wins": [
+        "Date-flexibility (+/-X days) filter: cases.md asks for it but design.md says dates are EXACT, no flex filter. DROP it (do not build)."
+      ],
+      "contract_bugs_fixed": "S24 (this session): same class as B1's #14. L1 payment-list read paginator as array -> Payments queue rendered empty (fixed: read res.data). L2 provider booking update read res.data but controller returned bare AND rejected status 'cancelled' (fixed: controller wraps {data} + allows cancelled). L3 shared ticket reply read res.data but controller returned bare (fixed: wrap {data}). All 3 runtime-verified.",
+      "doc_drift_docsync": [
+        "ARCHITECTURE.md says 26 migrations -> actually 29 (5 late alters, not 2).",
+        "ARCHITECTURE.md status table says 18 models -> actually 19.",
+        "Admin/ folder tree omits ConfigurationController + OversightController (they exist + are routed).",
+        "Manager\\UserController is imported in api.php but registers ZERO routes (dead import)."
+      ]
+    },
     "done": [
       "Platform object graph + role-capability matrix (ASCII).",
       "Endpoint audit of all 26 items (UI-only / data-only / needs-backend).",
-      "MvpDemoSeeder: bookings/proofs/payments/tickets-with-objects/conversations seeded + verified via API (provider bookings 5, payments 7 + proofs 4, support tickets 5)."
+      "MvpDemoSeeder: bookings/proofs/payments/tickets-with-objects/conversations seeded + verified via API.",
+      "4-agent design/cases compliance audit (2026-06-18); findings folded into batches + new_subsystems below."
     ],
     "batches": [
-      { "id": "B1", "title": "UI bug-fixes: map render on click, /conversations spinner (backend shape), campaign spec edit + per-ad Book, map-centered landing", "status": "done", "note": "S24: MessageController index/store now return {data:...} (runtime-verified, spinner gone); campaign-detail spec edit form (PUT) + per-ad Book inline date form (booking runtime-verified id8 waiting_approval); space-search default map view + [map|results] split layout (.split-view CSS) + invalidateSize/markers on load. php -l + ng build clean." },
-      { "id": "B2", "title": "Provider polish: space view==edit layout, calendar-preferred + Availabilities accordion + ? help, proof booking dropdown, back-to-view", "status": "next" },
-      { "id": "B3", "title": "Nav/header: Collaborators under Configurations tab, drop Dashboard, header welcome+name, Help ? button (contextual view-only ticket)", "status": "todo" },
-      { "id": "B4", "title": "Support powers (backend): edit-any-non-money object + audit_log table/writes/read", "status": "todo" },
-      { "id": "B5", "title": "Admin eagle-eye: rename Oversight->Activity, per-object 👁 menus + advanced node filters, per-ticket announced/silent, split Users by role, RBAC employees-only + support collab-role editor", "status": "todo" },
-      { "id": "B6", "title": "Provider-side collaborators (provider-scoped) + subroles + provider Configurations menu (account-admin gated)", "status": "todo" },
-      { "id": "B7", "title": "Invoices: per-ad / per-adset breakdown (line-items) per campaign", "status": "todo" },
-      { "id": "B-avail", "title": "Per-ad availability text ('Available' / 'Available in X days until <date>')", "status": "todo" }
+      { "id": "B1", "title": "UI bug-fixes: map render, /conversations spinner, campaign spec edit + per-ad Book, map-centered landing", "status": "done", "note": "S24: MessageController index/store {data:...} (spinner gone); campaign-detail spec edit + per-ad Book (booking runtime-verified); space-search default map view + [map|results] split layout. php -l + ng build clean." },
+      { "id": "B1b", "title": "Contract-shape bugfixes (same class as #14): payment-list, provider booking update (+cancelled enum), shared ticket reply", "status": "done", "note": "S24: L1/L2/L3 fixed + runtime-verified (payments list data list=8; provider booking cancel -> {data:{status:cancelled}}; ticket reply -> {data:body}). Convention going forward: mutating endpoints return {data:...}; list endpoints may paginate but UI must read res.data." },
+      { "id": "B2", "title": "Provider polish", "status": "next", "note": "AUDIT specifics: space-detail shows manual date-range FIRST -> reorder to calendar-preferred + collapse manual ranges into an accordion (? help already exists). Unify space-detail (read grid) vs space-form (separate /edit route) into view==edit + add back-to-view. Proof upload uses a typed numeric Booking ID -> replace with a dropdown from /provider/bookings. (Provider booking update bugs already fixed in B1b.)" },
+      { "id": "B3", "title": "Nav/header: Collaborators under Configurations tab, drop Dashboard, header welcome+name, Help ? button (contextual view-only ticket)", "status": "todo", "note": "AUDIT: also add contextual chat buttons on ad/adset/campaign + global Help menu (client) and a 'Talk to support' button that auto-attaches ticketable_type/id (cases CLIENT #12/#13) — these client chat/support surfaces are missing in the UI though endpoints exist." },
+      { "id": "B4", "title": "Support powers (backend) + audit log + messaging joins", "status": "todo", "note": "AUDIT: support is TICKETS-ONLY today. Need: (a) audit_logs table+model+AuditLog::record() helper [BLOCKING, underlies every design 'logged' marker]; instrument all mutating staff actions. (b) generic support edit-any-non-money controller (spaces/ads/users/bookings/proofs/collaborators). (c) POST /conversations/{id}/join writing support_joined_at + announced system message (column exists, never written). (d) Payments has no ticket reply route -> internal Support<->Payments thread is asymmetric. (e) support flag-refund/payout-hold bridge to Payments." },
+      { "id": "B5", "title": "Admin eagle-eye / Activity + audit read", "status": "todo", "note": "AUDIT: Oversight = conversations+tickets only. Need: rename to Activity; per-object read endpoints (Providers/Spaces/Users/Bookings/Payments/Invoices/Tickets) + advanced node filters (navigate related nodes); admin silent(default)/announce-per-ticket toggle; GET /admin/audit (+?target_type/id per-object history); ?role= filter + split Users by role; scope RBAC editor to EMPLOYEE roles only; space takedown/restore/freeze with guardrails (no delete with active bookings/unsettled funds)." },
+      { "id": "B6", "title": "Provider-side collaborators (account-scoped) + subroles + provider Configurations (account-admin gated)", "status": "todo", "note": "AUDIT CONFIRMED: Collaborator model is campaign_id-scoped/client-only; 'installator' enum is unreachable provider-side. Need account-scoped collaborator model + provider CRUD routes + sidebar item + installator-only proof access; provider account Configurations route + sidebar item. Remember: client and provider collaborator subroles are SEPARATE ecosystems. Also enforce collaborator subrole RBAC (publicist must NOT reach money/billing endpoints — currently unenforced)." },
+      { "id": "B7", "title": "Invoices per-ad/per-adset line-items + money polish", "status": "todo", "note": "AUDIT: invoice rollup ties to checkout (see new_subsystems checkout). Also: provider revenue dashboard buckets (held/paid/refunded) + reject-with-reason on bookings; mismatch-flag should place payout on HOLD (currently only rejects proof + opens ticket); client wallet withdraw flow." },
+      { "id": "B-avail", "title": "Per-ad availability text ('Available' / 'Available in X days until <date>') + 'doesn't coincide' tag", "status": "todo", "note": "AUDIT: SpaceSearchController already computes an availability/coincide boolean but the search UI never renders it. Surface the 'doesn't coincide with your timespan — book for later' tag on result cards." }
+    ],
+    "new_subsystems": [
+      { "id": "N1-ratings", "title": "Provider star ratings", "severity": "major", "note": "design.md Provider Ratings + cases CLIENT #3. NO table/model/route/UI. Eligibility: campaign ended OR live >=30 days, one rating per campaign, optional comment, abusive-comment flag for Support. Avg shown on space detail." },
+      { "id": "N2-media-specs", "title": "Media-delivery specs + per-type templates + upload validation", "severity": "blocking", "note": "design.md Media-Delivery Specs + cases CLIENT #6/#7 + PROVIDER #1. spaces has NO spec columns. Add media_specs (json, from per-type template) + upload_instructions (text); show inline at client upload; HARD-FAIL ad upload validation (format/res/CMYK/bleed/duration/bitrate/size) with concrete message; pre-upload type-mismatch warning. Gates the client upload story." },
+      { "id": "N3-checkout", "title": "One-checkout-per-campaign + payment step", "severity": "blocking", "note": "design.md + cases CLIENT #8. Today each ad is booked individually with a mock payment row; no campaign-level checkout, no aggregated pay screen, no legal-doc links, no invoice generation. Orphan-blocks-checkout guard folds in here." },
+      { "id": "N4-prepay-escrow", "title": "Pre-pay waiting list + escrow", "severity": "blocking", "note": "design.md Book-for-later/Pre-pay/Escrow + cases CLIENT #8. wallet_entries has escrow_capture/release types but NO client flow writes them. Need is_prepay/offer_expiry on bookings, escrow capture at pre-pay checkout, per-space waiting list, provider picks offer (no amounts shown) / trash, refund-to-wallet on expiry." },
+      { "id": "N5-audit-log", "title": "Audit log (cross-cutting)", "severity": "blocking", "note": "Tracked operationally under B4 (table+writes) and B5 (admin read). Listed here as a design subsystem for visibility: append-only, actor/target/before-after/ts, queryable per-object history, admin reads all." },
+      { "id": "N6-notifications", "title": "Notifications / alert dispatcher", "severity": "major", "note": "design.md Alerts + cases full alert schema (~35 events: proof uploaded, deadline, refund, join, takedown...). NO notifications table/route. All alert events unimplemented at data layer." },
+      { "id": "N7-strikes", "title": "Provider strike system + proof deadline cron", "severity": "major", "note": "design.md Strike System + cases PROVIDER #6/#9. deadline stored on proofs but NO cron/auto-cancel/refund-on-miss, NO strike column/model, NO dashboard counter. Day-3/4 reminders + day-5 auto-cancel + 3-strike freeze." },
+      { "id": "N8-cancel-refund-tiers", "title": "Tiered cancel/refund policy + legal docs", "severity": "major", "note": "design.md Client Wallet and Refunds + cases CLIENT #14. client booking update only allows status:cancelled with no refund-split / pre-vs-post-approval logic; no legal-doc links at checkout." }
     ]
   }
 }

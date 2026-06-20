@@ -173,9 +173,10 @@ export class PaymentListComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
 
-    this.http.get<PaymentWithBooking[]>(`${this.api}/payments/payments`).subscribe({
+    // Backend paginates → { data: [...] }. Read res.data (mirrors proof-review-list).
+    this.http.get<{ data: PaymentWithBooking[] }>(`${this.api}/payments/payments`).subscribe({
       next: (res) => {
-        this.payments.set(res);
+        this.payments.set(res.data ?? []);
         this.loading.set(false);
       },
       error: (err) => {

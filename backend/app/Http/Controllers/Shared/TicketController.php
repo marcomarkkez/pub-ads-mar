@@ -86,6 +86,7 @@ class TicketController extends Controller
             'body' => $validated['body'],
         ]);
 
-        return response()->json($message->load('user'), 201);
+        // Frontend (shared ticket-detail) expects { data: message }.
+        return response()->json(['data' => $message->load('user')], 201);
     }
 }
