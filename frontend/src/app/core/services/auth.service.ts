@@ -17,6 +17,11 @@ export class AuthService {
   readonly isLoggedIn = computed(() => !!this.currentUser());
   readonly userRole = computed(() => this.currentUser()?.role ?? null);
 
+  /** Landing route after login, by role. Clients land on the Spaces map, not the dashboard. */
+  landingRoute(role: string | null = this.userRole()): string {
+    return role === 'client' ? '/client/spaces' : '/dashboard';
+  }
+
   constructor(private http: HttpClient, private router: Router) {}
 
   get token(): string | null {

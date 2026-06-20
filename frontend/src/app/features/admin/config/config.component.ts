@@ -17,37 +17,85 @@ interface SystemConfig {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="config-page">
-      <h2>System Configurations</h2>
-
-      <p *ngIf="loading()">Loading…</p>
-      <p class="error" *ngIf="error()">{{ error() }}</p>
-
-      <form *ngIf="!loading()" (ngSubmit)="save()">
-        <div class="config-row" *ngFor="let c of configs()">
-          <label [for]="'cfg-' + c.key">{{ c.key }}</label>
-          <input [id]="'cfg-' + c.key" type="text" [(ngModel)]="c.value" [name]="c.key" />
-        </div>
-
-        <label class="apply-scope">
-          <input type="checkbox" [(ngModel)]="applyToInFlight" name="apply_scope" />
-          Apply to in-flight bookings too
-        </label>
-
-        <button type="submit" [disabled]="saving()">
-          {{ saving() ? 'Saving…' : 'Save configurations' }}
-        </button>
-      </form>
+    <div class="page-header">
+      <h1>System Configurations</h1>
     </div>
+
+    @if (loading()) {
+      <div class="loading-container"><span class="spinner"></span></div>
+    }
+    @if (error()) {
+      <div class="alert alert-error">{{ error() }}</div>
+    }
+
+    @if (!loading()) {
+      <div class="card">
+        <form (ngSubmit)="save()">
+          @for (c of configs(); track c.key) {
+            <div class="config-row">
+              <div class="config-label">
+                <label [for]="'cfg-' + c.key">{{ humanize(c.key) }}</label>
+                <code class="config-key">{{ c.key }}</code>
+              </div>
+              <input class="config-input" [id]="'cfg-' + c.key" type="text"
+                [(ngModel)]="c.value" [name]="c.key" placeholder="Not set" />
+            </div>
+          }
+
+          @if (configs().length === 0) {
+            <p class="empty-hint">No configurations defined.</p>
+          }
+
+          <label class="apply-scope">
+            <input type="checkbox" [(ngModel)]="applyToInFlight" name="apply_scope" />
+            <span>Apply to in-flight bookings too</span>
+          </label>
+
+          <button type="submit" class="btn btn-primary" [disabled]="saving()">
+            @if (saving()) { <span class="spinner"></span> } @else { Save configurations }
+          </button>
+        </form>
+      </div>
+    }
   `,
   styles: [`
-    .config-page { max-width: 640px; padding: 1rem; }
-    .config-row { display: flex; align-items: center; gap: 1rem; margin-bottom: .75rem; }
-    .config-row label { flex: 0 0 220px; font-family: monospace; }
-    .config-row input { flex: 1; padding: .4rem .6rem; }
-    .apply-scope { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; }
-    .error { color: #c0392b; }
-    button { padding: .5rem 1rem; }
+    .card { max-width: 720px; }
+    .config-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .config-row:first-child { padding-top: 0; }
+    .config-label { flex: 0 0 240px; display: flex; flex-direction: column; gap: 2px; }
+    .config-label label { font-weight: 600; font-size: 14px; color: var(--text); }
+    .config-key {
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--hover);
+      padding: 1px 6px;
+      border-radius: 4px;
+      align-self: flex-start;
+    }
+    .config-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .empty-hint { color: var(--text-muted); font-size: 13px; }
+    .apply-scope {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .apply-scope input { width: auto; }
   `],
 })
 export class ConfigComponent implements OnInit {
@@ -66,6 +114,14 @@ export class ConfigComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+  }
+
+  /** Turn a config key like "proof_deadline_days" into "Proof Deadline Days". */
+  humanize(key: string): string {
+    return key
+      .replace(/[_-]+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   private load(): void {

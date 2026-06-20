@@ -133,6 +133,33 @@ const SPACE_ICON_SELECTED = L.divIcon({
       </div>
     }
 
+    <!-- New-campaign modal (replaces the native prompt) -->
+    @if (showNewCampaignModal()) {
+      <div class="modal-overlay" (click)="cancelNewCampaign()">
+        <div class="modal-dialog" (click)="$event.stopPropagation()">
+          <h3 class="modal-title">New campaign</h3>
+          <p class="modal-sub">
+            {{ selection().length }} space{{ selection().length === 1 ? '' : 's' }} will be added to this campaign's backlog.
+          </p>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label for="newCampaignName">Campaign name</label>
+            <input #newCampaignInput id="newCampaignName" type="text"
+              [(ngModel)]="newCampaignName" name="newCampaignName"
+              placeholder="e.g. Summer 2026"
+              (keydown.enter)="confirmNewCampaign()"
+              (keydown.escape)="cancelNewCampaign()" />
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn" [disabled]="submitting()" (click)="cancelNewCampaign()">Cancel</button>
+            <button type="button" class="btn" style="background:var(--primary);color:#fff;border-color:var(--primary);"
+              [disabled]="submitting() || !newCampaignName.trim()" (click)="confirmNewCampaign()">
+              @if (submitting()) { <span class="spinner"></span> } @else { Create campaign }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Map-centered split layout (#2): [map | results]. In list view results go full-width. -->
     <div [class.split-view]="showMap()">
       <!-- Map (always rendered so ViewChild is available; shown/hidden via CSS) -->
@@ -239,10 +266,32 @@ const SPACE_ICON_SELECTED = L.divIcon({
       .split-view { flex-direction: column; }
       .split-view .map-card, .split-view .results-pane { width: 100%; max-height: none; position: static; }
     }
+    /* New-campaign modal */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      animation: modal-fade 0.12s ease-out;
+    }
+    .modal-dialog {
+      background: var(--surface, #fff);
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+      width: 100%; max-width: 420px;
+      padding: 24px;
+      animation: modal-pop 0.12s ease-out;
+    }
+    .modal-title { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+    .modal-sub { margin: 0 0 16px; font-size: 13px; color: var(--text-muted); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    @keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes modal-pop { from { transform: translateY(8px) scale(0.98); opacity: 0; } to { transform: none; opacity: 1; } }
   `],
 })
 export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('mapEl') mapEl!: ElementRef<HTMLDivElement>;
+  @ViewChild('newCampaignInput') newCampaignInput?: ElementRef<HTMLInputElement>;
 
   private readonly api = environment.apiUrl;
 
@@ -270,6 +319,10 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   showCampaignPicker = signal(false);
   campaigns = signal<CampaignLite[]>([]);
   chosenCampaignId: number | null = null;
+
+  // New-campaign modal (replaces the native prompt())
+  showNewCampaignModal = signal(false);
+  newCampaignName = '';
 
   private map: L.Map | null = null;
   private centerMarker: L.Marker | null = null;
@@ -448,12 +501,31 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   addToNewCampaign(): void {
-    const name = (prompt('Name for the new campaign:', 'Campaign 1') || '').trim();
-    if (!name) return;
+    this.newCampaignName = '';
+    this.showNewCampaignModal.set(true);
+    // Focus the field once the modal is in the DOM (native autofocus doesn't fire on *ngIf inserts).
+    setTimeout(() => this.newCampaignInput?.nativeElement.focus(), 0);
+  }
+
+  cancelNewCampaign(): void {
+    this.showNewCampaignModal.set(false);
+    this.newCampaignName = '';
+  }
+
+  confirmNewCampaign(): void {
+    const name = this.newCampaignName.trim();
+    if (!name) {
+      this.notify.warning('Please enter a campaign name.');
+      return;
+    }
 
     this.submitting.set(true);
     this.http.post<{ id: number }>(`${this.api}/client/campaigns`, { name }).subscribe({
-      next: (campaign) => this.pushBacklog(campaign.id, true),
+      next: (campaign) => {
+        this.showNewCampaignModal.set(false);
+        this.newCampaignName = '';
+        this.pushBacklog(campaign.id, true);
+      },
       error: (err) => {
         this.notify.error(err.error?.message || 'Could not create the campaign.');
         this.submitting.set(false);

@@ -40,11 +40,11 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
             </div>
             <div>
               <span style="color:var(--text-muted);display:block;">Start Date</span>
-              <strong>{{ campaign()!.start_date || 'Not set' }}</strong>
+              <strong>{{ campaign()!.start_date ? (campaign()!.start_date | date:'mediumDate') : 'Not set' }}</strong>
             </div>
             <div>
               <span style="color:var(--text-muted);display:block;">End Date</span>
-              <strong>{{ campaign()!.end_date || 'Not set' }}</strong>
+              <strong>{{ campaign()!.end_date ? (campaign()!.end_date | date:'mediumDate') : 'Not set' }}</strong>
             </div>
             <div>
               <span style="color:var(--text-muted);display:block;">Created</span>
@@ -244,7 +244,7 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
                 </div>
               </div>
             } @else {
-              <button class="btn btn-sm" (click)="openAdForm(adset.id)">+ Add Ad</button>
+              <button class="btn btn-sm" (click)="openAdForm(adset.id)">+ Ad Space</button>
             }
           </div>
         }

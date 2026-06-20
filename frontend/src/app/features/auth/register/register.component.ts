@@ -48,7 +48,7 @@ export class RegisterComponent {
     }).subscribe({
       next: () => {
         this.notify.success('Account created successfully!');
-        this.router.navigate(['/dashboard']);
+        this.router.navigateByUrl(this.auth.landingRoute());
       },
       error: (err) => {
         this.loading.set(false);
