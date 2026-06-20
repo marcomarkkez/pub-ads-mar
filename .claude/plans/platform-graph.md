@@ -84,7 +84,8 @@ Ad                🟢       publ:🟢    👁(theirs) ·               👁 ✏
 Space             👁       👁         🟢        ·  | 👁 | 🟢      👁 ✏📝       👁        👁🤫 ✏📝
 Space photo/avail 👁       👁         🟢        ·  | 👁 | 🟢      👁 ✏📝       👁        👁🤫 ✏📝
 Booking           🟢       publ:🟢    👁✏(theirs)·  | 👁 | ✏     👁 ✏📝       👁        👁🤫 ✏📝
-Proof             👁+flag  inst:create provider:🟢 create|·|👁    👁 ✏📝       👁(review) 👁🤫 ✏📝
+Proof             🟢review inst:create provider:🟢 create|·|review 👁 ✏📝(mism) 👁 (no review) 👁🤫 ✏📝
+                  +flag    /flag       (primary)  publ/mgr:review/flag                $hold-on-reject
 Payment           👁(own)  mgr:👁     👁(payout) ·  | · | 👁      👁 flag$     🟢 $📝     👁🤫 $📝
 Wallet/Refund     👁(own)  mgr:👁     ·         ·               flag only    $ execute  👁🤫 $📝
 Invoice           👁(own)  mgr:👁     👁(own)    ·  | · | 👁      👁 ✏📝       👁         👁🤫 ✏📝
@@ -101,8 +102,15 @@ NOTES ON STAFF POWERS
 - SUPPORT  = near-admin: eagle-eye + EDIT every non-money object (spaces, ads, collaborators,
   providers, users, bookings, proofs), joins conversations ANNOUNCED, every action 📝-logged.
   Can flag (not execute) refunds/holds. Can change provider collaborators' roles.
-- PAYMENTS = the only role that MOVES money ($): approve/reject payments, refunds, payouts,
-  review proofs; private internal threads with Support; logged.
+- PAYMENTS = the only role that MOVES money ($): approve/reject payments, refunds, payouts.
+  Payments does NOT review proof CONTENT (owner decision 2026-06-20). Instead: a rejected proof
+  AUTO-HOLDS the related payment (Payments only sees it held); an accepted proof makes the payment
+  releasable, which a Payments person must MANUALLY approve/release. From a held payment, Payments
+  can open a Support ticket with the payment attached, and on agreement release. Private internal
+  threads with Support; logged. PROOF CONTENT is reviewed/flagged by client + collaborators, with
+  Support adjudicating mismatches.
+- AUTO-APPROVE: admin System Config = toggle + amount threshold (auto-approve payments under $X only),
+  default OFF; larger payments still need manual Payments review.
 - ADMIN    = eagle-eye EVERYTHING, SILENT 🤫 by default (no "X joined" message) but may choose
   ANNOUNCE 📣 per ticket; full edit; owns global System config, employee RBAC, reads all audit.
 - COLLABORATOR subroles (per account): installator = proofs only; publicist = campaigns/ads/
@@ -112,15 +120,20 @@ NOTES ON STAFF POWERS
 3. WHAT THE GRAPH IMPLIES FOR UI MENUS
 ================================================================================
 CLIENT  : [Map+Search (landing)] [Campaigns→{specs edit, adsets edit, per-ad Book + availability}]
-          [Invoices] [Messages] [Configurations→{Collaborators}]   (drop Dashboard)
+          [Invoices→{PDF download (server-side dompdf)}] [Messages] [Configurations→{Collaborators (account-scoped)}]   (drop Dashboard)
 PROVIDER: [Spaces→{view==edit layout, Calendar-preferred + Availabilities accordion, ? help}]
           [Bookings] [Proofs(booking dropdown)] [Messages(space attached)] [Collaborators]
           [Configurations (provider-admin only)]
 SUPPORT : [Tickets(objects attached, editable)] [Eagle-eye+edit: Spaces/Providers/Users/Collabs]
           [Collaborator-roles editor] — money actions hidden
-PAYMENTS: [Payments review] [Proof review] [Refunds/Payouts] [Internal threads]
+PAYMENTS: [Payments review (stats dashboard)] [Held payments → open ticket to Support] [Refunds/Payouts]
+          [Internal threads]   (NO proof-content review — money only; auto-approve toggle+threshold via Admin config)
 ADMIN   : [Activity (was Oversight)] + per-object eagle-eye menus each with 👁 emoji +
           advanced node filters: [👁 Providers][👁 Spaces][👁 Users][👁 Bookings][👁 Payments]
           [👁 Invoices][👁 Tickets] ; [Employees split: Support/Payments/Provider/Clients]
           [RBAC employees] [Global config]
+DASHBOARDS: every NON-client role (provider, payments, support, admin) lands on a stats dashboard with
+          live numbers for their end (provider: active spaces / pending bookings / revenue + held/paid/refunded;
+          payments: pending payments / held / refunds; support: open tickets / queue depth; admin: users /
+          system health). The CLIENT has NO dashboard (lands on Map+Search).
 HEADER (all roles): "Welcome, {name}" + role · [?] Help button → new ticket w/ current object (view-only)

@@ -95,6 +95,42 @@
       { "id": "N6-notifications", "title": "Notifications / alert dispatcher", "severity": "major", "note": "design.md Alerts + cases full alert schema (~35 events: proof uploaded, deadline, refund, join, takedown...). NO notifications table/route. All alert events unimplemented at data layer." },
       { "id": "N7-strikes", "title": "Provider strike system + proof deadline cron", "severity": "major", "note": "design.md Strike System + cases PROVIDER #6/#9. deadline stored on proofs but NO cron/auto-cancel/refund-on-miss, NO strike column/model, NO dashboard counter. Day-3/4 reminders + day-5 auto-cancel + 3-strike freeze." },
       { "id": "N8-cancel-refund-tiers", "title": "Tiered cancel/refund policy + legal docs", "severity": "major", "note": "design.md Client Wallet and Refunds + cases CLIENT #14. client booking update only allows status:cancelled with no refund-split / pre-vs-post-approval logic; no legal-doc links at checkout." }
+    ],
+    "reconciliation_2026_06_20": {
+      "trigger": "Owner asked why agreed changes 'aren't applied' though everything seemed 'solved on paper'. 3 read-only agents reconciled design.md+cases.md+platform-graph+todos vs actual code.",
+      "answer": "Most agreed UI/behavior is PLANNED-ONLY (B2-B7 + N1-N8) — never coded. SHIPPED so far: B1 (map split-view, campaign spec edit, per-ad Book, conversation spinner), B1b (contract shape bugs), client lands on /client/spaces, '+ Ad Space', human-readable dates, new-campaign modal name fix, admin config label styling, invoice PDF (server dompdf). Everything else is backlog. A few items are PARTIAL (backend exists, UI doesn't render): 'doesn't coincide' tag + budget filter (SpaceSearchController computes, UI ignores), wallet read-only (no withdraw), mismatch-flag opens ticket but doesn't hold payout.",
+      "already_built_not_a_gap": "Provider Messages ARE linked to the conversation's space (ConversationController eager-loads space; list renders conv.space?.name). The missing piece is CONTEXTUAL per-ad/adset/campaign chat buttons (B3), not 'messages not linked'.",
+      "real_gaps_owner_hit": [
+        "Provider /spaces/{id}/edit has NO availability date-ranges + Google/iCal + ? help — those live only in space-detail VIEW, not the edit form (B2 view==edit).",
+        "Client sidebar still shows Dashboard (should drop) + Collaborators still inside campaign-detail with a campaign-scoped model (needs account-scoped + Configurations tab).",
+        "All non-client dashboards show nav cards, no stats numbers."
+      ]
+    },
+    "decisions_2026_06_20": [
+      "Client lands on Spaces (SHIPPED).",
+      "Collaborators are ACCOUNT-scoped (act across all the owner's campaigns), two ecosystems (client publicist/manager...; provider installator/manager...), subroles per ecosystem. Retire campaign_id scoping + the legacy 'proof_uploader' enum.",
+      "Proof/payment: Payments does NOT review proof content. Client+collaborators review/flag; Support adjudicates mismatch. Proof REJECTED -> payment AUTO-HELD (Payments only sees held). Proof ACCEPTED -> payment releasable, Payments MANUALLY releases. From a held payment, Payments opens a Support ticket with the payment attached; release on agreement. => remove Payments\\ProofReviewController + Payments 'Proofs' nav; add payment ticketable + hold-on-reject wiring.",
+      "Payments auto-approval = admin System Config: toggle + amount THRESHOLD (auto-approve under $X), default OFF.",
+      "Invoice PDF generation = server-side (SHIPPED). Reflected in platform-graph.",
+      "All NON-client dashboards (provider/payments/support/admin) must show live stats."
+    ],
+    "new_batches_2026_06_20": [
+      { "id": "B8-dashboards", "title": "Stats dashboards for provider/payments/support/admin", "status": "todo", "note": "Provider PARTIAL (Provider\\DashboardController returns stats but SPA dashboard.component shows nav cards only) -> render numbers + add held/paid/refunded. Payments/Support/Admin: NO stats endpoint -> add per-role stats endpoint + render. Client has NO dashboard." },
+      { "id": "B9-proof-payment-rework", "title": "Proof/payment flow per 2026-06-20 decision", "status": "todo", "note": "Remove Payments proof-content review; add 'payment' as ticketable; proof reject -> auto-hold payment; proof accept -> releasable + manual release; held-payment -> open Support ticket w/ payment attached. Update design.md/cases.md prose too (they still say Payments reviews proofs)." },
+      { "id": "B10-autoapprove", "title": "Payments auto-approve config (toggle + threshold)", "status": "todo", "note": "Admin System Config keys: payments_auto_approve (bool, default false) + payments_auto_approve_threshold (amount). Enforce in PaymentController/booking-payment creation." }
+    ],
+    "doc_fixes_pending": [
+      "design.md: rewrite Proof of Display (119-148) + RBAC/collaborators (478-482, drop per-campaign) per decisions; add client-lands-on-Spaces + invoice-PDF notes.",
+      "cases.md: drop date-flexibility (#2); fix held-slot 'auto-assigned' -> provider-picks (#8 alert); fix proof alert rows naming Payments as reviewer.",
+      "ARCHITECTURE.md: 26->29 migrations, 18->19 models, add Admin ConfigurationController+OversightController to tree, dead Manager\\UserController, Paris/EUR seed -> Monterrey/MXN, reconcile proofs/bookings status enums to design.md, add ratings + ad_files tables.",
+      "platform-graph: DONE this session (proof/payment, PDF, dashboards, account collaborators)."
+    ],
+    "open_decisions_top5": [
+      "1. Ratify proof-review reversal (Payments out of content review) — reverses design.md+cases.md+code; nothing implements the new flow yet.",
+      "2. Collaborator scope of record: confirm account-scoped + kill 'proof_uploader'; correct design.md:478-482 prose.",
+      "3. Define Support & Payments dashboard stats (no doc specifies their contents).",
+      "4. Multi-file ads (design.md mandates ad->files 1:n; schema is single-file) — in MVP scope or defer?",
+      "5. Held-slot confirmation: provider-picks (design.md) vs auto-assign (cases.md alert) — confirm provider-picks canonical."
     ]
   }
 }
