@@ -214,3 +214,19 @@ notifications, strikes, tiered refunds) — see new_subsystems N1-N8. Conflict: 
 Doc drift (docsync TODO, not yet applied): ARCHITECTURE.md says 26 migrations (actual 29) and 18 models
 (actual 19); Admin/ tree omits ConfigurationController+OversightController; Manager\UserController is an
 unrouted dead import.
+
+### [2026-06-20] STEP 12 — B8 stats dashboards (sequential code; [todo B8] traceability)
+New per-role stats dashboards (owner asked all non-client roles show numbers):
+- backend NEW: Payments/Support/Admin DashboardController (index) + Provider extended.
+  - Payments: paid / on_hold / pending / refunded (count + amount).
+  - Support: waiting_review / open / in_progress / waiting_user / solved / unassigned.
+  - Admin: users_total + users_by_role / active+total spaces / active+total campaigns /
+    open_tickets / payments_held / revenue_paid / refunded.
+  - Provider: + revenue_paid / revenue_held / revenue_refunded (kept total_revenue for back-compat).
+- routes/api.php: GET /admin|support|payments/dashboard — role-gated only (no permission mw so the
+  running DB works without an RBAC reseed; RolePermissionSeeder gets dashboard:read for support/payments
+  for future fresh installs).
+- frontend dashboard.component.ts: fetches the role's stats endpoint, renders a stat-card grid above
+  quick actions (client shows none). Money formatted as MXN.
+RUNTIME-VERIFIED all 4 endpoints (e.g. payments paid 4/$116,200, support waiting_review 5, admin
+users-by-role, provider revenue buckets). php -l + ng build clean. All code tagged [todo B8].

@@ -59,6 +59,7 @@ class RolePermissionSeeder extends Seeder
                 'tickets'       => ['create', 'read', 'update'],
                 'conversations' => ['read'],
                 'users'         => ['read'],
+                'dashboard'     => ['read'], // [todo B8] support stats dashboard
             ],
 
             'payments' => [
@@ -66,6 +67,7 @@ class RolePermissionSeeder extends Seeder
                 'proofs'   => ['read', 'update'],
                 'bookings' => ['read'],
                 'invoices' => ['read'],
+                'dashboard' => ['read'], // [todo B8] payments stats dashboard
             ],
         ];
 

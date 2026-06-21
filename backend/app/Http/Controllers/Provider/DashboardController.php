@@ -23,10 +23,18 @@ class DashboardController extends Controller
 
         $pendingBookings = (clone $bookings)->where('status', 'pending')->count();
         $confirmedBookings = (clone $bookings)->where('status', 'confirmed')->count();
-        $totalRevenue = (clone $bookings)->where('bookings.status', 'confirmed')
+
+        // [todo B8] Money buckets for the provider's spaces: paid / held / refunded.
+        $payQuery = fn (array $statuses) => Booking::whereHas('space', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })
             ->join('payments', 'bookings.id', '=', 'payments.booking_id')
-            ->where('payments.status', 'completed')
+            ->whereIn('payments.status', $statuses)
             ->sum('payments.amount');
+
+        $revenuePaid = (float) $payQuery(['completed', 'released']);
+        $revenueHeld = (float) $payQuery(['held']);
+        $revenueRefunded = (float) $payQuery(['refunded']);
 
         $unreadMessages = Conversation::where('provider_user_id', $user->id)
             ->withCount(['messages as unread_count' => function ($q) use ($user) {
@@ -40,7 +48,10 @@ class DashboardController extends Controller
             'active_spaces' => $activeSpaces,
             'pending_bookings' => $pendingBookings,
             'confirmed_bookings' => $confirmedBookings,
-            'total_revenue' => $totalRevenue,
+            'total_revenue' => $revenuePaid, // kept for back-compat
+            'revenue_paid' => $revenuePaid,
+            'revenue_held' => $revenueHeld,
+            'revenue_refunded' => $revenueRefunded,
             'unread_messages' => $unreadMessages,
         ]);
     }

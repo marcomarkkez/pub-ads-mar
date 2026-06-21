@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Admin\ConfigurationController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\OversightController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Client\ProofFlagController;
 use App\Http\Controllers\Client\SpaceSearchController;
 use App\Http\Controllers\Client\WalletController;
 use App\Http\Controllers\Manager\UserController;
+use App\Http\Controllers\Payments\DashboardController as PaymentsDashboardController;
 use App\Http\Controllers\Payments\PaymentController;
 use App\Http\Controllers\Payments\ProofReviewController;
 use App\Http\Controllers\Provider\BookingController as ProviderBookingController;
@@ -27,6 +29,7 @@ use App\Http\Controllers\Provider\SpacePhotoController;
 use App\Http\Controllers\Shared\ConversationController;
 use App\Http\Controllers\Shared\MessageController;
 use App\Http\Controllers\Shared\TicketController;
+use App\Http\Controllers\Support\DashboardController as SupportDashboardController;
 use App\Http\Controllers\Support\TicketController as SupportTicketController;
 use Illuminate\Support\Facades\Route;
 
@@ -128,6 +131,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Admin routes ────────────────────────────────────────
     Route::middleware('role:admin')->prefix('admin')->group(function () {
+        // [todo B8] Admin stats dashboard. Role-gated only (admin has dashboard:read, but new
+        // support/payments dashboards omit permission mw to avoid an RBAC reseed on the running DB).
+        Route::get('dashboard', [AdminDashboardController::class, 'index']);
+
         // Users CRM
         Route::get('users', [AdminUserController::class, 'index'])->middleware('permission:users,read');
         Route::post('users', [AdminUserController::class, 'store'])->middleware('permission:users,create');
@@ -154,6 +161,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Support routes ──────────────────────────────────────
     Route::middleware('role:support')->prefix('support')->group(function () {
+        // [todo B8] Support stats dashboard (role-gated only — see note in admin block).
+        Route::get('dashboard', [SupportDashboardController::class, 'index']);
+
         Route::get('tickets', [SupportTicketController::class, 'index'])->middleware('permission:tickets,read');
         Route::get('tickets/{ticket}', [SupportTicketController::class, 'show'])->middleware('permission:tickets,read');
         Route::put('tickets/{ticket}', [SupportTicketController::class, 'update'])->middleware('permission:tickets,update');
@@ -162,6 +172,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Payments routes ─────────────────────────────────────
     Route::middleware('role:payments')->prefix('payments')->group(function () {
+        // [todo B8] Payments stats dashboard (role-gated only — see note in admin block).
+        Route::get('dashboard', [PaymentsDashboardController::class, 'index']);
+
         Route::get('payments', [PaymentController::class, 'index'])->middleware('permission:payments,read');
         Route::get('payments/{payment}', [PaymentController::class, 'show'])->middleware('permission:payments,read');
         Route::post('payments/{payment}/approve', [PaymentController::class, 'approve'])->middleware('permission:payments,update');
