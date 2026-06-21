@@ -326,6 +326,8 @@ POST                  /api/payments/payments/{payment}/reject
 POST                  /api/payments/payments/{payment}/refund        # permission:payments,refund
 POST                  /api/payments/payments/{payment}/payout/release
 POST                  /api/payments/payments/{payment}/payout/hold
+# DEPRECATED (removed by todo B9 — Payments no longer reviews proof content; the
+# client reviews proofs, Payments only holds/releases money):
 GET                   /api/payments/proofs
 POST                  /api/payments/proofs/{proof}/approve
 POST                  /api/payments/proofs/{proof}/reject

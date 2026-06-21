@@ -57,7 +57,7 @@
 
 6. **Install and upload proof.** Within 5 days of display start, the provider uploads a photo (for printed/screen ads) or a short video (for radio/audio ads). Reminders fire on day 3 and day 4. Missing day 5 auto-cancels the booking, refunds the client, and accrues a strike.
 
-7. **Re-upload after a proof rejection.** If Payments rejects the proof, the provider has 48 hours to re-upload.
+7. **Re-upload after a proof rejection.** If the CLIENT rejects the proof (or a collaborator flags a mismatch), the provider has 48 hours to re-upload, and a ticket with the payment attached is opened for BOTH Support and Payments while the payout stays held (owner decision 2026-06-20 — Payments does NOT review proof content).
 
 8. **Chat with clients.** From any booking or ad the provider can open the chat; PII is masked.
 
@@ -75,8 +75,8 @@
 
 ## PAYMENTS scenarios
 
-1. **Review proofs queue.** Approve releases payout; reject with reason opens the 48-hour re-upload window.
-2. **Hold payouts** when a secondary (collaborator/client) proof flag is raised.
+1. **Release payouts (money only — NOT proof content review; owner decision 2026-06-20).** Payments does not approve/reject proofs. When the CLIENT accepts a proof the payment becomes releasable and a Payments person manually releases it (auto-released only under the admin auto-approve threshold).
+2. **Held payments queue.** When the client rejects a proof / a collaborator flags a mismatch, the related payment is auto-HELD and a ticket with the payment attached lands for both Payments and Support; Payments coordinates with Support on that thread and releases only on agreement.
 3. **Process refunds.** Automatic on deadline miss; manual on support-validated disputes. Mocked Mercado Pago / PayPal. Refunds land in the client wallet with a withdraw option. Payments and Support can open a private thread between themselves that the client never sees, even when it references the same object as a client-facing conversation.
 4. **Strike accrual is not a Payments power.** Strikes (missed proof, provider cancel, upheld mismatch) are routed to **Support first, then Admin** for review — never Payments — because a strike is not a payment situation. Three strikes in 90 days flags the account for Admin review.
 5. **No content powers.** Payments cannot edit listings or media — Payments can only see payment-related data.
@@ -163,7 +163,7 @@ Columns: **Space type | Provider declares (physical) | Client must deliver (file
 5. **Missed deadline.** Provider misses day 5 proof → auto-cancel → client wallet credited in full → strike accrued → critical alert to client, provider, Payments, Support.
 6. **Mismatch flag from a collaborator.** Collaborator sees the live billboard shows last month's art → flags mismatch → payout held → Support joins chat → dispute resolved valid → refund issued, strike accrued.
 7. **Provider freeze.** Provider accrues 3 strikes in 90 days → admin alerted → admin freezes → all upcoming bookings on that provider auto-cancel with full refund.
-8. **Disputed proof escalating to support.** Payments rejects a proof for blur → provider disputes → Support joins → reviews original photo → sides with provider → payout released.
+8. **Disputed proof escalating to support.** Client rejects a proof for blur → payment auto-held + ticket to Support & Payments → provider disputes/re-uploads → Support reviews → Support + Payments agree → payout released.
 9. **Conversation that travels.** Pre-booking inquiry → becomes booking thread on approval → escalates to a support ticket on a mismatch flag, all in the same chronological thread with system messages marking each transition and the PII-masking change when Support joins.
 
 ## Diff summary vs v1

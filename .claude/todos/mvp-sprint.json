@@ -122,10 +122,11 @@
       { "id": "B10-autoapprove", "title": "Payments auto-approve config (toggle + threshold)", "status": "todo", "note": "Admin System Config keys: payments_auto_approve (bool, default false) + payments_auto_approve_threshold (amount). Enforce in PaymentController/booking-payment creation." }
     ],
     "doc_fixes_done_2026_06_20": [
-      "design.md: Proof of Display rewritten (client reviews, Payments money-only, dual Support/Payments ticket on reject); RBAC/collaborators -> account-scoped; new == Dashboards == section (per-role metrics); multi-file marked deferred (1 file MVP).",
-      "cases.md: date-flexibility dropped (#2); held-slot 'auto-assigned' -> provider-picks (#8 alert); proof alert rows fixed (client accepts/rejects, dual ticket).",
-      "ARCHITECTURE.md: 26->29 migrations, 18->19 models, Paris/EUR seed note -> Monterrey/MXN.",
-      "platform-graph: proof/payment, PDF, dashboards, account collaborators."
+      "design.md: Proof of Display rewritten (client reviews, Payments money-only, dual Support/Payments ticket on reject); Collaborator Roles prose now states account-scoped + two separate ecosystems; RBAC notes drop per-campaign; new == Dashboards == section (per-role metrics); multi-file marked deferred (1 file MVP).",
+      "cases.md: date-flexibility dropped (#2); held-slot 'auto-assigned' -> provider-picks (#8 alert); proof ALERT-TABLE rows fixed AND prose fixed (PROVIDER #7, PAYMENTS #1-2, journey #8 -> client reviews, dual Support/Payments ticket).",
+      "ARCHITECTURE.md: 26->29 migrations, 18->19 models, Paris/EUR seed note -> Monterrey/MXN, Payments proof routes (329-331) marked DEPRECATED (B9).",
+      "platform-graph: proof/payment, PDF, dashboards, account collaborators.",
+      "Verified by Team#1 congruence audit 2026-06-20: doc-set + docs<->todos now congruent (defects A1/A2/A4/A5 fixed)."
     ],
     "doc_fixes_still_pending": [
       "ARCHITECTURE.md: add Admin ConfigurationController+OversightController to folder tree; note dead Manager\\UserController; reconcile proofs/bookings status enums to design.md. (ratings table later via N1; ad_files deferred.)",

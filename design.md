@@ -76,8 +76,13 @@ questions file has been removed now that nothing is open.
 == Collaborator Roles ==
 
 An account (client OR provider) is an organization that the owner can staff with
-collaborators invited by email. Each collaborator is assigned one of three
-organization roles:
+collaborators invited by email. Collaborators are ACCOUNT-scoped (owner decision
+2026-06-20): a collaborator belongs to the account and, per their role, sees/acts
+across ALL of that account's campaigns or spaces — not a single campaign. The
+client side and provider side are TWO SEPARATE ecosystems: each has its own
+subrole set, and a subrole on one side is unrelated to the same-named subrole on
+the other (a client "Manager" ≠ a provider "Manager"). Each collaborator is
+assigned one of three organization roles (within their ecosystem):
 - **Installator** — can ONLY upload proofs. Built for provider-side crews who
   install physical ads in the street and photograph them the same day. Sees
   nothing about money, campaigns, or other topics.
