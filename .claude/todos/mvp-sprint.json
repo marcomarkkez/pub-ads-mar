@@ -109,28 +109,28 @@
     "decisions_2026_06_20": [
       "Client lands on Spaces (SHIPPED).",
       "Collaborators are ACCOUNT-scoped (act across all the owner's campaigns), two ecosystems (client publicist/manager...; provider installator/manager...), subroles per ecosystem. Retire campaign_id scoping + the legacy 'proof_uploader' enum.",
-      "Proof/payment: Payments does NOT review proof content. Client+collaborators review/flag; Support adjudicates mismatch. Proof REJECTED -> payment AUTO-HELD (Payments only sees held). Proof ACCEPTED -> payment releasable, Payments MANUALLY releases. From a held payment, Payments opens a Support ticket with the payment attached; release on agreement. => remove Payments\\ProofReviewController + Payments 'Proofs' nav; add payment ticketable + hold-on-reject wiring.",
-      "Payments auto-approval = admin System Config: toggle + amount THRESHOLD (auto-approve under $X), default OFF.",
+      "Proof/payment (FINAL 2026-06-20): payment is HELD from booking until the CLIENT accepts the primary proof. The CLIENT (and collaborators per role) review/accept/reject proofs — Payments does NOT review proof content. Client REJECT (or collaborator mismatch flag) -> 48h re-upload window opens for provider AND a ticket with the payment attached is created for BOTH Support AND Payments (both see it); payout stays HELD until Support+Payments agree to release. Client ACCEPT -> payment releasable, Payments MANUALLY releases (optionally auto under threshold). => remove Payments\\ProofReviewController + Payments 'Proofs' nav; add 'payment' ticketable; proof-reject -> auto-hold + dual Support/Payments ticket.",
+      "Payments auto-approval = admin System Config: toggle + amount THRESHOLD (auto-release under $X), default OFF.",
       "Invoice PDF generation = server-side (SHIPPED). Reflected in platform-graph.",
-      "All NON-client dashboards (provider/payments/support/admin) must show live stats."
+      "All NON-client dashboards (provider/payments/support/admin) must show live stats (metrics per role in design.md Dashboards section). Client has NO dashboard.",
+      "Multi-file ads = FUTURE/deferred; MVP is ONE file per ad/space.",
+      "Booking queue = provider PICKS from the queue of pending requests for a space (marketplace stock-confirm analogy); NOT auto-assigned."
     ],
     "new_batches_2026_06_20": [
       { "id": "B8-dashboards", "title": "Stats dashboards for provider/payments/support/admin", "status": "todo", "note": "Provider PARTIAL (Provider\\DashboardController returns stats but SPA dashboard.component shows nav cards only) -> render numbers + add held/paid/refunded. Payments/Support/Admin: NO stats endpoint -> add per-role stats endpoint + render. Client has NO dashboard." },
       { "id": "B9-proof-payment-rework", "title": "Proof/payment flow per 2026-06-20 decision", "status": "todo", "note": "Remove Payments proof-content review; add 'payment' as ticketable; proof reject -> auto-hold payment; proof accept -> releasable + manual release; held-payment -> open Support ticket w/ payment attached. Update design.md/cases.md prose too (they still say Payments reviews proofs)." },
       { "id": "B10-autoapprove", "title": "Payments auto-approve config (toggle + threshold)", "status": "todo", "note": "Admin System Config keys: payments_auto_approve (bool, default false) + payments_auto_approve_threshold (amount). Enforce in PaymentController/booking-payment creation." }
     ],
-    "doc_fixes_pending": [
-      "design.md: rewrite Proof of Display (119-148) + RBAC/collaborators (478-482, drop per-campaign) per decisions; add client-lands-on-Spaces + invoice-PDF notes.",
-      "cases.md: drop date-flexibility (#2); fix held-slot 'auto-assigned' -> provider-picks (#8 alert); fix proof alert rows naming Payments as reviewer.",
-      "ARCHITECTURE.md: 26->29 migrations, 18->19 models, add Admin ConfigurationController+OversightController to tree, dead Manager\\UserController, Paris/EUR seed -> Monterrey/MXN, reconcile proofs/bookings status enums to design.md, add ratings + ad_files tables.",
-      "platform-graph: DONE this session (proof/payment, PDF, dashboards, account collaborators)."
+    "doc_fixes_done_2026_06_20": [
+      "design.md: Proof of Display rewritten (client reviews, Payments money-only, dual Support/Payments ticket on reject); RBAC/collaborators -> account-scoped; new == Dashboards == section (per-role metrics); multi-file marked deferred (1 file MVP).",
+      "cases.md: date-flexibility dropped (#2); held-slot 'auto-assigned' -> provider-picks (#8 alert); proof alert rows fixed (client accepts/rejects, dual ticket).",
+      "ARCHITECTURE.md: 26->29 migrations, 18->19 models, Paris/EUR seed note -> Monterrey/MXN.",
+      "platform-graph: proof/payment, PDF, dashboards, account collaborators."
     ],
-    "open_decisions_top5": [
-      "1. Ratify proof-review reversal (Payments out of content review) — reverses design.md+cases.md+code; nothing implements the new flow yet.",
-      "2. Collaborator scope of record: confirm account-scoped + kill 'proof_uploader'; correct design.md:478-482 prose.",
-      "3. Define Support & Payments dashboard stats (no doc specifies their contents).",
-      "4. Multi-file ads (design.md mandates ad->files 1:n; schema is single-file) — in MVP scope or defer?",
-      "5. Held-slot confirmation: provider-picks (design.md) vs auto-assign (cases.md alert) — confirm provider-picks canonical."
-    ]
+    "doc_fixes_still_pending": [
+      "ARCHITECTURE.md: add Admin ConfigurationController+OversightController to folder tree; note dead Manager\\UserController; reconcile proofs/bookings status enums to design.md. (ratings table later via N1; ad_files deferred.)",
+      "Frontend: booking-list currency 'EUR' -> 'MXN'; reseed demo spaces in Monterrey (MvpDemoSeeder)."
+    ],
+    "open_decisions_top5": "ALL RESOLVED 2026-06-20: (1) proof-review reversal RATIFIED — see decisions; (2) collaborators ACCOUNT-scoped, kill proof_uploader; (3) dashboard metrics defined in design.md Dashboards; (4) multi-file DEFERRED, 1 file MVP; (5) booking queue = provider-picks."
   }
 }

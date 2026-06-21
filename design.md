@@ -125,27 +125,52 @@ default 5 days, counted from display start) the provider uploads a photo
 3 and day 4 (day-4 includes SMS). Missing the deadline auto-cancels the
 booking, refunds the client to wallet credit, and accrues a strike on the
 provider. Collaborators (per their role) may upload SECONDARY proofs
-(verifications) and flag mismatches; a mismatch flag holds the payout and
-immediately opens a support ticket with the ad and proof attached.
+(verifications) and flag mismatches.
 
-Payout is NOT automatic on upload: once the primary proof is uploaded, **Payments
-reviews it** — approval releases the payout, rejection (with reason) opens a
-re-upload window (admin-configured, default 48 h) for the provider. A provider
-may dispute a rejection or a mismatch flag by opening a support thread tied to
-the ad. The re-upload clock STOPS as soon as a chat/dispute about the proof
-starts; Support receives an alert to review and may enter the chat, and the
-clock resumes once the dispute closes. Proof lifecycle: pending → uploaded → (approved → payout
-released) | (rejected → re-upload) | (deadline missed → auto-cancel + refund +
-strike). Secondary proofs and mismatch flags may be filed up until payout
-release.
+Proof review and payout (owner decision 2026-06-20; see todo B9). The client's
+payment is HELD from booking until the CLIENT accepts the primary proof. The
+**CLIENT** — and their collaborators, per role — review the proof. **Payments
+does NOT review proof content**; Payments only sees the resulting money state and
+executes the release.
+
+- If the client ACCEPTS the proof, the payment becomes releasable and a Payments
+  person MANUALLY releases the payout (a human approval, optionally auto-released
+  under an admin amount threshold — see System Configurations / auto-approve).
+- If the client REJECTS the proof (or a collaborator flags a mismatch), the
+  re-upload window opens (admin-configured, default 48 h) for the provider to
+  upload a new proof, AND a support ticket is opened with the **payment attached
+  and routed to BOTH Support and Payments** — both see the same ticket. Payments
+  and Support coordinate on that thread; the payout stays HELD until they agree
+  to release it (or the booking is cancelled/refunded). The re-upload clock STOPS
+  while the dispute/chat is open and resumes once it closes.
+
+Proof lifecycle: pending → uploaded → (client-accepted → payout releasable →
+Payments releases) | (client-rejected / mismatch → re-upload + Support↔Payments
+ticket, payout HELD) | (deadline missed → auto-cancel + refund + strike).
 
 The reject→re-upload loop is not unbounded: if a proof is still unresolved after
-the re-upload window (default 48 h) elapses, Support intervenes to adjudicate
+the re-upload window (default 48 h) elapses, Support (with Payments) adjudicates
 rather than letting the cycle repeat indefinitely. Proof photos are NOT
 automatically geotag-checked against the space lat/long — the space belongs to
 the provider, who knows exactly where it is, so there is no "wrong space"
 mismatch to detect automatically; a proof that does not match the booked ad is
-caught by the client/collaborator mismatch-flag → Support path instead.
+caught by the client/collaborator mismatch-flag → Support/Payments path instead.
+
+== Dashboards ==
+
+(owner decision 2026-06-20; see todo B8.) Every NON-client role lands on a stats
+dashboard showing live numbers for the data that role owns. The CLIENT has NO
+dashboard — clients land on the Map + Search (Spaces) screen. Per-role metrics:
+- PROVIDER: active spaces, pending bookings (awaiting their approval), confirmed
+  bookings, proofs due, revenue (upcoming / held / paid / refunded), trailing-90d
+  strikes.
+- PAYMENTS: payments pending approval, payments on HOLD (awaiting proof
+  resolution), refunds/payouts to process, auto-approved count.
+- SUPPORT: open tickets, tickets awaiting user, queue depth / unassigned, recent
+  mismatch/dispute tickets.
+- ADMIN: users by role, active spaces/campaigns, open tickets, basic system
+  health (held payments, refund rate, strike rate).
+Each metric is computed from data the role can already see; no new permissions.
 
 == Strike System ==
 
@@ -234,8 +259,9 @@ impressions) and (b) MEDIA-DELIVERY specs the client must satisfy when uploading
 the ad file (format, resolution, color profile, bleed, duration, bitrate,
 file-size cap). Media-delivery specs auto-populate from a per-type template and
 the provider can tighten them, plus add FREE-TEXT rules (brightness, margins,
-"this screen plays audio", etc.). An ad may carry MORE THAN ONE file (model the
-ad → files relationship as one-to-many in the schema). At upload, each file is
+"this screen plays audio", etc.). MVP scope (owner decision 2026-06-20): ONE file
+per ad/space. Multi-file ads (ad → files one-to-many) are a FUTURE feature —
+deferred, not built for MVP. At upload, the file is
 validated against the media-delivery specs with hard-fail and a concrete error
 message (automated metrics gate) — but passing validation does NOT guarantee
 acceptance: the provider may still manually reject the ad for their own reasons.
@@ -477,9 +503,12 @@ Concurrency
 
 RBAC & collaborators
 - The global `role_permissions` matrix governs system roles only. Collaborators
-  use a SEPARATE per-account, per-campaign grant overlay (e.g. `account_grants`:
-  account_id, collaborator_user_id, scope_type, scope_id, capability), evaluated
-  after the global matrix and scoped so grants never leak across accounts.
+  use a SEPARATE per-ACCOUNT grant overlay (owner decision 2026-06-20; see todo
+  B6): a collaborator belongs to the account (NOT a single campaign) and, per
+  their role, sees/acts across ALL of that account's campaigns/spaces
+  (e.g. `account_grants`: account_id, collaborator_user_id, role, capability),
+  evaluated after the global matrix and scoped so grants never leak across
+  accounts. (Per-object scoping may be layered on later — not MVP.)
 - Extend the action vocabulary beyond CRUD with named capabilities:
   `refund.flag` vs `refund.execute`, `payout.hold` vs `payout.release`,
   `strike.accrue` vs `strike.reverse`, `internal_thread.read` vs `.post`. Support

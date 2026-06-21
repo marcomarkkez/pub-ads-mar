@@ -78,7 +78,7 @@ pub-ads-mar/
 │   │   ├── cors.php                 # CORS: allow localhost:4200, credentials: true
 │   │   └── sanctum.php              # Stateful domains incl. localhost:4200
 │   ├── database/
-│   │   ├── migrations/              # 26 total (users, cache, jobs, tokens + 22 domain/alter)
+│   │   ├── migrations/              # 29 total (users, cache, jobs, tokens + domain + 7 alters)
 │   │   └── seeders/
 │   │       ├── DatabaseSeeder.php   # Demo: 7 users, 4 spaces, 2 campaigns
 │   │       └── RolePermissionSeeder.php  # Default RBAC permissions (~66 rows)
@@ -457,9 +457,9 @@ ng generate component features/...  # Generate component
 | Sanctum install | ✅ Done | v4.3.1 via `php artisan install:api` |
 | CORS config | ✅ Done | Allow localhost:4200 with credentials |
 | Users migration | ✅ Done | role/phone/company_name/address/is_active added |
-| Domain migrations | ✅ Done | 26 total: 3 framework + personal_access_tokens + 15 domain (campaigns → invoices) + role_permissions + 2 alters (calendar_keyword, thread cols) + wallet_entries + system_configurations |
+| Domain migrations | ✅ Done | 29 total: 3 framework + personal_access_tokens + 15 domain (campaigns → invoices) + role_permissions + wallet_entries + system_configurations + 7 alters (calendar_keyword, calendar_synced_at, thread cols, collaborators.role→string, ads.adset_id nullable, bookings.config_snapshot, tickets.ticketable nullable) |
 | User model | ✅ Done | HasApiTokens + role helpers + relationships + walletEntries |
-| Eloquent models (×18) | ✅ Done | User + 17 domain models, all with relationships and casts |
+| Eloquent models (×19) | ✅ Done | User + 18 domain models, all with relationships and casts |
 | RoleMiddleware | ✅ Done | Checks user role, returns 403 |
 | PermissionMiddleware | ✅ Done | Granular RBAC: permission:resource,action per route |
 | RBAC permissions table | ✅ Done | role_permissions with cached lookups (60min) |
@@ -503,4 +503,4 @@ All seeded with `php artisan migrate:fresh --seed`. Password for all: **`passwor
 | Client | client1@pubads.test | Mendez Marketing |
 | Client | client2@pubads.test | Martin Digital |
 
-Demo also seeds 4 spaces (billboard, digital screen, bus shelter, metro panel — all in Paris), 2 campaigns with adsets, ads, bookings, payments, availability windows (Mar–Jun 2026), and default role permissions (~66 rows).
+Demo also seeds spaces (billboard, digital screen, bus shelter, metro panel), campaigns with adsets, ads, bookings, payments, availability windows, and default role permissions (~66 rows). NOTE: the canonical launch market is **Monterrey, Nuevo León, México** with currency **MXN** (see design.md). Older seed data placed sample spaces in Paris with EUR — being migrated to Monterrey/MXN; the frontend booking list still hardcodes `currency:'EUR'` and should switch to MXN.
