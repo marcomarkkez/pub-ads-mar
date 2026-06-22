@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
@@ -151,6 +151,7 @@ interface StatCard { label: string; value: string; sub?: string; }
 export class DashboardComponent implements OnInit {
   private auth = inject(AuthService);
   private http = inject(HttpClient);
+  private router = inject(Router);
   private readonly api = environment.apiUrl;
 
   user = this.auth.user;
@@ -160,7 +161,13 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     const role = this.role();
-    if (!role || role === 'client') return;
+    // [todo B8] Clients have NO dashboard (owner decision 2026-06-20) — their landing
+    // is the Spaces map. Bounce any client who reaches /dashboard straight there.
+    if (role === 'client') {
+      this.router.navigateByUrl('/client/spaces');
+      return;
+    }
+    if (!role) return;
     this.loadStats(role);
   }
 
