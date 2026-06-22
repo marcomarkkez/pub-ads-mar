@@ -5,7 +5,7 @@ import { RouterLink, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
-import { Space, SpacePhoto, SpaceAvailability } from '../../../core/models';
+import { Space, SpacePhoto } from '../../../core/models';
 
 @Component({
   selector: 'app-space-detail',
@@ -104,139 +104,15 @@ import { Space, SpacePhoto, SpaceAvailability } from '../../../core/models';
         }
       </div>
 
-      <!-- Availabilities Section -->
+      <!-- [todo B2] Availability + Calendar moved to the Edit screen (owner decision 2026-06-20). -->
       <div class="card section-card">
-        <div class="card-header">
-          <h2>Availabilities ({{ availabilities().length }})</h2>
-        </div>
-
-        <!-- Add Availability Form — multiple ranges -->
-        <p class="text-muted" style="margin-bottom:8px;">Add one or more date ranges when this space is available for booking.</p>
-        <div class="inline-form">
-          <div class="form-group">
-            <label for="avail-start">Start Date</label>
-            <input id="avail-start" type="date" name="availStart" [(ngModel)]="availForm.start_date">
-          </div>
-          <div class="form-group">
-            <label for="avail-end">End Date</label>
-            <input id="avail-end" type="date" name="availEnd" [(ngModel)]="availForm.end_date">
-          </div>
-          <div class="form-group">
-            <label for="avail-status">Status</label>
-            <select id="avail-status" name="availStatus" [(ngModel)]="availForm.status">
-              <option value="available">Available</option>
-              <option value="blocked">Blocked</option>
-            </select>
-          </div>
-          <button class="btn btn-sm btn-success" (click)="addAvailability()" [disabled]="addingAvail() || !availForm.start_date || !availForm.end_date">
-            @if (addingAvail()) {
-              <span class="spinner"></span>
-            } @else {
-              + Add Range
-            }
-          </button>
-        </div>
-
-        @if (availabilities().length === 0) {
-          <p class="text-muted" style="margin-top:16px">No availabilities defined yet. Add date ranges above or sync from a calendar below.</p>
-        } @else {
-          <div class="table-container" style="margin-top:16px">
-            <table>
-              <thead>
-                <tr>
-                  <th>Start Date</th>
-                  <th>End Date</th>
-                  <th>Status</th>
-                  <th>Source</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (avail of availabilities(); track avail.id) {
-                  <tr>
-                    <td>{{ avail.start_date }}</td>
-                    <td>{{ avail.end_date }}</td>
-                    <td>
-                      <span class="badge" [class]="'badge-' + avail.status">{{ avail.status | titlecase }}</span>
-                    </td>
-                    <td>
-                      <span style="font-size:12px;color:var(--text-muted);">{{ avail.source || 'manual' }}</span>
-                    </td>
-                    <td>
-                      <button class="btn btn-sm btn-danger" (click)="deleteAvailability(avail)" [disabled]="deletingAvailId() === avail.id">
-                        @if (deletingAvailId() === avail.id) {
-                          <span class="spinner"></span>
-                        } @else {
-                          Delete
-                        }
-                      </button>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        }
-      </div>
-
-      <!-- Calendar Sync Section -->
-      <div class="card section-card">
-        <div class="card-header">
-          <h2>Calendar Sync</h2>
-        </div>
-
+        <div class="card-header"><h2>Availability & Calendar</h2></div>
         <p class="text-muted" style="margin-bottom:12px;">
-          Link a public Google Calendar (or any iCal URL) to automatically mark occupied dates.
-          Blank days in the calendar = available. Days with events = occupied.
+          Availability date ranges and Google/iCal calendar sync are managed on the Edit screen.
         </p>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="ical-url">
-              Public iCal URL
-              <button type="button" class="help-btn" (click)="showIcalHelp.set(!showIcalHelp())"
-                title="How does calendar sync work?">?</button>
-            </label>
-            <input id="ical-url" type="url" [(ngModel)]="icalUrl" name="icalUrl"
-              placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
-            @if (showIcalHelp()) {
-              <p class="help-text">
-                Paste a public iCal/Google Calendar link (ending in <code>.ics</code>).
-                Days with calendar events are marked occupied; blank days stay available.
-                Use the optional keyword to count only matching events. You can also upload
-                an <code>.ics</code> file directly. Synced calendars refresh daily.
-              </p>
-            }
-          </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="cal-keyword">Calendar Keyword <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(optional)</span></label>
-            <input id="cal-keyword" type="text" [(ngModel)]="calendarKeyword" name="calendarKeyword"
-              placeholder="e.g. Billboard Norte — only events with this name count as occupied">
-          </div>
-        </div>
-
-        <div style="display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap;">
-          <button class="btn btn-sm" (click)="saveCalendarSettings()" [disabled]="savingCalendar()">
-            @if (savingCalendar()) { <span class="spinner"></span> } @else { Save Settings }
-          </button>
-          <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
-            (click)="syncCalendar()" [disabled]="syncingCalendar() || !icalUrl">
-            @if (syncingCalendar()) { <span class="spinner"></span> Syncing... } @else { Sync Now }
-          </button>
-
-          <span style="color:var(--text-muted);font-size:12px;">— or —</span>
-
-          <label class="btn btn-sm" [class.disabled]="uploadingIcal()">
-            @if (uploadingIcal()) { <span class="spinner"></span> } @else { Upload .ics File }
-            <input type="file" accept=".ics" (change)="onIcsFileSelected($event)" hidden [disabled]="uploadingIcal()">
-          </label>
-        </div>
-
-        @if (calendarSyncResult()) {
-          <p style="margin-top:8px;font-size:13px;" [style.color]="calendarSyncResult()!.startsWith('Error') ? 'var(--danger)' : 'var(--success)'">
-            {{ calendarSyncResult() }}
-          </p>
-        }
+        <a [routerLink]="['/provider/spaces', space()!.id, 'edit']" class="btn btn-sm btn-primary" style="width:auto">
+          Manage availability & calendar
+        </a>
       </div>
     }
   `,
@@ -365,27 +241,10 @@ import { Space, SpacePhoto, SpaceAvailability } from '../../../core/models';
 export class SpaceDetailComponent implements OnInit {
   space = signal<Space | null>(null);
   photos = signal<SpacePhoto[]>([]);
-  availabilities = signal<SpaceAvailability[]>([]);
   loading = signal(false);
   error = signal('');
   uploadingPhoto = signal(false);
   deletingPhotoId = signal<number | null>(null);
-  addingAvail = signal(false);
-  deletingAvailId = signal<number | null>(null);
-  savingCalendar = signal(false);
-  syncingCalendar = signal(false);
-  uploadingIcal = signal(false);
-  calendarSyncResult = signal<string | null>(null);
-  showIcalHelp = signal(false);
-
-  icalUrl = '';
-  calendarKeyword = '';
-
-  availForm = {
-    start_date: '',
-    end_date: '',
-    status: 'available' as 'available' | 'blocked',
-  };
 
   private spaceId!: number;
   private readonly api = environment.apiUrl;
@@ -409,9 +268,6 @@ export class SpaceDetailComponent implements OnInit {
       next: (res) => {
         this.space.set(res);
         this.photos.set((res as any).photos || []);
-        this.availabilities.set((res as any).availabilities || []);
-        this.icalUrl = res.ical_url || '';
-        this.calendarKeyword = res.calendar_keyword || '';
         this.loading.set(false);
       },
       error: (err) => {
@@ -466,108 +322,7 @@ export class SpaceDetailComponent implements OnInit {
     });
   }
 
-  // --- Availabilities ---
-
-  addAvailability(): void {
-    if (!this.availForm.start_date || !this.availForm.end_date) return;
-
-    this.addingAvail.set(true);
-
-    this.http.post<SpaceAvailability>(
-      `${this.api}/provider/spaces/${this.spaceId}/availabilities`,
-      this.availForm,
-    ).subscribe({
-      next: (res) => {
-        this.availabilities.update(list => [...list, res]);
-        this.notify.success('Availability added.');
-        this.availForm = { start_date: '', end_date: '', status: 'available' };
-        this.addingAvail.set(false);
-      },
-      error: (err) => {
-        this.notify.error(err.error?.message || 'Failed to add availability.');
-        this.addingAvail.set(false);
-      },
-    });
-  }
-
-  deleteAvailability(avail: SpaceAvailability): void {
-    if (!confirm('Delete this availability?')) return;
-
-    this.deletingAvailId.set(avail.id);
-
-    this.http.delete(`${this.api}/provider/spaces/${this.spaceId}/availabilities/${avail.id}`).subscribe({
-      next: () => {
-        this.availabilities.update(list => list.filter(a => a.id !== avail.id));
-        this.notify.success('Availability deleted.');
-        this.deletingAvailId.set(null);
-      },
-      error: (err) => {
-        this.notify.error(err.error?.message || 'Failed to delete availability.');
-        this.deletingAvailId.set(null);
-      },
-    });
-  }
-
-  // --- Calendar Sync ---
-
-  saveCalendarSettings(): void {
-    this.savingCalendar.set(true);
-    this.http.put(`${this.api}/provider/spaces/${this.spaceId}`, {
-      ical_url: this.icalUrl || null,
-      calendar_keyword: this.calendarKeyword || null,
-    }).subscribe({
-      next: () => {
-        this.notify.success('Calendar settings saved.');
-        this.savingCalendar.set(false);
-      },
-      error: (err) => {
-        this.notify.error(err.error?.message || 'Failed to save calendar settings.');
-        this.savingCalendar.set(false);
-      },
-    });
-  }
-
-  syncCalendar(): void {
-    this.syncingCalendar.set(true);
-    this.calendarSyncResult.set(null);
-    this.http.post<any>(`${this.api}/provider/spaces/${this.spaceId}/sync-ical`, {}).subscribe({
-      next: (res) => {
-        const count = res.synced ?? 0;
-        this.calendarSyncResult.set(`Synced ${count} occupied date range(s) from calendar.`);
-        this.syncingCalendar.set(false);
-        this.loadSpace(); // reload availabilities
-      },
-      error: (err) => {
-        this.calendarSyncResult.set('Error: ' + (err.error?.message || 'Sync failed.'));
-        this.syncingCalendar.set(false);
-      },
-    });
-  }
-
-  onIcsFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (!input.files?.length) return;
-
-    const formData = new FormData();
-    formData.append('file', input.files[0]);
-
-    this.uploadingIcal.set(true);
-    this.calendarSyncResult.set(null);
-    this.http.post<any>(`${this.api}/provider/spaces/${this.spaceId}/import-ical`, formData).subscribe({
-      next: (res) => {
-        const count = res.synced ?? 0;
-        this.calendarSyncResult.set(`Imported ${count} occupied date range(s) from file.`);
-        this.uploadingIcal.set(false);
-        input.value = '';
-        this.loadSpace();
-      },
-      error: (err) => {
-        this.calendarSyncResult.set('Error: ' + (err.error?.message || 'Import failed.'));
-        this.uploadingIcal.set(false);
-        input.value = '';
-      },
-    });
-  }
+  // [todo B2] Availability + calendar management moved to the Edit screen (space-form).
 
   formatType(type: string): string {
     return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

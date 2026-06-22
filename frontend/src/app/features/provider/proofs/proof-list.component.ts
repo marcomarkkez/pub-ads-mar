@@ -95,7 +95,7 @@ import { Proof } from '../../../core/models';
                 <tr>
                   <td>Booking #{{ proof.booking_id }}</td>
                   <td>
-                    <a [href]="proof.file_url" target="_blank" class="link">{{ proof.file_name }}</a>
+                    <button type="button" class="link linkbtn" (click)="viewProof.set(proof)">{{ proof.file_name }}</button>
                   </td>
                   <td>
                     <span class="badge" [class]="'badge-' + proof.status">
@@ -105,7 +105,7 @@ import { Proof } from '../../../core/models';
                   <td class="notes-cell">{{ proof.notes || '---' }}</td>
                   <td>{{ proof.created_at | date:'mediumDate' }}</td>
                   <td>
-                    <a [href]="proof.file_url" target="_blank" class="btn btn-sm">View</a>
+                    <button type="button" class="btn btn-sm" (click)="viewProof.set(proof)">View</button>
                   </td>
                 </tr>
               }
@@ -114,11 +114,49 @@ import { Proof } from '../../../core/models';
         </div>
       </div>
     }
+
+    <!-- [todo B2] Proof preview modal — replaces the old href that 404'd on the SPA origin. -->
+    @if (viewProof(); as p) {
+      <div class="modal-overlay" (click)="viewProof.set(null)">
+        <div class="modal-dialog" (click)="$event.stopPropagation()">
+          <div class="modal-head">
+            <strong>{{ p.file_name }}</strong>
+            <button type="button" class="modal-close" (click)="viewProof.set(null)" title="Close">✕</button>
+          </div>
+          <div class="modal-media">
+            @if (isVideo(p)) {
+              <video [src]="p.file_url" controls autoplay style="max-width:100%;max-height:70vh;"></video>
+            } @else {
+              <img [src]="p.file_url" [alt]="p.file_name" style="max-width:100%;max-height:70vh;object-fit:contain;">
+            }
+          </div>
+          <div class="modal-foot">
+            <span class="badge" [class]="'badge-' + p.status">{{ p.status | titlecase }}</span>
+            <a [href]="p.file_url" target="_blank" class="btn btn-sm">Open original ↗</a>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .upload-card {
       margin-bottom: 24px;
     }
+    .linkbtn { background: none; border: none; padding: 0; cursor: pointer; }
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .modal-dialog {
+      background: var(--surface, #fff); border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      max-width: 90vw; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted); }
+    .modal-media { display: flex; justify-content: center; }
+    .modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .link {
       color: var(--primary);
       text-decoration: none;
@@ -164,6 +202,7 @@ export class ProofListComponent implements OnInit {
   loading = signal(false);
   error = signal('');
   showUploadForm = signal(false);
+  viewProof = signal<Proof | null>(null);
   uploading = signal(false);
   uploadError = signal('');
   selectedFile = signal<File | null>(null);
@@ -183,6 +222,12 @@ export class ProofListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadProofs();
+  }
+
+  // [todo B2] video vs image for the preview modal (by media_type, fallback to extension)
+  isVideo(proof: Proof): boolean {
+    if ((proof as any).media_type) return (proof as any).media_type === 'video';
+    return /\.(mp4|webm|mov|ogg|m4v)$/i.test(proof.file_name || '');
   }
 
   loadProofs(): void {
