@@ -1,7 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -218,10 +218,18 @@ export class ProofListComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private notify: NotificationService,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.loadProofs();
+    // [todo B2] Deep link from the bookings list: /provider/proofs?booking_id=X opens the
+    // upload form pre-filled for that booking.
+    const bookingId = this.route.snapshot.queryParamMap.get('booking_id');
+    if (bookingId) {
+      this.uploadForm.booking_id = +bookingId;
+      this.showUploadForm.set(true);
+    }
   }
 
   // [todo B2] video vs image for the preview modal (by media_type, fallback to extension)

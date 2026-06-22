@@ -87,6 +87,13 @@ import { Booking } from '../../../core/models';
                     @if (booking.status === 'confirmed') {
                       <span class="confirmed-label">Confirmed</span>
                     }
+                    <!-- [todo B2] Provider needs a quick path to add proof for a booking awaiting it. -->
+                    @if (booking.status === 'waiting_proof' || booking.status === 'active' || booking.status === 'confirmed') {
+                      <a class="btn btn-sm btn-primary" style="width:auto"
+                         [routerLink]="['/provider/proofs']" [queryParams]="{ booking_id: booking.id }">
+                        📸 Add proof
+                      </a>
+                    }
                   </td>
                 </tr>
               }

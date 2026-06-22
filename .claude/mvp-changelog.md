@@ -230,3 +230,18 @@ New per-role stats dashboards (owner asked all non-client roles show numbers):
   quick actions (client shows none). Money formatted as MXN.
 RUNTIME-VERIFIED all 4 endpoints (e.g. payments paid 4/$116,200, support waiting_review 5, admin
 users-by-role, provider revenue buckets). php -l + ng build clean. All code tagged [todo B8].
+
+### [2026-06-22] STEP 13 — B2 provider polish (availability→edit, proof modal, add-proof link)
+- space-form (EDIT): added Calendar (preferred) section + manual availability accordion + ? help,
+  moved from space-detail per owner decision; addAvailability/deleteAvailability/saveCalendarSettings/
+  syncCalendar/onIcsFileSelected + reloadAvailabilities; new spaces now redirect to /edit. [todo B2]
+- space-detail (VIEW): removed availability + calendar sections (+ dead TS) -> link to Edit. [todo B2]
+- proof-list: "View" + filename now open an image/video preview MODAL (old href 404'd on SPA origin);
+  isVideo() by media_type/extension. ?booking_id= deep-link pre-opens + prefills upload form. [todo B2]
+- provider-booking-list: "📸 Add proof" link for waiting_proof/active/confirmed -> proofs?booking_id. [todo B2]
+- booking.model.ts: status union aligned to DB enum (added active/waiting_proof/rejected).
+ng build clean. Client /dashboard now redirects to Spaces (clients have no dashboard) [todo B8].
+
+Queued from owner this session (not yet built): B9 (Payments proofs section -> held-payments view,
+remove proof review), B4 (Support: more user data e.g. phone on tickets), B5 (admin+support Oversight:
+per-user/provider drilldown, ticket/payment history, search/filters).

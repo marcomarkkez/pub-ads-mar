@@ -6,7 +6,7 @@ export interface Booking {
   start_date: string;
   end_date: string;
   total_price: number;
-  status: 'pending' | 'waiting_approval' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'waiting_approval' | 'confirmed' | 'active' | 'waiting_proof' | 'completed' | 'cancelled' | 'rejected';
   notes: string | null;
   book_for_later?: boolean;
   config_snapshot?: Record<string, unknown> | null;
