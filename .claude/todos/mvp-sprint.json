@@ -1,7 +1,8 @@
 {
   "sprint": "MVP-local-complete",
   "created": "2026-06-13",
-  "updated": "2026-06-18",
+  "updated": "2026-06-22",
+  "session_24_next": "B9 proof/payment rework (Payments held-payments view, remove proof review, client reject -> auto-hold + dual Support/Payments ticket). Then B4/B5 (support+admin oversight/user data), B6 (account collaborators + client Configurations tab), B3 nav, B7 money/invoices. Code sequentially (no parallel writes while IDE open); tag [todo Bx].",
   "goal": "Bring the existing Laravel+Angular app in line with the reconciled design.md and satisfy the 13-item MVP checklist, as a complete local version.",
   "status": "MVP local stack COMPLETE and RUNNING (Docker project 'publisher'). Core flows runtime-verified; a few items static-verified pending a UI walk-through.",
   "canonical": "This JSON is the source of truth for sprint todos; beads mirrors it (sqlite backend).",

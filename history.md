@@ -1076,5 +1076,69 @@ B6 provider collaborators/config → B7 invoice per-ad rollup.
 ### Next
 - Start B1 sequentially (change-logged; owner to close client component tabs to avoid save conflicts).
 
+## Session 24 - 2026-06-17 → 2026-06-22
+
+### Summary
+Executed the UI phase: shipped B1/B1b code fixes, ran two read-only agent audits that proved
+"most of the plan was on paper, not coded," reconciled all four planning docs + the todos to the
+owner's decisions, and built B8 (stats dashboards) + B2 (provider polish) sequentially. Many small
+owner UX fixes landed along the way. 11 commits (793a026 → f999718); all pushed-pending (git auth
+still blocked) on branch `mvp-build`.
+
+### Code shipped (verified: php -l + ng build clean; key flows runtime-verified on the Docker stack)
+- **B1** (793a026): /conversations spinner fixed (MessageController returns {data:{conversation,messages}});
+  campaign spec inline edit (PUT) + per-ad Book inline date form; space-search default map view +
+  [map|results] split layout.
+- **B1b** (8adb012): contract-shape bugs (same class as #14) — payment-list read paginator .data;
+  Provider booking update allow 'cancelled' + wrap {data}; shared ticket reply wrap {data}. All runtime-verified.
+- **Client UX** (99259d6): new-campaign modal (typed name now saved; real autofocus); human-readable
+  campaign dates + Campaign cast date:Y-m-d; client lands on /client/spaces (auth.landingRoute); "+ Ad Space".
+- **Invoice PDF** (fb65bdd): composer barryvdh/laravel-dompdf (backend_vendor volume); GET
+  /client/invoices/{id}/pdf streams a real PDF; invoice-list ⬇ PDF button. Runtime-verified 879KB.
+- **B8 dashboards** (1c90297): new Payments/Support/Admin DashboardController + provider revenue
+  buckets; GET /{role}/dashboard (role-gated; seeder dashboard:read added for support/payments);
+  dashboard.component renders per-role stat grid. All 4 endpoints runtime-verified. Admin = system config styling too.
+- **Client dashboard** (943bc21): /dashboard redirects clients to Spaces (clients have no dashboard).
+- **B2 provider polish** (4e1e7d9, f999718): availability date-ranges + Google/iCal calendar moved
+  from space VIEW to space EDIT (calendar-preferred + manual-ranges accordion + ? help); new spaces
+  redirect to /edit; proof "View" → image/video modal (was 404); "📸 Add proof" link on
+  waiting_proof/active/confirmed bookings → proofs?booking_id (pre-opens upload); booking status union
+  aligned to DB enum. All code tagged with [todo Bx] traceability comments.
+
+### Audits + doc/todo reconciliation
+- 4-agent compliance audit (8adb012) then a planned-vs-built reconciliation (ba97c43): confirmed the
+  big subsystems (ratings, media-specs+upload validation, one-checkout, pre-pay/escrow, audit log,
+  notifications, strikes) are PLANNED-ONLY (zero code). Captured as new_subsystems N1-N8.
+- Owner decisions encoded into design.md/cases.md/ARCHITECTURE.md/platform-graph (f4b0daf) + a Team#1
+  congruence pass (41c11cf) that caught + fixed stale "Payments reviews proof" prose. Docs↔todos congruent.
+
+### Owner decisions captured (2026-06-20)
+1. Proof/payment: payment HELD until CLIENT accepts proof; Payments does NOT review proof content;
+   client reject/mismatch → 48h re-upload + ticket w/ payment attached to BOTH Support & Payments
+   (payout held until they agree); accept → manual Payments release.
+2. Collaborators are ACCOUNT-scoped, two ecosystems (client/provider), subroles per ecosystem; kill 'proof_uploader'.
+3. Payments auto-approve = admin config toggle + amount threshold, default OFF.
+4. All non-client dashboards show per-role stats; client has no dashboard.
+5. Multi-file ads DEFERRED (1 file/ad MVP). 6. Booking queue = provider PICKS from queue (not auto-assign).
+Memory files written: collaborators-two-ecosystems, proof-payment-flow-decision.
+
+### Queued (logged in todos, NOT yet built)
+- **B9** proof/payment rework (next): Payments "Proofs" section → held-payments view, remove proof review.
+- **B4** Support powers: more user data (phone) on tickets + audit log + edit-any-non-money.
+- **B5** Admin/Support Oversight drilldown: per-user/provider, spaces, payments/holds, ticket history, search/filters.
+- **B6** account-scoped collaborators + client Configurations tab. **B3** nav/header. **B7** invoices/money polish.
+- **B10** auto-approve config. **B-avail** "doesn't coincide" tag. **N1-N8** big subsystems.
+- Doc-fix still pending: ARCHITECTURE admin tree + dead Manager\UserController + status enums; frontend EUR→MXN + Monterrey reseed.
+
+### Stack / notes
+- Docker "publisher" stack used for runtime verification; restart: `export WSLENV=DOCKER_BUILDKIT:$WSLENV;
+  DOCKER_BUILDKIT=0 docker compose -p publisher up -d`. Backend dompdf lives in the backend_vendor volume.
+- Code written SEQUENTIALLY (single-writer) per the no-parallel-write-with-IDE-open rule; read-only audit agents ran in parallel.
+- Branch `mvp-build`; git push still blocked (auth) — all 11 commits local.
+
+### Next
+- Start B9 (proof/payment rework) — migration (payment ticketable + auto-hold on reject), remove
+  Payments proof review, wire client reject → hold + dual Support/Payments ticket, rework payments UI.
+
 <!-- Add new sessions above this line -->
 
