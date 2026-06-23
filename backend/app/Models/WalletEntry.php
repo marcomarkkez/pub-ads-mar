@@ -9,7 +9,7 @@ class WalletEntry extends Model
 {
     protected $fillable = [
         'user_id',
-        'amount_centavos',
+        'amount',
         'type',
         'ref_type',
         'ref_id',
@@ -19,7 +19,7 @@ class WalletEntry extends Model
     protected function casts(): array
     {
         return [
-            'amount_centavos' => 'integer',
+            'amount' => 'decimal:2',
         ];
     }
 
@@ -29,10 +29,10 @@ class WalletEntry extends Model
     }
 
     /**
-     * Balance for a user = SUM(amount_centavos).
+     * Balance for a user = SUM(amount) in decimal MXN pesos.
      */
-    public static function balanceFor(int $userId): int
+    public static function balanceFor(int $userId): float
     {
-        return (int) static::where('user_id', $userId)->sum('amount_centavos');
+        return (float) static::where('user_id', $userId)->sum('amount');
     }
 }

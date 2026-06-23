@@ -19,7 +19,7 @@ class WalletController extends Controller
 
         return response()->json([
             'entries' => $entries,
-            'balance_centavos' => WalletEntry::balanceFor($userId),
+            'balance' => WalletEntry::balanceFor($userId),
         ]);
     }
 }

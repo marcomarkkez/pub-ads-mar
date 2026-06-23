@@ -139,7 +139,7 @@
       "NEW_decision_money": "MONEY = DECIMAL MXN PESOS everywhere, no centavos ('forget cents'). design.md updated. Code is already decimal(10,2) for bookings/payments/ads/spaces/campaigns; ONLY wallet_entries.amount_centavos uses integer cents -> align it to decimal pesos (amount column) + drop the *100 / /100 conversions in PaymentController/WalletController/wallet.component.",
       "doc_updates_done": "design.md: cases-v2->cases refs, money->decimal pesos (3 spots), appended 'REVISIONS & ROADMAP (2026-06-15, owner)' section. CLAUDE.md: cases.md key-file note + 'momentum over perfection / soft-vs-hard stops' learning.",
       "build_order_chosen": "Endpoints-first then UI, feature by feature (backend-first minimizes IDE save-conflicts while owner uses the app). Order: [M] money pesos alignment (small, closes newest decision) -> B9 proof/payment rework (owner contradiction) -> B6 account collaborators + Configurations tab (owner's opening question) -> B3 nav/header (drop Dashboard, welcome+name, Help) -> B-avail availability text -> B4 support powers+audit log -> B5 admin eagle-eye/Activity -> B7 invoices -> N* deferred subsystems by need.",
-      "batch_M_money": "in_progress"
+      "batch_M_money": "DONE 2026-06-23: wallet_entries amount_centavos -> decimal(12,2) amount (migration converts existing data); WalletEntry model, PaymentController refund+releasePayout, WalletController, wallet.component all drop *100//100. Verified: /client/wallet balance=77500 pesos, no centavos keys, frontend recompiled clean."
     }
   }
 }

@@ -64,15 +64,15 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Booking client not found.'], 422);
         }
 
-        $amountCentavos = (int) round(((float) $payment->amount) * 100);
+        $amount = (float) $payment->amount;
         $key = "refund:payment:{$payment->id}";
 
-        DB::transaction(function () use ($payment, $clientId, $amountCentavos, $key) {
+        DB::transaction(function () use ($payment, $clientId, $amount, $key) {
             WalletEntry::firstOrCreate(
                 ['idempotency_key' => $key],
                 [
                     'user_id' => $clientId,
-                    'amount_centavos' => $amountCentavos,
+                    'amount' => $amount,
                     'type' => 'refund',
                     'ref_type' => Payment::class,
                     'ref_id' => $payment->id,
@@ -93,16 +93,16 @@ class PaymentController extends Controller
         $payment->loadMissing('booking.space');
         $providerId = $payment->booking?->space?->user_id;
 
-        $amountCentavos = (int) round(((float) $payment->amount) * 100);
+        $amount = (float) $payment->amount;
         $key = "escrow_release:payment:{$payment->id}";
 
-        DB::transaction(function () use ($payment, $providerId, $amountCentavos, $key) {
+        DB::transaction(function () use ($payment, $providerId, $amount, $key) {
             if ($providerId) {
                 WalletEntry::firstOrCreate(
                     ['idempotency_key' => $key],
                     [
                         'user_id' => $providerId,
-                        'amount_centavos' => $amountCentavos,
+                        'amount' => $amount,
                         'type' => 'escrow_release',
                         'ref_type' => Payment::class,
                         'ref_id' => $payment->id,
