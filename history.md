@@ -1140,5 +1140,48 @@ Memory files written: collaborators-two-ecosystems, proof-payment-flow-decision.
 - Start B9 (proof/payment rework) — migration (payment ticketable + auto-hold on reject), remove
   Payments proof review, wire client reject → hold + dual Support/Payments ticket, rework payments UI.
 
+## Session 25 - 2026-06-23
+
+### Summary
+Ran a compliance audit (code/UI vs design/architecture/cases + doc-vs-doc), captured the
+owner's decision batch, and shipped the first code batch (money → decimal pesos).
+
+### Compliance audit (read-only, 6 agents)
+- Report saved to `.claude/plans/compliance-report.md`. Headline: code = original 11-table
+  MVP + thin overlay; the big design.md subsystems are mostly unbuilt (intentional MVP
+  subset, not regressions). Confirmed doc-vs-doc drift (cases-v2.md missing; ARCHITECTURE.md
+  stale counts/enums) and 5 code-contradicts-owner-decision items (Payments proof review,
+  collaborators campaign-scoped, money unit, conversations non-polymorphic, provider
+  confirm/cancel vs approve/reject-with-reason).
+
+### Owner decisions applied
+- **Money = DECIMAL MXN pesos everywhere, no centavos** ("forget cents"). design.md updated
+  (3 spots) + ARCHITECTURE NOTES; REVISIONS & ROADMAP section appended.
+- **cases-v2.md → cases.md** (renamed to simplify): repointed all design.md refs; added a
+  key-file note to CLAUDE.md.
+- Reaffirmed (already in todos from 2026-06-20): collaborators account-wide BOTH client+provider,
+  proof/payment B9 reversal (client accepts; Payments money-only; held-payment → dual
+  Support/Payments ticket), conversations = object with one attached object + multi-role +
+  admin-silent/support-announced, provider approve→installer OR reject-with-note.
+- **Working-style learning added to CLAUDE.md**: momentum over perfection — resolve soft
+  conflicts by latest-decision-wins/best-guess, only stop on HARD stoppers, ~90% doc
+  compliance (not 100%); don't create new planning docs.
+- Build order chosen: endpoints-first, feature-by-feature (backend-first to avoid IDE
+  save-conflicts): M → B9 → B6 → B3 → B-avail → B4 → B5 → B7 → N* deferred.
+
+### Shipped — Batch M (money → pesos)
+- Migration `2026_06_23_000001`: wallet_entries.amount_centavos (int) → amount decimal(12,2)
+  pesos, converting existing rows (/100). Dropped all *100///100 in WalletEntry,
+  PaymentController (refund+releasePayout), WalletController, wallet.component.
+- Verified LIVE in the publisher stack: migration ran in container; `/client/wallet` returns
+  `balance: 77500` pesos (was 7,750,000¢), no centavos keys; frontend recompiled clean.
+
+### Commits (branch mvp-build, not pushed — git auth blocked)
+- d1e7f44 compliance report · (docs) cases/money/roadmap/learnings · 2f32b29 Batch M money→pesos
+
+### Next
+- Batch B9: proof/payment rework — remove Payments proof-content review, add client
+  accept/reject gating payout + Payments read-only held-payment view, held → dual ticket.
+
 <!-- Add new sessions above this line -->
 
