@@ -64,10 +64,10 @@ The admin panel frontend should include a roles/permissions editor screen that:
 = Case 1 =
 A user wants several places / locations in an avenue, so he is nearby and with his computer (app is pending) he will open the portal (this app) and will immideatly prompted ti the same location where he is, so he chooses from the map the locations he like and read details in the righ sidebar where the details of each location are, he search for radio stations for audio ads too and the system shows the stations that are in range (notice that if user change the location places and radio stations should change too), he select billboards, little screens, big screens and radio stations and create a new campaign with all these items, the campaign is created and a window appears (only last 10 seconds) with a button "go to my new caimpaign", he clicks that button and go to the campaign, then he see the bcklog of the campaign with the places selected, there is a legend that states "you should add those to an adset to start" and a button "send all selected to a new adset", the client selects that button so a new generic adset "Adset 1" is created, each location have a legend "you have not selected a time span for the campaign" or a legend "your timespan doesn't coincide with the availability of this place or radio station" and a button "Book it for later" so the client can pay and wait to separate the time span is free, when the client pays all the places and radio stations, the ones that immediatly are available will show a "waiting for approval" legend and those that are booked will show "Waiting for booking confirmation", notice that the client should be aware of the availability times of each location based on the calendar of each location provided by the provider of each location.
 
-== CANONICAL SUBSYSTEMS (folded in from cases-v2) ==
+== CANONICAL SUBSYSTEMS (folded in from cases) ==
 
 The sections below are now canonical design. They were promoted from the
-use-case backlog at `.claude/plans/cases-v2.md`, which remains the story-level
+use-case backlog at `.claude/plans/cases.md`, which remains the story-level
 source of truth (what users do). When the two ever disagree, design.md wins and
 the difference is reconciled here. All owner policy decisions (Rounds 1–4) have
 been resolved and folded into the sections below; the working reconciliation-
@@ -272,7 +272,7 @@ message (automated metrics gate) — but passing validation does NOT guarantee
 acceptance: the provider may still manually reject the ad for their own reasons.
 On a manual rejection the provider either asks the client to re-upload a
 corrected file, or rejects it permanently; either way, when rejected the client
-is not charged. The full per-type spec table lives in cases-v2.md.
+is not charged. The full per-type spec table lives in cases.md.
 
 == Catalog, Search and Campaign Organization ==
 
@@ -341,7 +341,7 @@ MX-local option if cost matters later.) SMS is mocked until keys are configured.
 proof reminders, proof uploaded/approved/rejected, mismatch flagged, cancels,
 auto-cancel, refunds issued/failed, disputes, payout held/released, strike
 accrued, 3-strike admin alert, collaborator invited, listing takedown/restore,
-provider frozen, etc.) is maintained in cases-v2.md and is canonical.
+provider frozen, etc.) is maintained in cases.md and is canonical.
 Strike-related alerts go to Provider + Support (and Admin on the 3rd) — never
 Payments.
 
@@ -372,7 +372,7 @@ admin-configurable (defaults in parentheses):
 - calendar-staleness alert threshold (7 days)
 - payout-stop window for Admin (24 h)
 - cancellation refund split (client 90% / platform 5% / provider 5%)
-- currency (MXN) and amount unit (centavos)
+- currency (MXN) and amount unit (decimal pesos)
 - rate-limit thresholds (per-action caps, burst, retry-after)
 - audit-log retention: number of logs kept per role
 When an Admin changes a configurable value, the Configurations screen offers a
@@ -390,7 +390,7 @@ There are three distinct levels of taking a space/provider "off":
   listing (e.g. policy violation); a state the provider cannot self-reverse.
 - **Freeze** (admin, account-level): Admin freezes the whole provider account.
   A freeze pauses new bookings AND auto-cancels all upcoming bookings on that
-  provider with a full refund to each client's wallet (per cases-v2 journey #7).
+  provider with a full refund to each client's wallet (per cases journey #7).
 
 Deletion guardrails: User delete is guarded (no delete with active bookings or
 unsettled funds). A space cannot be deleted while it has open tickets or a
@@ -441,7 +441,7 @@ file has been removed; the decision history lives in history.md (Sessions 18–1
 
 Launch scope
 - First launch target is MONTERREY, Nuevo León, Mexico — Mexico-first, single
-  city to start. Single currency MXN (centavos), all deadline math in
+  city to start. Single currency MXN (decimal pesos), all deadline math in
   America/Monterrey timezone. Multi-country, multi-currency, and non-Spanish UI
   are out of scope for the initial launch (the currency unit is admin-
   configurable to leave the door open later).
@@ -452,10 +452,11 @@ Money & wallet
   ref_type, ref_id, idempotency_key, created_at). Balance is `SUM(amount)`,
   never a writable column. A cached balance, if any, is reconciled from the
   ledger inside the same transaction.
-- All money is stored in integer MXN centavos. Single currency MXN. Gateway
-  callbacks that settle in another currency (e.g. PayPal USD) are normalized at
-  capture: store gateway currency + amount + FX rate + the MXN-converted amount;
-  never treat the raw gateway number as MXN.
+- All money is stored as DECIMAL MXN pesos (decimal(10,2)). Single currency MXN —
+  no centavos/integer-cents representation (owner decision 2026-06-15: "just
+  decimal pesos, forget cents"). Gateway callbacks that settle in another currency
+  (e.g. PayPal USD) are normalized at capture to MXN pesos; never treat the raw
+  gateway number as MXN.
 - Every refund/payout carries an idempotency key with a UNIQUE constraint so a
   retried gateway call or a re-fired cron cannot double-pay. Refund base = the
   per-ad captured amount; enforce `SUM(refunds) ≤ captured`.
@@ -551,3 +552,43 @@ Notifications
   scatter Notification::send through controllers. SMS uses Twilio (default) with
   Vonage as fallback, mocked until keys exist; SMS fires only for Payments alerts
   and cancellations.
+== REVISIONS & ROADMAP (2026-06-15, owner) ==
+
+These owner decisions SUPERSEDE earlier text where they conflict (latest wins).
+The team builds toward ~90% compliance across design/architecture/cases, not 100%
+— decisions have changed over time and some older text is intentionally stale.
+
+Revised decisions (override above):
+- MONEY: store as DECIMAL MXN pesos everywhere (no centavos). "Forget cents."
+- COLLABORATORS: ACCOUNT-WIDE for BOTH clients AND providers (not per-campaign).
+  One collaborator per account+email with a sub-role (installator / publicist /
+  manager). Surfaced under a "Configurations" tab on each side. Providers get a
+  collaborator surface (installators upload proofs).
+- PROOF / PAYMENTS (refines B9): the CLIENT accepts or rejects the provider's
+  primary proof — acceptance releases payout, rejection HOLDS it. Payments does
+  NOT judge proof content up front. Only when a payment is ON HOLD (client
+  rejected the first proof) does Payments get READ-ONLY view of the proof + chat,
+  with a "View proof" affordance next to Release / Cancel payment, and decides by
+  hand after talking with Support. Remove Payments proof approve/reject of content.
+- CONVERSATIONS: a separate object (its own table/s) that can have ONE attached
+  object (space, campaign, ad, booking, ticket…), accessible at least READ-ONLY by
+  the people involved. A conversation can involve 2 roles or all roles depending on
+  flags/alerts. Admin + Support have eagle-eye; only SUPPORT entry is announced;
+  Admin is silent.
+- PROVIDER BOOKING ACTION: provider can APPROVE (and send to an installator) OR
+  REJECT with a note explaining why the media was rejected. (Not bare Confirm/Cancel.)
+
+Roadmap (phased; build endpoints first, then UI, per feature group):
+- PHASE 1 (now): UI/behavior + owner-decision fixes — map landing & render, campaign
+  spec edit + per-ad Book, conversation attach + start-chat + spinner fix, provider
+  approve→installer / reject-with-note, client proof accept/reject + Payments hold-view,
+  account-wide collaborators + Configurations tabs, nav/header (welcome, Help, drop
+  Dashboard), wire existing-but-unused endpoints (adset/ad/booking/invoice edit,
+  green/red availability), per-ad availability text.
+- PHASE 2: Support powers (edit-any-non-money + audit log) and Admin eagle-eye over
+  all objects (per-object views + node filters, rename Oversight→Activity, user split
+  by role, RBAC for employees only + support collaborator-role editor).
+- PHASE 3 (deferred subsystems, pick per need): strikes, provider ratings,
+  notifications dispatcher (+ Twilio mock), escrow / pre-pay waiting list, media-
+  delivery spec validator, admin moderation (takedown/restore/freeze) + deletion
+  guardrails, overlapping-booking constraint, invoice per-ad/per-adset line items.
