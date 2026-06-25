@@ -4,7 +4,7 @@ Instructions and context for Claude AI agents working on this project.
 
 ## Project Overview
 
-Web-based advertising spaces marketplace built with **Laravel 12** (API backend) and **Angular 18** (frontend). Three user roles: **Clients**, **Providers**, and **Managers**. Clients create campaigns with geolocated adsets and ads, browse and book provider spaces. Providers post spaces with photos, geolocation, and availability. Managers administer users via a CRM panel.
+Web-based advertising spaces marketplace built with **Laravel 12** (API backend) and **Angular 18** (frontend). Five user roles: **Client**, **Provider**, **Admin** (eagle-eye CRM), **Support**, and **Payments** (the `users.role` enum is `client|provider|admin|support|payments`). Clients create campaigns with geolocated adsets and ads, browse and book provider spaces. Providers post spaces with photos, geolocation, and availability. Admin/Support/Payments staff administer users and operations. (The legacy `Manager\UserController` is kept for compat only — "Manager" was the original 3-role MVP name for the admin role.)
 
 **See [ARCHITECTURE.md](ARCHITECTURE.md) for full folder structure, database schema, API routes, data flow, dev commands, and implementation status.**
 

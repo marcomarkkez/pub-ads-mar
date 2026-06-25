@@ -85,7 +85,7 @@ upload + radio→video rule.
 2. Refresh ARCHITECTURE.md (counts, collaborator enum, invoice pdf route).
 3. Decide canonical booking/ad state enum in design.md; reconcile migration + ARCHITECTURE.md.
 4. audit_logs table (DB-level immutable) + admin read endpoint.
-5. Money → integer centavos across all money columns; payments FX columns.
+5. ~~Money → integer centavos across all money columns; payments FX columns.~~ **SUPERSEDED 2026-06-23 (Batch M): money is DECIMAL MXN pesos everywhere, NO centavos. Do NOT act on this item — it points the wrong direction.**
 6. Overlapping-booking EXCLUDE gist + btree_gist + lockForUpdate on confirm/refund/payout.
 7. Re-scope collaborators campaign→account (account_grants) + provider-side surface.
 8. Remove Payments proof-review (B9); add client accept/reject gating payout + wire UI.

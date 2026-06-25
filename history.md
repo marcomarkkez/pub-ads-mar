@@ -1183,5 +1183,59 @@ owner's decision batch, and shipped the first code batch (money → decimal peso
 - Batch B9: proof/payment rework — remove Payments proof-content review, add client
   accept/reject gating payout + Payments read-only held-payment view, held → dual ticket.
 
+## Session 26 - 2026-06-25
+
+### Summary
+Owner flagged the client "Collaborators" panel as suspected planning-vs-code drift. Spawned a
+4-agent forensic team, found the panel is actually fully built+wired (NOT orphan UI), then
+generalized the real disconnect into an investigation doc. Owner then asked to (a) flip all docs
+that scope collaborators to "campaign" → account-scoped, and (b) run a team to find ALL spec
+collisions, resolving soft ones by latest-decision-wins and asking on hard ones. ~20 soft conflicts
+resolved + the one hard conflict (booking state enum) decided by owner. Docs-only this session.
+
+### Investigation (4 read-only agents)
+- New doc `.claude/plans/investigation-planning-to-code-gap.md`. Headline reversal: "Collaborators"
+  is spec'd in depth (design.md/cases.md/platform-graph) AND wired to real endpoints
+  (`CollaboratorController` + `collaborators` table; campaign-detail calls GET/POST/DELETE for real).
+  Not a phantom.
+- The systemic gap is real but different in shape: NOT mock data (almost nothing is mocked). It's
+  **selective implementation depth** — CRUD-shaped features ship end-to-end; requirements buried as
+  rules in prose (media-spec validation, ratings, pre-pay) evaporate. Plus backend-ahead-of-UI
+  half-features (adset lat/lng validated server-side, no UI input). Root cause: NO case-ID→route→
+  component traceability spine.
+
+### Collaborator scope → account (owner reaffirmed 2026-06-24)
+- Flipped every SPEC doc to account-scoped (the campaign-scoped hits in compliance-report/
+  ui-endpoint-audit/investigation are accurate gap notes — left as-is): cases.md #11 + invite
+  notification; ARCHITECTURE.md schema (account_user_id + role string, migration pending) +
+  relationship map (dropped legacy `proof_uploader`); design.md client-UI line.
+
+### Spec-collision team (4 read-only agents) — ~20 SOFT conflicts resolved (latest-decision-wins)
+- Money: killed stale "centavos" everywhere → decimal MXN pesos (ARCHITECTURE wallet schema,
+  platform-graph ledger label, design.md precision→12,2). Struck out compliance-report TOP-ACTION
+  #5 (it pointed money the WRONG way — back to centavos).
+- Roles: `proof_uploader`/`publisher` typos → installator/publicist/manager; CLAUDE.md "3 roles"
+  → 5 roles (admin enum); Support proof power qualified to mismatch-only; platform-graph subrole
+  prose fixed (all three names per side).
+- Map: design.md's 3× "Google Maps API" → "Leaflet/OSM+w3w today, Google swappable".
+- Nav/UI: dashboard = non-client stats / client none (ARCHITECTURE folder tree + table); "50% bar"
+  → 3-pane layout; collaborators under Configurations.
+- Adsets: ARCHITECTURE geo columns marked LEGACY (pure grouping labels). Proofs: ARCHITECTURE enum
+  → B9 client-accept model. Media: 300→150 DPI; pricing vocab day/week/month → day/month/custom.
+
+### HARD conflict resolved by owner (decision 2026-06-25)
+- Booking state-machine enum was specified 3 incompatible ways (design prose vs design canonical
+  block vs shipped code). Owner chose: **design.md canonical block wins**; ads keep a SEPARATE
+  enum; `payout-held` is Payments-only (not a booking state). Reconciled design.md prose +
+  canonical block + ARCHITECTURE (canonical target annotated; column migration PENDING).
+
+### Verification
+- grep-confirmed every stale string = 0 and every new string present exactly once across all 7 docs.
+
+### Pending (carried to todos)
+- 3 doc-aligned-but-code-migration-pending items: collaborators `campaign_id→account_id`,
+  `bookings.status` enum, `proofs.status` enum. Plus one pure code-vs-doc gap: `config/app.php`
+  is UTC but design mandates America/Monterrey for deadline math. Nothing committed/pushed.
+
 <!-- Add new sessions above this line -->
 

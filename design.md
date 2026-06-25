@@ -17,13 +17,13 @@ The backend should be Laravel and it will be a service for a headless website, a
 
 Ticket system / Support: The chat with support can be called from any ad or adset or campaign, with a button and it will save in the chat the reference for that specific item, with provider information, budget, payments and everything an agent could need.
 
-Providers UI: The providers can insert, update, pause/unpublish, and delete their spaces — but a space can only be DELETED if it has no open support tickets and no booking in progress; otherwise the provider unpublishes it and waits for the last clients to finish their booked time. Those spaces can be audio, video, gif's, images, in the basic format of that kind of media for publicity, because they own the publicity spaces, they have to insert the name, the location in text, and the location in lat-long format, the google maps api should be available to use that, and one or several photos of the space. They should set the price by day, month or any time span, for the availability they can setup any calendar like Outlook or Google Calendar, import a cal file or simply connect to a one public calendar, for this porpuse should be a little question mark button to help with this topic, they should take photos as proof within the proof deadline (a number of days configured by Admin in System Configurations, default 5) to prove that the ad is being displayed, this is per ad. Te providers can see a list of all the ads they need to add proofs with photos of the ad of the client (video or image) being displayed, in the case of audios for radio stations or any other possible media source the proof should be a video.
+Providers UI: The providers can insert, update, pause/unpublish, and delete their spaces — but a space can only be DELETED if it has no open support tickets and no booking in progress; otherwise the provider unpublishes it and waits for the last clients to finish their booked time. Those spaces can be audio, video, gif's, images, in the basic format of that kind of media for publicity, because they own the publicity spaces, they have to insert the name, the location in text, and the location in lat-long format, the map provider should be available to use that (Leaflet/OpenStreetMap + what3words today; Google Maps is a configurable swap via `environment.mapProvider`), and one or several photos of the space. They should set the price by day, month or any time span, for the availability they can setup any calendar like Outlook or Google Calendar, import a cal file or simply connect to a one public calendar, for this porpuse should be a little question mark button to help with this topic, they should take photos as proof within the proof deadline (a number of days configured by Admin in System Configurations, default 5) to prove that the ad is being displayed, this is per ad. Te providers can see a list of all the ads they need to add proofs with photos of the ad of the client (video or image) being displayed, in the case of audios for radio stations or any other possible media source the proof should be a video.
 
-Clients UI: They want pubicity spaces to put their publicity campaigns, with images, audios, videos or any normal media for ads, and they will pay per day or month or any time span they use, they need to see the proof that the ad is being displayed in the place they choose (the ad), if the proof is not added, the ad can be cancelled and the money will not be send to the provider. They should be able to search spaces in a map (Google maps api) select it from the point in the map and check the information of the space in the right bar (50% wide) then fill the fields with information of the time span requested, it should give information of availability by turning green or red depending if the space is available in that date range, if it's available it should be sended to approval from the provider and once approved the provider has until the proof deadline (admin-configured, default 5 days) to upload the proof. Clients can add collaborators by email in a collaborators menu. The account owner (together with the team) assigns each collaborator a ROLE with a configurable set of permissions — e.g. review proofs, upload secondary proofs, chat with providers, open support tickets, act on campaigns — but collaborators NEVER get billing or payment powers. The provider owns the PRIMARY proof of display; collaborators may upload SECONDARY proofs and flag mismatches, and can see the list of proofs relevant to them within the configured proof deadline (see Collaborator Roles and Proof of Display).
+Clients UI: They want pubicity spaces to put their publicity campaigns, with images, audios, videos or any normal media for ads, and they will pay per day or month or any time span they use, they need to see the proof that the ad is being displayed in the place they choose (the ad), if the proof is not added, the ad can be cancelled and the money will not be send to the provider. They should be able to search spaces in a map (Leaflet/OpenStreetMap + what3words today; Google Maps is a configurable swap via `environment.mapProvider`) select it from the point in the map and check the information of the space in the right sidebar (3-pane map-centered layout: menu | map | detail sidebar) then fill the fields with information of the time span requested, it should give information of availability by turning green or red depending if the space is available in that date range, if it's available it should be sended to approval from the provider and once approved the provider has until the proof deadline (admin-configured, default 5 days) to upload the proof. Clients can add collaborators by email in an account-scoped Collaborators screen under the Configurations tab — a collaborator belongs to the whole ACCOUNT, not a single campaign (owner decision 2026-06-20, reaffirmed 2026-06-24). The account owner (together with the team) assigns each collaborator a ROLE with a configurable set of permissions — e.g. review proofs, upload secondary proofs, chat with providers, open support tickets, act on campaigns — but collaborators NEVER get billing or payment powers. The provider owns the PRIMARY proof of display; collaborators may upload SECONDARY proofs and flag mismatches, and can see the list of proofs relevant to them within the configured proof deadline (see Collaborator Roles and Proof of Display).
 
 Payment system: The payments should be through platforms like Mercado Pago and Paypal, prepare the API's, but fake it until the keys are setted up.
 
-Clientside / Frontend for web: The front end for clients, should be a map where the location of the person (if we can acces to it from web) or the default location (currently will be Monterrey, Nuevo León, México) Above the map should be a search for location that change immediatly the map (this could be the Google Maps API and UI) in the right side should be the locations of spaces we currently have in our database from the nearest to the farest using the Google API to compare distances or maybe with a simple triangulation from geolocation data (lat, long), the list in the right could be multi select and shows information about the type of location (big screen, billboard, radio station, little screens), and the description of the place, when user select one or more, there should be in the below part of the list two buttons: "Add to an existing campaign" or "Add to a new campaign", that buttons will add the locations to a backlog in the campaigns waiting to place them in an adset, notice that adsets are only a grouping function and doesn't have effect directly over price or location, each ad / place have its own price and location, an adset is just for order purposes and it has a name, that's all, when user push the add to new campaign button a window appears (only 10 seconds) with a "Go to my new caompaign button" so the user may choose stay and select more places or go to the new campaign created with a generic name like "Campaign 1", with the filters in the top part of the sidebar for locations details should be a filter of dates, because all places have different time rangs of time span wehere are free, if a location doesn't coincide with the time selected it will have a legend "this place doesn't coincide with the time span" but can be choosed to be booked.
+Clientside / Frontend for web: The front end for clients, should be a map where the location of the person (if we can acces to it from web) or the default location (currently will be Monterrey, Nuevo León, México) Above the map should be a search for location that change immediatly the map (this could be the map provider's API and UI — Leaflet/OSM today, Google Maps swappable) in the right side should be the locations of spaces we currently have in our database from the nearest to the farest using the map provider's distance calculation to compare distances or maybe with a simple triangulation from geolocation data (lat, long), the list in the right could be multi select and shows information about the type of location (big screen, billboard, radio station, little screens), and the description of the place, when user select one or more, there should be in the below part of the list two buttons: "Add to an existing campaign" or "Add to a new campaign", that buttons will add the locations to a backlog in the campaigns waiting to place them in an adset, notice that adsets are only a grouping function and doesn't have effect directly over price or location, each ad / place have its own price and location, an adset is just for order purposes and it has a name, that's all, when user push the add to new campaign button a window appears (only 10 seconds) with a "Go to my new caompaign button" so the user may choose stay and select more places or go to the new campaign created with a generic name like "Campaign 1", with the filters in the top part of the sidebar for locations details should be a filter of dates, because all places have different time rangs of time span wehere are free, if a location doesn't coincide with the time selected it will have a legend "this place doesn't coincide with the time span" but can be choosed to be booked.
 
 Clientside App: This is pending.
 
@@ -102,8 +102,11 @@ overlay on top of the global role matrix.
 == Booking Lifecycle and Ad States ==
 
 Each ad/booking moves through an explicit state machine:
-draft → waiting for provider approval → waiting for booking confirmation
-(for "book for later" / pre-pay) → live → proof-pending → completed | cancelled.
+draft → waiting-approval → waiting-booking-confirmation
+(for "book for later" / pre-pay) → live → proof-pending → proof-uploaded →
+completed | rejected | cancelled (this is the CANONICAL booking enum — see
+ARCHITECTURE NOTES; `payout-held` is a Payments state, not a booking state, and
+ads keep their own separate enum).
 The provider acts on a booking request with **Approve** or **Reject (with
 reason)** only — no counter-offers. The rejection reason is meant to help the
 client re-submit a corrected file. The booking-request queue shows client,
@@ -125,7 +128,7 @@ client payment are complete; either one alone leaves it an inquiry.
 
 The PROVIDER owns the PRIMARY proof of display — only the primary proof makes a
 booking eligible for payout. Within the proof deadline (admin-configured,
-default 5 days, counted from display start) the provider uploads a photo
+default 5 days, counted from display start = the booking's calendar start_date set at confirmation; see ARCHITECTURE NOTES) the provider uploads a photo
 (printed/screen ads) or a short video (radio/audio ads). Reminders fire on day
 3 and day 4 (day-4 includes SMS). Missing the deadline auto-cancels the
 booking, refunds the client to wallet credit, and accrues a strike on the
@@ -452,7 +455,8 @@ Money & wallet
   ref_type, ref_id, idempotency_key, created_at). Balance is `SUM(amount)`,
   never a writable column. A cached balance, if any, is reconciled from the
   ledger inside the same transaction.
-- All money is stored as DECIMAL MXN pesos (decimal(10,2)). Single currency MXN —
+- All money is stored as DECIMAL MXN pesos (decimal(12,2) — the shipped width as of
+  Batch M 2026-06-23). Single currency MXN —
   no centavos/integer-cents representation (owner decision 2026-06-15: "just
   decimal pesos, forget cents"). Gateway callbacks that settle in another currency
   (e.g. PayPal USD) are normalized at capture to MXN pesos; never treat the raw
@@ -473,10 +477,14 @@ Money & wallet
   decision (claw back / keep frozen / release).
 
 State machines & time
-- ONE canonical booking/ad state enum: draft → waiting-approval → waiting-
-  booking-confirmation → live → proof-pending → proof-uploaded → (completed |
-  payout-held | rejected | cancelled). The frontend's three visible legends map
-  onto this set.
+- CANONICAL BOOKING state enum (owner decision 2026-06-25 — THIS enum wins; the
+  prose above and ARCHITECTURE.md/code are reconciled to it): draft → waiting-approval
+  → waiting-booking-confirmation → live → proof-pending → proof-uploaded → (completed |
+  rejected | cancelled). `payout-held` is NOT a booking state — it lives on
+  `payments.status` (Payments-only). ADS keep their OWN SEPARATE enum
+  (draft|pending_approval|approved|rejected|active|paused|completed|cancelled) — ads and
+  bookings are deliberately NOT unified. The frontend's three visible legends map onto
+  the booking set. (Column migration to align the live bookings.status is PENDING.)
 - `display_start` is a concrete stored timestamp = the booking's calendar
   start_date, set at confirmation. The proof deadline, reminders, and auto-cancel
   cron key off this column only.

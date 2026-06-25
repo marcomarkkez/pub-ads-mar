@@ -10,7 +10,8 @@ Capability legend (role → object):
 
 ROLES: Client · Provider · Collaborator{subroles} · Support · Payments · Admin
 {Collaborators are subroles that exist in TWO separate ecosystems — client-side and provider-side.
- Each ecosystem has its OWN subroles (client: publicist, manager, …; provider: installator, manager, …).
+ Each ecosystem has its OWN subroles — the same three names independently per side
+ (client: installator/publicist/manager; provider: installator/publicist/manager).
  A subrole exists ONLY within its ecosystem; the two collaborator sets are separated from each other
  and from the rest of the platform. "manager" on the client side ≠ "manager" on the provider side.}
 
@@ -47,7 +48,7 @@ ROLES: Client · Provider · Collaborator{subroles} · Support · Payments · Ad
             └───────────┘  │ writes        (client flags        │ deadline   │
                            ▼                 mismatch)──────────▶│ status     │
                     ┌─────────────┐                             └─────┬──────┘
-                    │ WALLET_ENTRY│ $ (centavos ledger)               │ mismatch →
+                    │ WALLET_ENTRY│ $ (decimal-MXN ledger)            │ mismatch →
                     └─────────────┘                                  ▼ auto-creates
                                                               ┌──────────────┐
    CONVERSATION (client↔provider, PII-masked) ──< MESSAGE     │   TICKET     │ polymorphic →
@@ -100,7 +101,7 @@ Audit log         ·        ·          ·         ·               👁(writes)
 
 NOTES ON STAFF POWERS
 - SUPPORT  = near-admin: eagle-eye + EDIT every non-money object (spaces, ads, collaborators,
-  providers, users, bookings, proofs), joins conversations ANNOUNCED, every action 📝-logged.
+  providers, users, bookings; proofs only via mismatch adjudication), joins conversations ANNOUNCED, every action 📝-logged.
   Can flag (not execute) refunds/holds. Can change provider collaborators' roles.
 - PAYMENTS = the only role that MOVES money ($): approve/reject payments, refunds, payouts.
   Payments does NOT review proof CONTENT (owner decision 2026-06-20). Instead: a rejected proof

@@ -102,7 +102,7 @@ pub-ads-mar/
 │   │       │   ├── admin/           # User list/form (CRM), Permissions editor (RBAC matrix)
 │   │       │   ├── auth/            # Login, Register (with role selector)
 │   │       │   ├── client/          # Campaigns, Adsets, Ads, Space search (Leaflet), Bookings, Invoices
-│   │       │   ├── dashboard/       # Role-specific quick actions
+│   │       │   ├── dashboard/       # Per-role STATS dashboard (non-client roles); client has none → lands on Map+Search
 │   │       │   ├── payments/        # Payment list (approve/reject), Proof review
 │   │       │   ├── provider/        # Spaces (list/form/detail + photos + calendar sync), Bookings, Proofs
 │   │       │   ├── shared/          # Conversations + chat, Tickets
@@ -127,7 +127,7 @@ pub-ads-mar/
 | admin | User list (CRM table + pagination), User form (create/edit), Permissions editor (RBAC matrix) |
 | auth | Login page, Register page (with role selector) |
 | client | Campaign list/form/detail, Space search (Leaflet map), Booking list, Invoice list |
-| dashboard | Role-specific quick actions |
+| dashboard | Per-role STATS dashboard for non-client roles; client has none (redirects to Map+Search) |
 | payments | Payment list (approve/reject), Proof review list (approve/reject) |
 | provider | Space list/form/detail (photos + availability + calendar sync), Booking list, Proof list |
 | shared | Conversation list + chat detail, Ticket list/form/detail |
@@ -152,7 +152,9 @@ campaigns  [belongs to: user(client)]
   id, user_id, name, description, status, start_date, end_date, budget, timestamps
 
 adsets  [belongs to: campaign]
-  id, campaign_id, name, latitude, longitude, location_name, radius_km, status, timestamps
+  id, campaign_id, name, status, timestamps
+  (latitude/longitude/location_name/radius_km columns are LEGACY/unused — adsets are
+   PURE GROUPING LABELS per design.md; geolocation lives on the space/ad, not the adset)
 
 ads  [belongs to: adset (nullable) + space + provider_user; reached from campaign via adset]
   id, adset_id (nullable — backlog/orphan ads), space_id, provider_user_id,
@@ -178,6 +180,9 @@ bookings  [belongs to: client_user + space + ad + adset]
   id, client_user_id, space_id, ad_id (nullable), adset_id (nullable),
   start_date, end_date, total_price,
   status (enum: pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected),
+  -- CANONICAL target (owner 2026-06-25) = design.md booking enum:
+  --   draft|waiting_approval|waiting_booking_confirmation|live|proof_pending|proof_uploaded|completed|rejected|cancelled
+  -- (payout-held is a PAYMENTS state, not a booking state; ads keep a SEPARATE enum). Column migration to match is PENDING.
   config_snapshot (json — e.g. proof_deadline_days), timestamps
 
 payments  [belongs to: booking]
@@ -197,8 +202,8 @@ messages  [belongs to: conversation + sender_user]
 proofs  [belongs to: ad + booking + uploaded_by_user]
   id, ad_id, booking_id, uploaded_by_user_id, media_type (image|video),
   file_path, file_name, notes,
-  status (enum: pending_review|approved|rejected),
-  reviewed_by_user_id, reviewed_at, deadline, timestamps
+  status (enum: pending|uploaded|client_accepted|client_rejected),  -- B9 (2026-06-20): the CLIENT accepts/rejects proof content, NOT Payments
+  reviewed_by_user_id (= the acting CLIENT under B9), reviewed_at, deadline, timestamps
 
 tickets  [belongs to: user(reporter) + assigned_to_user; polymorphic ticketable]
   id, user_id, ticketable_type, ticketable_id, subject, description,
@@ -210,11 +215,14 @@ tickets  [belongs to: user(reporter) + assigned_to_user; polymorphic ticketable]
 ticket_messages  [belongs to: ticket + user]
   id, ticket_id, user_id, body, is_internal (staff-only notes), timestamps
 
-collaborators  [belongs to: campaign + invited_by_user + user]
-  id, campaign_id, invited_by_user_id, user_id (nullable until registered),
-  email, role (enum: proof_uploader),
+collaborators  [belongs to: account (owner user) + invited_by_user + user]
+  ACCOUNT-SCOPED (owner decision 2026-06-20, reaffirmed 2026-06-24): a collaborator
+  belongs to the whole account, NOT a single campaign. Code migration from campaign_id
+  → account_id is PENDING (current table still has campaign_id — tracked as a gap).
+  id, account_user_id, invited_by_user_id, user_id (nullable until registered),
+  email, role (string: installator | publicist | manager),
   status (enum: pending|accepted|revoked),
-  unique(campaign_id, email), timestamps
+  unique(account_user_id, email), timestamps
 
 invoices  [belongs to: campaign]
   id, campaign_id, invoice_number (unique), total_amount,
@@ -226,7 +234,7 @@ role_permissions  [RBAC]
   unique(role, resource, action), timestamps
 
 wallet_entries  [belongs to: user]
-  id, user_id, amount_centavos (signed),
+  id, user_id, amount (signed decimal(12,2) MXN pesos — money is decimal pesos, no centavos; Batch M 2026-06-23),
   type (enum: refund|withdrawal|escrow_capture|escrow_release|adjustment),
   ref_type, ref_id, idempotency_key (unique), timestamps
 
@@ -239,7 +247,7 @@ system_configurations  [admin-tunable settings, e.g. proof_deadline_days]
 ```
 User (client)  ──< Campaign ──< Adset ──< Ad   (adset_id nullable → orphan/backlog ads)
                        │                  └──> Space + User(provider)   (ad belongs to space + provider)
-                       ├──< Collaborator   (campaign invites, proof_uploader)
+                       ├──< Collaborator   (ACCOUNT-scoped; role: installator|publicist|manager — code migration campaign_id→account_id pending)
                        └──< Invoice
 User (provider) ──< Space ──< SpacePhoto
                           └──< SpaceAvailability   (source: manual | ical)
