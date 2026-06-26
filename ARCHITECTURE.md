@@ -143,10 +143,18 @@ pub-ads-mar/
 users
   id, name, email, password, role (enum: client|provider|admin|support|payments),
   phone, company_name, address, is_active, remember_token, timestamps
+  (timezone (nullable) — per-user display tz preference; default = platform tz. Storage is UTC;
+   deadline math uses the admin-configured platform default. PENDING column.)
 
 personal_access_tokens  [Sanctum]
   id, tokenable_type, tokenable_id, name, token (hash),
   abilities, last_used_at, expires_at, timestamps
+
+accounts  [belongs to: owner user]
+  An account is the org collaborators attach to. MVP: exactly ONE per owner user
+  (client OR provider), so account = that single user; the table exists so multiple
+  owner-users can share one account later without a schema change.
+  id, owner_user_id (unique), name, type (enum: client|provider), timestamps
 
 campaigns  [belongs to: user(client)]
   id, user_id, name, description, status, start_date, end_date, budget, timestamps
@@ -215,14 +223,14 @@ tickets  [belongs to: user(reporter) + assigned_to_user; polymorphic ticketable]
 ticket_messages  [belongs to: ticket + user]
   id, ticket_id, user_id, body, is_internal (staff-only notes), timestamps
 
-collaborators  [belongs to: account (owner user) + invited_by_user + user]
-  ACCOUNT-SCOPED (owner decision 2026-06-20, reaffirmed 2026-06-24): a collaborator
-  belongs to the whole account, NOT a single campaign. Code migration from campaign_id
-  → account_id is PENDING (current table still has campaign_id — tracked as a gap).
-  id, account_user_id, invited_by_user_id, user_id (nullable until registered),
+collaborators  [belongs to: account + invited_by_user + user]
+  ACCOUNT-SCOPED (owner decision 2026-06-20, reaffirmed 2026-06-25): a collaborator
+  points to account_id (FK → accounts), NOT a single campaign. Code migration from
+  campaign_id → account_id is PENDING (current table still has campaign_id — tracked as a gap).
+  id, account_id, invited_by_user_id, user_id (nullable until registered),
   email, role (string: installator | publicist | manager),
   status (enum: pending|accepted|revoked),
-  unique(account_user_id, email), timestamps
+  unique(account_id, email), timestamps
 
 invoices  [belongs to: campaign]
   id, campaign_id, invoice_number (unique), total_amount,

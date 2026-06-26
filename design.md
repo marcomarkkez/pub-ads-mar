@@ -75,10 +75,14 @@ questions file has been removed now that nothing is open.
 
 == Collaborator Roles ==
 
-An account (client OR provider) is an organization that the owner can staff with
-collaborators invited by email. Collaborators are ACCOUNT-scoped (owner decision
-2026-06-20): a collaborator belongs to the account and, per their role, sees/acts
-across ALL of that account's campaigns or spaces — not a single campaign. The
+An ACCOUNT is a first-class object (owner decision 2026-06-25). Every owner user —
+a client or a provider — has exactly ONE account, and for MVP an account IS that
+single owner user (1 user = 1 account); the separate `accounts` object exists from
+the start so a team of multiple owner-users can later share one account without a
+schema change. An account is the organization the owner staffs with collaborators
+invited by email. Collaborators are ACCOUNT-scoped: a collaborator points to the
+**account_id** (never to a campaign or space) and, per their role, sees/acts across
+ALL of that account's campaigns or spaces — not a single campaign. The
 client side and provider side are TWO SEPARATE ecosystems: each has its own
 subrole set, and a subrole on one side is unrelated to the same-named subrole on
 the other (a client "Manager" ≠ a provider "Manager"). Each collaborator is
@@ -155,6 +159,13 @@ executes the release.
 Proof lifecycle: pending → uploaded → (client-accepted → payout releasable →
 Payments releases) | (client-rejected / mismatch → re-upload + Support↔Payments
 ticket, payout HELD) | (deadline missed → auto-cancel + refund + strike).
+
+The `proofs.status` enum has FOUR values: `pending` = deadline running, no file uploaded
+yet; `uploaded` = provider posted the proof, awaiting the client's decision; `client_accepted`
+= the client (or a collaborator, per role) approved it → payout becomes releasable;
+`client_rejected` = the client rejected it or flagged a mismatch → the 48 h re-upload window
+opens and payout is HELD. (A missed deadline is a BOOKING outcome — auto-cancel — not a proof
+status.)
 
 The reject→re-upload loop is not unbounded: if a proof is still unresolved after
 the re-upload window (default 48 h) elapses, Support (with Payments) adjudicates
@@ -444,8 +455,9 @@ file has been removed; the decision history lives in history.md (Sessions 18–1
 
 Launch scope
 - First launch target is MONTERREY, Nuevo León, Mexico — Mexico-first, single
-  city to start. Single currency MXN (decimal pesos), all deadline math in
-  America/Monterrey timezone. Multi-country, multi-currency, and non-Spanish UI
+  city to start. Single currency MXN (decimal pesos). Timestamps stored in UTC; deadline
+  math runs against the admin-configurable DEFAULT timezone (America/Monterrey at launch),
+  with per-user timezone display (see ARCHITECTURE NOTES). Multi-country, multi-currency, and non-Spanish UI
   are out of scope for the initial launch (the currency unit is admin-
   configurable to leave the door open later).
 
@@ -485,11 +497,29 @@ State machines & time
   (draft|pending_approval|approved|rejected|active|paused|completed|cancelled) — ads and
   bookings are deliberately NOT unified. The frontend's three visible legends map onto
   the booking set. (Column migration to align the live bookings.status is PENDING.)
+  - What each booking state means, plainly:
+    · draft — client is still assembling the booking (ad attached, not yet submitted).
+    · waiting-approval — submitted; the provider must Approve or Reject-with-reason.
+    · waiting-booking-confirmation — "book for later" / pre-pay: the slot isn't free yet,
+      so the booking waits in the queue (funds escrowed if pre-paid) until the calendar opens.
+    · live — approved and inside its booked display window; the ad is running.
+    · proof-pending — display has started; the provider owes a proof before the deadline.
+    · proof-uploaded — the provider posted the proof; awaiting the client's accept/reject.
+    · completed — the client accepted the proof; payout becomes releasable.
+    · rejected — the provider rejected the request (no charge), or the proof stayed rejected
+      past the re-upload window with no resolution.
+    · cancelled — withdrawn or auto-cancelled (e.g. proof deadline missed → refund + strike).
 - `display_start` is a concrete stored timestamp = the booking's calendar
   start_date, set at confirmation. The proof deadline, reminders, and auto-cancel
   cron key off this column only.
-- All deadline math uses a single platform timezone (America/Monterrey), stored
-  explicitly — never the requester's local timezone.
+- Timezone (owner decision 2026-06-25): all timestamps are STORED in UTC (epoch).
+  Deadline math (proof deadline, reminders, auto-cancel) is computed against the
+  platform's DEFAULT timezone — America/Monterrey (Mexico Central) at launch — which is
+  an **Admin → System Configurations** setting, so the whole platform's deadline clock
+  can be retargeted without code changes. DISPLAY is localized PER USER: each user may
+  set their own timezone preference (default = the platform tz). The canonical deadline
+  instant is identical for everyone; only its rendering varies — never compute deadlines
+  off the requester's local clock.
 - Strike accrual is decoupled from notification delivery (an SMS failure must
   not change whether a strike accrues) and is reversible by Support/Admin
   (reversal is an audited action).

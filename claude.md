@@ -4,7 +4,7 @@ Instructions and context for Claude AI agents working on this project.
 
 ## Project Overview
 
-Web-based advertising spaces marketplace built with **Laravel 12** (API backend) and **Angular 18** (frontend). Five user roles: **Client**, **Provider**, **Admin** (eagle-eye CRM), **Support**, and **Payments** (the `users.role` enum is `client|provider|admin|support|payments`). Clients create campaigns with geolocated adsets and ads, browse and book provider spaces. Providers post spaces with photos, geolocation, and availability. Admin/Support/Payments staff administer users and operations. (The legacy `Manager\UserController` is kept for compat only — "Manager" was the original 3-role MVP name for the admin role.)
+Web-based advertising spaces marketplace built with **Laravel 12** (API backend) and **Angular 18** (frontend). Five system roles (`client | provider | admin | support | payments`) plus per-account collaborator subroles. **The canonical role / permission / collaborator spec lives in [design.md](design.md); schema and routes live in [ARCHITECTURE.md](ARCHITECTURE.md). It is intentionally NOT duplicated here — fewer homes, less drift.** In short: clients create campaigns with geolocated adsets and ads and book provider spaces; providers post spaces; admin/support/payments staff run operations.
 
 **See [ARCHITECTURE.md](ARCHITECTURE.md) for full folder structure, database schema, API routes, data flow, dev commands, and implementation status.**
 
@@ -46,11 +46,10 @@ Web-based advertising spaces marketplace built with **Laravel 12** (API backend)
 
 ## User Roles
 
-| Role | Capabilities |
-|------|-------------|
-| `client` | Create campaigns/adsets/ads, search spaces, book, chat |
-| `provider` | Post spaces + photos + availability, manage bookings, chat |
-| `manager` | CRM — create/read/update/delete any user |
+Five system roles — `client`, `provider`, `admin`, `support`, `payments` — plus per-account
+**collaborator subroles** (installator / publicist / manager). The canonical role + permission
+spec and the collaborator model live in **[design.md](design.md)** (§Roles, §Collaborator Roles);
+they are not duplicated here to avoid drift.
 
 ---
 
