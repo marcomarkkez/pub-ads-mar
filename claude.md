@@ -4,9 +4,9 @@ Instructions and context for Claude AI agents working on this project.
 
 ## Project Overview
 
-Web-based advertising spaces marketplace built with **Laravel 12** (API backend) and **Angular 18** (frontend). Five system roles (`client | provider | admin | support | payments`) plus per-account collaborator subroles. **The canonical role / permission / collaborator spec lives in [design.md](design.md); schema and routes live in [ARCHITECTURE.md](ARCHITECTURE.md). It is intentionally NOT duplicated here — fewer homes, less drift.** In short: clients create campaigns with geolocated adsets and ads and book provider spaces; providers post spaces; admin/support/payments staff run operations.
+Web-based advertising spaces marketplace built with **Laravel 12** (API backend) and **Angular 18** (frontend). Five system roles (`client | provider | admin | support | payments`) plus per-account collaborator subroles. **Everything canonical — roles, specs, decisions, schema, routes, the role/object graph, and user stories — lives in [design.md](design.md), the SINGLE design doc. Not duplicated here.** In short: clients create campaigns with geolocated adsets and ads and book provider spaces; providers post spaces; admin/support/payments staff run operations.
 
-**See [ARCHITECTURE.md](ARCHITECTURE.md) for full folder structure, database schema, API routes, data flow, dev commands, and implementation status.**
+**See [design.md](design.md) for full folder structure, database schema, API routes, data flow, dev commands, specs, user stories, and implementation status.**
 
 ---
 
@@ -16,14 +16,21 @@ Web-based advertising spaces marketplace built with **Laravel 12** (API backend)
 - Write clear commit messages
 - Test changes before committing
 - Always append a new entry to `history.md` at the end of each session
+- **Generate FEWER documents (owner rule, 2026-06-26, hardened 2026-06-27).** design.md is the
+  SINGLE canonical home — schema, routes, specs, decisions, user stories, and the role/object
+  graph all live there as sections (ARCHITECTURE.md / cases.md / platform-graph.md were merged
+  into it and DELETED 2026-06-27). Do NOT create a new `.md` file — not even for a new topic or section: if it
+  fits in design.md (and it almost always does), add a section there. Actionable work goes in the
+  todos JSON (`.claude/todos/`). EVERYTHING ELSE — analyses, audits, reports, summaries, answers —
+  is printed in the Claude UI chat, NOT written to a file, unless the owner explicitly asks for a
+  file. Temporary working files must be folded into design.md/todos and deleted once consumed.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `ARCHITECTURE.md` | Folder tree, DB schema, API routes, data flow, dev commands, status |
+| `design.md` | THE single canonical doc — overview, roles, specs, decisions, schema, API/endpoint map, role/object graph, dev commands, status, AND the verbose user stories (§19). Absorbed ARCHITECTURE.md + cases.md + platform-graph.md (deleted 2026-06-27). |
 | `history.md` | Session diary — append entries, never delete |
-| `.claude/plans/cases.md` | Use-case backlog (formerly `cases-v2.md` — RENAMED to `cases.md` to simplify; there is no `cases-v2.md`). Subordinate to design.md. |
 | `claude.md` | This file — agent instructions |
 | `install_beads.md` | Guide for installing the `bd` task CLI |
 | `backend/.env` | Environment config (DB, keys) |
@@ -125,7 +132,7 @@ The `skill-creator` tool is also installed locally at `.agents/skills/skill-crea
 
 ## Implementation Status
 
-See [ARCHITECTURE.md — Implementation Status](ARCHITECTURE.md#implementation-status) for the full table.
+See [design.md](design.md) §18 (System & Dev → Implementation status) for the full table.
 
 **Completed:** Full backend API — Laravel scaffold, PostgreSQL DB, Sanctum auth, CORS, 14 migrations, 11 models, RoleMiddleware, 14 controllers, 49 routes, demo seeders, storage link. All endpoints tested and working.
 
@@ -186,12 +193,12 @@ The `pg_hba.conf` for PG 17 (`C:\Program Files\PostgreSQL\17\data\pg_hba.conf`) 
 
 - **Windows `NUL` vs bash `/dev/null`:** On Windows with bash shell, never redirect to `NUL` — bash treats it as a literal filename and creates a `nul` file. Always use `/dev/null` instead.
 - **Skill files go in `.agents/skills/`**, not the project root. If `.skill` files appear in the root, move them to `.agents/skills/`.
-- **Don't create files in the project root** unless they're documented in ARCHITECTURE.md. Keep the root clean.
+- **Don't create files in the project root** unless they're documented in design.md. Keep the root clean.
 - **Beads `bd.exe` needs the sqlite backend here, not dolt.** The installed `bd.exe` (v0.49.3 dev) was built without CGO, so it CANNOT open the dolt backend ("dolt backend requires CGO"). It only worked while a background daemon (sqlite-backed, over a socket) was alive; once that daemon dies, direct CLI calls fall through to dolt and fail. Fix applied 2026-06-13: re-init to sqlite (`metadata.json` backend=sqlite; `bd init --backend sqlite`). Old dolt store is in `.beads-backup-20260613/`. Invoke as `/mnt/c/Users/mucho/go/bin/bd.exe --db .beads/beads.db ...` (it's a Windows binary, not on the WSL PATH).
 - **Never run parallel agents that WRITE files while the user has files open in the IDE.** The first MVP build workflow ran parallel implementers in the same working tree; they wrote files the user had open → "content is newer" save conflicts, AND 4 packets failed mid-run. Rule: for code-mutating agent work, write SEQUENTIALLY (one area at a time), keep a change log (`.claude/mvp-changelog.md`) for surgical rollback, and have the user close affected tabs first.
 - **OneDrive sync causes transient `ENOENT`/"file modified since read" on edits.** The repo lives under OneDrive; edits to large files (e.g. `design.md`) intermittently report `ENOENT` even though they LAND — and a blind retry can apply the edit TWICE (duplicate blocks). Rule: after an `ENOENT` on an edit, `grep -c` the inserted text before retrying; don't blindly re-edit.
 - **Postgres must be running for backend verification.** Bare-metal PG17 on port 5434 (or Docker on 5435) is often down in a fresh WSL shell; `php artisan migrate` then fails with `SQLSTATE[08006] Connection refused`. Start PG/Docker before runtime checks; static checks (`php -l`, `ng build`) work without it.
-- **Momentum over perfection — soft vs hard stops (owner working style).** The owner wants forward progress, not 100% compliance. Resolve ambiguous/"soft" logic conflicts yourself by **latest-decision-wins** (the most recently edited doc / newest owner message overrides older text) or by best-guess of the most sensible scenario, and KEEP BUILDING. Only stop to ask on a **HARD stopper**: something you genuinely cannot infer, or a destructive/irreversible/outward-facing action. Target ~**90% doc compliance** (design/architecture/cases), not 100% — decisions have changed over time, so some older doc text is intentionally stale. The owner reviews the running app and prunes features afterward. Don't create new planning docs unless asked; edit design.md / ARCHITECTURE.md / todos in place.
+- **Momentum over perfection — soft vs hard stops (owner working style).** The owner wants forward progress, not 100% compliance. Resolve ambiguous/"soft" logic conflicts yourself by **latest-decision-wins** (the most recently edited doc / newest owner message overrides older text) or by best-guess of the most sensible scenario, and KEEP BUILDING. Only stop to ask on a **HARD stopper**: something you genuinely cannot infer, or a destructive/irreversible/outward-facing action. Target ~**90% doc compliance** (design.md), not 100% — decisions have changed over time, so some older doc text is intentionally stale. The owner reviews the running app and prunes features afterward. Don't create new planning docs unless asked; edit design.md / todos in place.
 - **Docker from WSL: use `docker.exe`, and DISABLE BuildKit to build.** The WSL `docker` socket is `root:docker` and the user isn't in the `docker` group (and sudo needs a password), so use the Windows binary `/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe`. BuildKit context streaming is BROKEN on this machine — every `docker compose build`/`docker build` cancels at "transferring context" (~0.7s) whether foreground or background, even with all base images pre-pulled (plain `docker pull` works fine). FIX: classic builder. `export WSLENV=DOCKER_BUILDKIT:$WSLENV; DOCKER_BUILDKIT=0 docker.exe compose up -d --build`. The stack is project **publisher** (db/backend/nginx/frontend); API :8000, SPA :4200, db :5435. Backend auto-migrates on boot.
 
 

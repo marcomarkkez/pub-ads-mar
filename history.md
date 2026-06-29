@@ -1237,5 +1237,73 @@ resolved + the one hard conflict (booking state enum) decided by owner. Docs-onl
   `bookings.status` enum, `proofs.status` enum. Plus one pure code-vs-doc gap: `config/app.php`
   is UTC but design mandates America/Monterrey for deadline math. Nothing committed/pushed.
 
+## Session 27 - 2026-06-26 → 2026-06-28
+
+### Summary
+Doc-only session (no code). Continued reconciling owner decisions into design.md, then did a
+backend endpoint compliance audit, built a 128-item spec backlog into the todos, deleted the
+investigation file, and finally CONSOLIDATED the four planning docs into a single design.md.
+Heavy use of read-only agent teams for analysis; all writes done sequentially by the main loop.
+
+### Owner decisions applied
+- **Provider subroles changed** (2026-06-25, confirmed 06-26): two SEPARATE ecosystems. Client =
+  publicist/manager; Provider = installator/**sales**/**supervisor**. Sales = provider-side
+  Support (answers messages only, no people/spaces/money). Supervisor = everything EXCEPT
+  remove-people / adjust-configs / delete-spaces. (Replaces the old shared installator/publicist/
+  manager set on the provider side.)
+- **Account object** (2026-06-25): first-class; 1 user = 1 account for MVP; `accounts` table
+  (owner_user_id unique, type). [2026-06-27] EMAIL = account identity, one account per email;
+  dual client+provider via two emails, manual switch, not enforced. Collaborators FK account_id.
+- **Five `[owner 2026-06-27]` decisions:** (1) pre-pay OPTIONAL, provider may reject the file
+  repeatedly, client may cancel; escrow returns to wallet on cancel/reject. (2) Proof deadlock →
+  Support leans CLIENT, never forces a payout; default = cancel + full refund + client rebooks.
+  (3) ONE account per email. (4) Refunds 100% by default UNLESS booking already in-process
+  (supersedes 90/5/5; add to T&C). (5) Ratings IMMUTABLE/transparent — no edit/delete, manual
+  admin removal only in extreme cases.
+- **Timezone** (2026-06-25): store UTC, deadline math vs admin-default tz (Monterrey), per-user
+  `users.timezone` display.
+
+### Work done
+- **Backend endpoint audit** (4 read-only agents): mapped ~77 routes; found 6 live contradictions
+  (Payments proof review B9, collaborators campaign-scoped, bookings/proofs enums, provider bare
+  confirm/cancel, hard-deletes no guardrails) + ~12 documented features with no endpoint.
+- **what3words** elaborated (optional client-side geocoding, no stored column, swappable).
+- **Spec backlog**: a 5yo-architect challenger pass (7 HARD questions → 6 answered, 1 open) +
+  spec-extraction agent → **128 discrete specs** written into `.claude/todos/mvp-sprint.json`
+  under `spec_backlog` (11 domains, backend-first, status/prio/deps). This is the case-ID→route
+  traceability spine.
+- **Deleted `investigation-planning-to-code-gap.md`** after re-homing its content (specs→backlog,
+  what3words→design.md, 2 leftover actions→XC-* todos).
+- **CLAUDE.md**: added the "generate FEWER documents" rule (2026-06-26) and hardened it (06-27):
+  no new .md files even for new sections; everything → design.md or todos or chat.
+
+### THE CONSOLIDATION (2026-06-27)
+- Merged **ARCHITECTURE.md + cases.md + platform-graph.md + useful parts of compliance-report.md
+  into one design.md** (5 software-design agents drafted simplified, de-duplicated sections; main
+  loop assembled). New design.md = 20 numbered sections, 1052 lines (was 797): §1 Overview/Roles,
+  §2 Role×Object Matrix, §3 Accounts/Collaborators, §4 Objects/Lifecycles, §5 Catalog/Search,
+  §6 Pre-pay/Escrow, §7 Proof/Deadline/Strikes, §8 Money, §9 Ratings, §10 Chat/PII, §11
+  Tickets/Support, §12 Admin/Moderation/Audit/Config, §13 Notifications/Calendar, §14
+  RBAC/Capabilities, §15 Data Schema, §16 Integrity Invariants, §17 Endpoint Map, §18 System/Dev,
+  §19 User Stories (verbose), §20 Roadmap/Revisions/Known-gaps.
+- **Deleted** ARCHITECTURE.md, cases.md, platform-graph.md, compliance-report.md (backed up in
+  the session scratchpad). Repointed CLAUDE.md, README.md, ui-endpoint-audit.md, and the 5yo skill
+  to design.md.
+- **Verified before delete**: all 21 tables, the 34-row alert schema, the media-spec table, 30
+  numbered cases, every `[owner]` marker, all integrity invariants present in the new file.
+
+### Open decision (carried)
+- **Strike reversal vs freeze**: when a reversed strike had already triggered a freeze that
+  auto-cancelled + refunded upcoming bookings, can it be undone? Proposed (B) — freeze pauses new
+  bookings immediately but DELAYS auto-cancel of upcoming bookings for an appeal window (48–72 h,
+  configurable); reversal within the window = clean undo. Awaiting owner pick of (A) immediate /
+  (B) appeal-window.
+
+### Next
+- Owner to pick strike-reversal option (A/B) → write into design.md §7/§12 + todos.
+- Then resume backend-first build from the spec_backlog P1 critical path (accounts table,
+  account-scoped collaborators, bookings/proofs enum migrations, B9 removal, audit log, etc.).
+- Nothing committed/pushed this session (doc-only).
+
 <!-- Add new sessions above this line -->
 

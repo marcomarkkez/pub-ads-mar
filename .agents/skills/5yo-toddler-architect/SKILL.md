@@ -18,7 +18,7 @@ A review agent that asks the questions nobody thinks to ask.
 After a change or prompt, spawn a Task agent (subagent_type: "general-purpose") that:
 
 1. Reads the files that were just created or modified
-2. Considers the project context (ARCHITECTURE.md, CLAUDE.md, design.md)
+2. Considers the project context (design.md, CLAUDE.md)
 3. Produces **2 to 5 questions** -- no more, no less
 
 ## Question Style

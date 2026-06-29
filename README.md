@@ -142,10 +142,9 @@ pub-ads-mar/
 │       ├── features/           # 8 feature modules (admin, auth, client, dashboard, payments, provider, shared, support)
 │       └── shared/             # Navbar, sidebar, notification toast, layouts
 │
-├── ARCHITECTURE.md   # Full schema, API routes, data flow, dev commands
+├── design.md         # THE canonical doc — schema, API routes, specs, stories, dev commands
 ├── CLAUDE.md         # Agent instructions
-├── history.md        # Session diary
-└── design.md         # UI/UX design notes
+└── history.md        # Session diary
 ```
 
 ---
@@ -180,6 +179,5 @@ POST /api/logout, GET /api/me          Any authenticated
 
 ## Documentation
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Database schema, API routes, data flow, dev commands, implementation status
+- **[design.md](design.md)** — THE single canonical design doc: overview, roles, specs, decisions, database schema, API/endpoint map, role/object graph, dev commands, implementation status, and the verbose user stories (§19). Absorbed the former ARCHITECTURE.md / cases.md / platform-graph.md (2026-06-27).
 - **[history.md](history.md)** — Session-by-session development diary
-- **[design.md](design.md)** — UI/UX design notes and wireframes

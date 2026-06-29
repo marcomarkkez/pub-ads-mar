@@ -1,7 +1,7 @@
 # UI/Behavior Work — Endpoint Audit & Classification (2026-06-15)
 
 Source: read-only analysis agent over routes/api.php + controllers + Angular components.
-See [platform-graph.md](platform-graph.md) for the object/role graph this derives from.
+See [design.md](../../design.md) §2 (Role × Object Power Matrix) for the object/role graph this derives from.
 Nav menu = `frontend/src/app/shared/components/sidebar/sidebar.component.ts` (client 28-37, provider 38-46, admin 47-54).
 Header/navbar = `frontend/src/app/shared/layouts/main-layout/` (navbar).
 
@@ -33,7 +33,7 @@ Header/navbar = `frontend/src/app/shared/layouts/main-layout/` (navbar).
 - #19/#21 SUPPORT edit-any-non-money-object — support routes are tickets-only today. Need generic support/admin write controller across spaces/users/collaborators/providers/campaigns (exclude money).
 - #20 AUDIT LOG — no table/model/endpoint exists (design.md mentions it, no code). Need audit_logs + write-on-action + read endpoint.
 - #22 admin Users role filter — Admin\UserController@index is flat paginate, no ?role=. Add filter (small) + split UI tabs.
-- #23 provider sub-roles collaborator:installator/publicist/manager on provider users — no subrole column.
+- #23 provider sub-roles collaborator:installator/sales/supervisor on provider users — no subrole column.
 - #24 employee-only RBAC scoping + a Support-facing collaborator-role editor.
 - #25 admin per-object oversight ("Activity") endpoints with ADVANCED FILTERS (by space/provider/support-user/client/related node) + per-ticket announced/silent flag. Oversight today = conversations+tickets only, no filters.
 - #26 header welcome+name (mostly UI) + Help "?" → ticket-form prefilled with current object as VIEW-ONLY (needs a view-only ticket flag; booking attachable type).
