@@ -60,19 +60,13 @@ columns split by ecosystem subrole (client: **publ**=publicist, **mgr**=manager 
 | System config | · | · | provider-admin:🟢(own acct) | · | · | · | 🟢 global |
 | Audit log | · | · | · | · | 👁 (writes) | 👁 (writes) | 👁🤫 read-all |
 
-Separation-of-powers (load-bearing):
-- **Support FLAGS only** — investigates, edits non-money objects, flags a refund/payout-hold;
-  cannot execute money. Adjudicates mismatches; removes strikes (audited).
-- **Payments EXECUTES only** — sole money mover; NO content powers, NO proof-content review,
-  NOT a strike actor. A client-rejected proof AUTO-HOLDS the payment; an accepted proof makes
-  it releasable for MANUAL Payments release.
-- **Admin EAGLE-EYE** — sees/edits everything, SILENT by default (may announce per ticket),
-  owns global config + employee RBAC, reads all audit. Above Support and Payments.
-- **Strikes** route Support→Admin, never Payments.
-- **Internal Support↔Payments threads** are membership-ACL'd; the client never sees them;
-  Admin observes (and may post).
-- **Auto-approve**: Admin System Config toggle + amount threshold (auto-release payments under
-  $X), default OFF; larger payments still need manual Payments review.
+Separation-of-powers (load-bearing; roles defined in §1):
+- A client-rejected proof AUTO-HOLDS the payment; an accepted proof makes it releasable for
+  MANUAL Payments release. Strikes route Support→Admin, never Payments.
+- **Internal Support↔Payments threads** are membership-ACL'd; the client never sees them; Admin
+  observes (and may post).
+- **Auto-approve**: Admin System Config toggle + amount threshold (auto-release payments under $X),
+  default OFF; larger payments still need manual Payments review.
 - Audit log is append-only/immutable; every staff (✏/$) action is 📝-logged.
 
 == 3. Accounts & Collaborators ==
@@ -165,12 +159,10 @@ legends (waiting for approval / waiting for booking confirmation / live) map ont
 
 A missed deadline is a BOOKING outcome (auto-cancel), NOT a proof status.
 
-= What an enum is, and why ONE canonical list =
-An enum is the fixed, CLOSED set of allowed values a status column may hold — a booking's
-status can only ever be one of these named states. We keep a SINGLE canonical list so the DB
-column, backend logic, Angular UI, and these docs all agree on which states exist and what
-each means; if each layer invents its own names (`active` vs `live`, `waiting_proof` vs
-`proof-pending`) the state machine, filters, and deadline/payout rules silently drift and break.
+= One canonical enum list =
+An enum is the fixed CLOSED set of values a status column may hold; we keep a SINGLE canonical
+list so DB, backend, Angular UI, and docs agree on the states — otherwise (`active` vs `live`,
+`waiting_proof` vs `proof-pending`) the state machine, filters, and deadline/payout rules drift.
 
 = Cheapest-decomposition pricing =
 When a booked window straddles two of a provider's pricing tiers (e.g. per-day and per-month),
@@ -222,30 +214,21 @@ on its own approval independently — a slow/rejected provider never blocks the 
 campaign. An inquiry chat becomes a confirmed booking thread only when BOTH provider approval
 AND client payment are complete; either alone leaves it an inquiry.
 
-== 6. Book-for-later, Pre-pay & Escrow ==
+== 6. Book-for-later, Pre-pay & Escrow (AFTER-MVP) ==
 
-When a requested window isn't yet free, the client sees "Book it for later." Two queues exist
-per space:
-1. **PRE-PAY** — funds are captured into escrow; the booking joins the provider's per-space
-   pre-pay waiting list. The provider picks which booking to confirm when the slot opens, by
-   their own criteria (longer window, repeat client, etc.). The provider sees this waiting list
-   as a SIMPLE list with NO payment/amount information, and has a trash action to reject
-   bookings they don't want. Escrow funds are held until the provider confirms; if the slot
-   never opens within the offer's expiry window (admin-configurable), the client is refunded to
-   wallet credit, gets a notification, and the refund is logged for Payments/Admin.
-2. **NON-PRE-PAY** — queued with NO funds captured, resolved first-come-first-served when the
-   calendar frees.
-
-One checkout per campaign covers all ads regardless of provider. Cross-queue precedence is the
-PROVIDER's choice — no automatic rule that a funded pre-pay offer beats an older unfunded FCFS
-entry. When the provider confirms one booking for a freed slot, every other pre-pay offer for
-that slot is atomically cancelled and refunded to wallet credit.
-
-[owner 2026-06-27] Pre-pay is OPTIONAL for the client (for now) — clients may always just book
-or queue without pre-paying. Confirming a pre-pay offer is NOT a final file approval and locks
-in NEITHER party: the provider may still REJECT the uploaded file as many times as they need
-(each reject reopens the re-upload loop), and the client may CANCEL at any time before display.
-On any cancel or reject, escrowed funds return to the client's wallet.
+When a requested window isn't yet free the client sees "Book it for later." Two per-space queues:
+- **PRE-PAY** — funds captured into escrow; the booking joins the provider's per-space waiting
+  list (provider sees a SIMPLE list with NO amounts + a trash/reject action). The provider picks
+  which to confirm when the slot opens, by their own criteria. If the slot never opens within the
+  admin-configurable expiry window, the client is refunded to wallet (notified; logged for
+  Payments/Admin).
+- **NON-PRE-PAY** — queued with no funds, resolved FCFS when the calendar frees.
+- Cross-queue precedence is the PROVIDER's choice (no auto rule that funded beats older FCFS).
+  Confirming one offer for a freed slot atomically cancels+refunds every sibling pre-pay offer.
+- [owner 2026-06-27] Pre-pay is OPTIONAL. Confirming an offer is NOT final file approval and locks
+  in NEITHER party: provider may still REJECT the file repeatedly, client may CANCEL before
+  display; on any cancel/reject escrowed funds return to the client's wallet. (One checkout per
+  campaign covers all ads regardless of provider.)
 
 == 7. Proof of Display, Deadlines & Strikes ==
 
@@ -255,12 +238,12 @@ eligible for payout. Within the proof deadline the provider uploads a photo (pri
 ads) or a short video (radio/audio ads). Collaborators (per role) may upload SECONDARY proofs
 (verifications) and flag mismatches, and can see the proofs relevant to them within the deadline.
 
-= Deadline & reminders =
-Proof deadline is admin-configured (default 5 days), counted from `display_start` = the
-booking's calendar start_date set at confirmation (the stored timestamp the cron keys off).
-Reminders fire on day 3 and day 4 (day-4 includes SMS). Missing the day-5 deadline auto-cancels
-the booking, refunds the client to wallet in full, and accrues a strike on the provider. The
-auto-cancel cron locks the booking and re-checks `proof IS NULL` inside the transaction.
+= Deadline & reminders [MVP rule; cron is AFTER-MVP] =
+Proof deadline is admin-configured (default 5 days), counted from `display_start` = the booking's
+calendar start_date set at confirmation (stored timestamp the cron keys off). Reminders fire day 3
+and day 4 (day-4 includes SMS). Missing the day-5 deadline auto-cancels the booking, refunds the
+client to wallet in full, and accrues a provider strike. The auto-cancel cron locks the booking
+and re-checks `proof IS NULL` inside the transaction.
 
 = Review, payout & the reject→re-upload loop =
 The client's payment is HELD from booking until the CLIENT accepts the primary proof. The
@@ -283,14 +266,12 @@ Proof photos are NOT auto geotag-checked against the space lat/long — the spac
 provider, who knows where it is; a proof that doesn't match the booked ad is caught by the
 client/collaborator mismatch-flag → Support/Payments path instead.
 
-= Strikes =
-Strikes accrue on: missed proof deadline, provider cancel of a confirmed booking, or an upheld
-mismatch. Accrual is decoupled from notification delivery (an SMS failure must not change
-whether a strike accrues). Strike accrual is NOT a Payments power — it routes to Support first,
-then Admin. Three strikes within a trailing 90-day window flag the account for Admin review
-(may lead to a freeze). The trailing-90d count shows on the provider revenue dashboard. A
-provider may appeal via a support ticket; SUPPORT can remove a strike from the 90-day counter
-(reversible, audited) — a Support power, not a Payments one.
+= Strikes (AFTER-MVP) =
+Strikes accrue on missed proof deadline, provider cancel of a confirmed booking, or upheld
+mismatch; accrual is decoupled from notification delivery. NOT a Payments power — routes Support
+then Admin. 3 strikes in a trailing 90-day window flag the account for Admin review (possible
+freeze); count shows on the provider dashboard. Provider appeals via ticket; SUPPORT (not
+Payments) can remove a strike from the counter (reversible, audited).
 
 == 8. Money ==
 
@@ -310,11 +291,10 @@ primary proof (Payments does NOT review proof content — §7/§11). Client-acce
 client-reject → HELD with a dual Support↔Payments ticket. `payout-held` is a `payments.status`
 concept, NOT a booking state.
 
-**Escrow.** Pre-pay funds are captured to escrow (`wallet_entries.type=escrow_capture`) and
-released on confirm/cancel (`escrow_release`). Escrow capture/release + the booking state change
-happen in ONE DB transaction with a row lock on the booking. Payout is a state machine `held →
-released → settled` with a single allowed transition, re-checking holds inside the locked txn.
-On any cancel or reject, escrowed funds return to the client's wallet.
+**Escrow (AFTER-MVP — see §6).** Pre-pay funds → escrow (`wallet_entries.type=escrow_capture`),
+released on confirm/cancel (`escrow_release`); capture/release + booking state change in ONE
+row-locked txn. Payout state machine `held → released → settled` (single transition, holds
+re-checked in the locked txn).
 
 **Wallet ledger.** `wallet_entries` is append-only, double-entry: `user_id`, signed `amount`
 (`decimal(12,2)` MXN), `type {refund|withdrawal|escrow_capture|escrow_release|adjustment}`,
@@ -324,15 +304,13 @@ open (`POST /client/wallet/withdraw`). Every refund/payout carries an idempotenc
 retried gateway call or re-fired cron cannot double-pay; enforce `SUM(refunds) ≤ captured`.
 
 **Refunds.** Payments executes ALL refunds (mocked); Support only FLAGS. [owner 2026-06-27]
-Cancellation refunds are **100% by default** — the client gets ALL money back — UNLESS the
-booking was already IN PROCESS (installation work started / teams dispatched), in which case the
-refund is reduced to cover work already performed. This supersedes the earlier 90/5/5 split, and
-the in-process deduction must be stated in the Terms & Conditions accepted at checkout. Other
-cases: free pre-approval cancel; nothing for post-display cancel unless a proof fails; full
-refund on auto-cancel (proof miss) or provider cancel. Clawback (a refunded client later
-suspended for fraud): the platform FREEZES the wallet and alerts Payments; Payments cannot pull
-funds — the frozen balance waits for an Admin decision (claw back via negative ledger entry /
-keep frozen / release).
+Cancellation refunds are **100% by default** UNLESS the booking was already IN PROCESS (install
+work started / teams dispatched), then reduced to cover work performed — stated in the Terms &
+Conditions accepted at checkout (supersedes the earlier 90/5/5 split). Free pre-approval cancel;
+nothing post-display unless a proof fails; full refund on proof-miss auto-cancel or provider
+cancel. Clawback (refunded client later suspended for fraud): platform FREEZES the wallet + alerts
+Payments; Payments cannot pull funds — the frozen balance waits for an Admin decision (claw back
+via negative ledger entry / keep frozen / release).
 
 **Payouts.** Happen ASAP but must be APPROVED by Payments first; Support flags only. Once
 approved and nothing holds it, **Admin** has a configurable window (default 24 h) to stop it;
@@ -346,18 +324,14 @@ timer), then pays in full if resolved in the provider's favor (or is refunded pe
 regardless of provider), with **per-ad line items** and **per-provider payouts**. An orphan ad
 (not in an adset) cannot go live and its payment cannot be processed.
 
-== 9. Ratings ==
+== 9. Ratings (AFTER-MVP) ==
 
-Each space detail shows a provider star rating: **1–5 stars + total count**, the average of
-per-campaign ratings left by past clients, plus an optional short comment. `GET /spaces/{s}`
-includes the provider's average + count. **Eligibility:** only clients can rate, and only after
-one of their campaigns with that provider has **ended OR has been live ≥30 days**; **one rating
-per client per campaign** (`POST /client/campaigns/{c}/rating`).
-
-[owner 2026-06-27] Ratings are **IMMUTABLE and fully transparent**: clients CANNOT edit or
-delete a rating once left — stars and comment are permanent and 100% real, for statistical
-integrity. Abusive comments may be flagged for Support, but removal is a rare MANUAL admin
-action (extreme cases only), never automatic hiding; the rating otherwise stays.
+Provider star rating (1–5 + count) on each space detail = average of per-campaign ratings +
+optional comment; `GET /spaces/{s}` returns avg+count. **Eligibility:** only clients rate, only
+after a campaign with that provider **ended OR ran live ≥30 days**, **one per client per campaign**
+(`POST /client/campaigns/{c}/rating`). [owner 2026-06-27] Ratings are IMMUTABLE and fully
+transparent — no client edit/delete; abusive comments flagged for Support, removed only by rare
+MANUAL admin action, never auto-hidden.
 
 == 10. Chat & PII ==
 
@@ -402,22 +376,17 @@ notes. Reference-less tickets are also allowed.
 **Shared CRUD:** `GET,POST /tickets · GET /tickets/{t} · POST /tickets/{t}/reply` for any
 authenticated user; Support has its own queue (`/support/tickets`, `…/reply`).
 
-**Support powers.** Support can **edit any NON-money object** (`PUT /support/{spaces|ads|users|
-bookings|collaborators}/{id}` — every write audited) but has NO money authority: it can only
-**FLAG** a refund or payout-hold (`POST /support/payments/{p}/flag-refund`,
-`…/flag-payout-hold`), bridging to Payments, which DECIDES and EXECUTES. Support joins
-client↔provider chats via `POST /support/conversations/{c}/join` (announced; Admin stays
-silent). Strike accrual/removal is a Support (not Payments) power. Support can CLOSE a ticket
-without the user's consent (the operational queue is Support's), but closing only resolves the
-ticket STATE — the conversation stays LIVE and re-openable; closing is not deletion and not a
-gag. Support-initiated ad-hoc tickets are visible only to the provider involved.
+**Support powers.** Support **edits any NON-money object** (`PUT /support/{spaces|ads|users|
+bookings|collaborators}/{id}` — audited) but has NO money authority: it only **FLAGS** a refund
+or payout-hold (`POST /support/payments/{p}/flag-refund`, `…/flag-payout-hold`) for Payments to
+decide+execute. Joins client↔provider chats via `POST /support/conversations/{c}/join` (announced;
+Admin silent). Strike accrual/removal is Support, not Payments. Support can CLOSE a ticket without
+user consent, but closing resolves only the ticket STATE — the conversation stays LIVE/re-openable
+(not deletion, not a gag). Support-initiated ad-hoc tickets are visible only to the provider involved.
 
-**Dual Support↔Payments ticket on proof reject.** When the CLIENT rejects the primary proof (or
-a collaborator flags a mismatch), the system auto-opens ONE ticket with the **payment attached,
-routed to BOTH Support and Payments** (`ticketable = payment`); both see it. Payout stays HELD;
-the 48 h re-upload window opens, its clock stopping while the dispute is open. [owner 2026-06-27]
-Support leans toward the CLIENT and does NOT force a payout over a client's rejection; default
-resolution = CANCEL + full refund + client finds another space; Payments only executes.
+**Dual Support↔Payments ticket on proof reject** — see §7: ONE ticket, `ticketable = payment`,
+routed to BOTH; payout HELD; re-upload clock stops while open; Support leans client, default
+resolution = cancel + full refund.
 
 == 12. Admin: Moderation, Freeze, Audit, Configurations ==
 
@@ -443,16 +412,12 @@ Instead deletion is a **"programmed for deletion"** state: the object is unpubli
 new activity, stops receiving new bookings/payments, and stays visible with the legend "this is
 programmed for deletion" until current bookings finish, then is removed.
 
-**Immutable audit log.** Append-only; a log entry for EVERY action of ANY role, with **actor,
-target object, before/after, timestamp**. Queryable as per-object history (campaign, adset, ad,
-client, ticket, flag, space, provider account, booking, payout). Admin has read-only access.
-- Immutability enforced at the DB level: INSERT-only grant + a trigger that raises on
-  UPDATE/DELETE (optionally a per-row hash-chain). Convention alone is not immutability.
-- The audit row is written in the SAME transaction as the state change (atomic); async events
-  use an outbox.
-- `insert_data.py --erase-all-data` is env-guarded (refuses unless `APP_ENV` local/testing) and
-  never truncates the audit log in a real environment.
-- API: internal `AuditLog::record()` + `GET /admin/audit` (`?target_type`, `?target_id`).
+**Immutable audit log.** Append-only; one entry per action of ANY role with **actor, target,
+before/after, timestamp**; queryable as per-object history; Admin read-only. Internals (AFTER-MVP):
+DB-level immutability (INSERT-only grant + trigger raising on UPDATE/DELETE, optional hash-chain);
+audit row written in the SAME txn as the state change (async via outbox); `insert_data.py
+--erase-all-data` env-guarded and never truncates audit in a real env. API: `AuditLog::record()`
++ `GET /admin/audit` (`?target_type`, `?target_id`).
 
 **System Configurations (Admin-only; defaults in parentheses):** proof deadline (5 d) · proof
 re-upload window (48 h) · strike window (90 d) + 3-strike threshold · pre-pay offer expiry ·
@@ -479,18 +444,15 @@ retry-after. Thresholds are admin-configurable.
 
 == 13. Notifications & Calendar ==
 
-**Dispatcher.** Emit domain events (`BookingApproved`, `ProofRejected`, `StrikeAccrued`, …) and
-let queued listeners fan out over channels via a channel/urgency lookup — do NOT scatter
-`Notification::send` through controllers. Strike accrual is decoupled from notification delivery.
-API: internal dispatch on each event + `GET /notifications`, `POST /notifications/{n}/read`. The
-full ~35-event alert schema table (Event | Trigger | Recipients | Channel | Urgency | Template)
-is in §19 (User Stories).
+**Dispatcher (AFTER-MVP).** Emit domain events (`BookingApproved`, `ProofRejected`, …); queued
+listeners fan out via a channel/urgency lookup — no scattered `Notification::send`. API: internal
+dispatch + `GET /notifications`, `POST /notifications/{n}/read`. The full ~35-event alert schema
+table is in §19.
 
-**Channels.** in-app / email / SMS-mock. Most notifications are SIMPLE TEXT at the top of the UI
-(in-app); some events surface instead as a ticket/chat with Support or Payments.
-- **SMS is reserved for Payments alerts and cancellations only** — Twilio default (best MX
-  deliverability), Vonage fallback, MSG91 cheaper option later; mocked until keys set.
-- Strike-related alerts go to Provider + Support (and Admin on the 3rd) — **never Payments.**
+**Channels.** in-app / email / SMS-mock; most are simple in-app text at the top of the UI, some
+surface as a Support/Payments ticket. SMS is reserved for Payments alerts and cancellations only
+(Twilio default, Vonage fallback; mocked until keys set). Strike alerts go to Provider + Support
+(and Admin on the 3rd) — never Payments.
 
 **Calendar (iCal sync + staleness).** The provider availability UI strongly recommends
 connecting a live calendar URL (.ical or public Google/Outlook) because it's easier to keep
@@ -522,11 +484,10 @@ collaborators, dashboard.
 - Admin panel includes a roles editor: resources (rows) × actions (cols) per role, toggle
   checkboxes, cannot lock out the admin role.
 
-**Per-account collaborator overlay.** A collaborator belongs to **account_id** (NEVER a campaign
-or space) and, per role, sees/acts across ALL of that account's campaigns/spaces (e.g.
-`account_grants`: account_id, collaborator_user_id, role, capability). Two SEPARATE ecosystems
-(see §3 for the subroles + exact capabilities). Per-object scoping may be layered later — not
-MVP. API: `GET,POST /client/collaborators` + `DELETE /…/{col}` (publicist, manager); `GET,POST
+**Per-account collaborator overlay.** Collaborators are account-scoped via `account_grants`
+(account_id, collaborator_user_id, role, capability); subroles + exact capabilities + scoping
+rule are in §3. Per-object scoping may be layered later (not MVP). API: `GET,POST
+/client/collaborators` + `DELETE /…/{col}` (publicist, manager); `GET,POST
 /provider/collaborators` + `DELETE /…/{col}` (installator, sales, supervisor).
 
 **Named capabilities** (beyond CRUD): `refund.flag` vs `refund.execute`, `payout.hold` vs
@@ -747,56 +708,18 @@ Maps: Leaflet/OSM + what3words (swap to Google via `environment.mapProvider`). P
 (Mercado Pago / PayPal). SMS: Twilio default / Vonage fallback, mocked. Geo search: bounding-box
 (PostGIS = upgrade path). Files: `storage/app/public/` via `storage:link`.
 
-= Folder structure (condensed) =
-```
-pub-ads-mar/
-├── backend/                              # Laravel 12 API
-│   ├── app/Http/Controllers/             # AuthController; Client/, Provider/, Admin/, Support/,
-│   │                                     #   Payments/ (ProofReviewController DEPRECATED by B9),
-│   │                                     #   Manager/ (legacy), Shared/
-│   ├── app/Http/Middleware/              # RoleMiddleware, PermissionMiddleware
-│   ├── app/Services/IcalSyncService.php
-│   ├── app/Models/                       # User + 18 domain models
-│   ├── bootstrap/app.php · config/ (cors, sanctum)
-│   ├── database/migrations/ + seeders/   # DatabaseSeeder, RolePermissionSeeder (~66 rows)
-│   ├── routes/api.php                    # all routes (+ permission mw per route)
-│   ├── tests/                            # test_all_endpoints.py, insert_data.py
-│   └── storage/app/public/
-├── frontend/src/app/                     # core (guards/interceptors/models/services),
-│   │                                     #   features (admin/auth/client/dashboard/payments/
-│   │                                     #   provider/shared/support), shared (Navbar, Sidebar,
-│   │                                     #   NotificationToast, LocationPicker=Leaflet+w3w, layouts)
-├── design.md (this file) · CLAUDE.md · README.md · history.md · install_beads.md
-└── .agents/skills/ · .beads/ · .claude/ (skills, plans, todos)
-```
-
 = Dev commands =
-Docker is canonical (project **publisher**; backend auto-migrates on boot). This machine's
-BuildKit streaming is broken — use the classic builder:
-`export WSLENV=DOCKER_BUILDKIT:$WSLENV; DOCKER_BUILDKIT=0 docker.exe compose up -d --build`
-(use the Windows binary `/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe` from WSL).
-```bash
-docker compose up -d --build        # backend + nginx(:8000) + frontend(:4200) + postgres(:5435)
-docker compose exec backend php artisan migrate:fresh --seed
-docker compose exec db psql -U postgres -d pub_ads_mar
-# Bare-metal fallback:
-cd backend && php artisan serve            # :8000
-php artisan migrate:fresh --seed; php artisan storage:link; php artisan route:list
-cd frontend && npm install && ng serve     # :4200 ;  ng build
-"C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -h 127.0.0.1 -p 5434 -d pub_ads_mar
-```
+Docker is canonical (project **publisher**; backend auto-migrates on boot). BuildKit streaming
+is broken on this machine — use the classic builder via the Windows binary from WSL:
+`export WSLENV=DOCKER_BUILDKIT:$WSLENV; DOCKER_BUILDKIT=0 "/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" compose up -d --build`
+(backend + nginx :8000 + frontend :4200 + postgres :5435). Migrate/seed/psql via
+`docker compose exec`. Bare-metal fallback + Postgres connection details live in CLAUDE.md.
 Demo accounts (after seed; password `password`): admin@ / support@ / payments@ / provider1@ /
 provider2@ / client1@ / client2@ pubads.test. (Older seed used Paris/EUR — migrating to
 Monterrey/MXN; frontend booking list still hardcodes `currency:'EUR'`, should be MXN.)
 
-= Implementation status =
-Backend is fully implemented as an MVP subset; Angular SPA scaffolded across 8 feature modules.
-DONE: Laravel+Angular scaffold, PG+`.env`, Sanctum+CORS, domain migrations, 19 models, Role +
-Permission middleware, RBAC matrix + Admin Permissions API, all role controllers/routes (each
-permission-gated), storage link, iCal sync, demo seeders + fake-data + endpoint tests, Angular
-features + LocationPicker + calendar UI. NOT BUILT (designed, see §17 PLANNED + §20): accounts
-table, account-scoped collaborators, audit log, strikes, notifications dispatcher, escrow/
-pre-pay, media-spec validator, admin moderation, ratings.
+Implementation status: see §17 (LIVE vs PLANNED endpoint map) and §20 for the build phases —
+not duplicated here.
 
 == 19. User Stories (Cases) ==
 
@@ -804,121 +727,28 @@ pre-pay, media-spec validator, admin moderation, ratings.
 > (modules, enums, policies) is in §1–18 — when a story and a spec ever disagree, the spec wins.
 > All `[owner YYYY-MM-DD]` decisions are folded in. This is intentionally the longest section.
 
-= CLIENT scenarios =
-1. **Open the portal and see nearby spaces.** Land on a map centered on geolocation (Monterrey
-   default). The right rail lists nearby spaces sorted near-to-far, each tagged with type.
-   Changing the map center re-sorts and re-queries radio stations in range.
-2. **Filter the catalog.** Filter by space type, date range, budget per day. Spaces whose
-   calendar doesn't match aren't hidden; they show a "doesn't coincide with your timespan" tag
-   and stay selectable for "book it for later." Dates are EXACT — no ±X-day filter.
-3. **Read details before committing.** Open any space: photos, exact map pin, price per
-   day/month/custom span, provider calendar, declared physical specs, declared media-delivery
-   specs, recent proof history, and a provider star rating (1–5 + count). Rating = average of
-   per-campaign ratings; only clients rate, only after a campaign ended OR ran ≥30 days; one per
-   client per campaign; optional comment; abusive comments flagged for Support.
-4. **Add to a campaign.** Multi-select spaces → "Add to a new campaign" or "Add to an existing
-   campaign." A 10-second toast offers "Go to my new campaign." Selected spaces sit in the
-   backlog ("add those to an adset to start").
-5. **Organize the backlog into adsets.** "Send all selected to a new adset" → "Adset 1." Adsets
-   are pure grouping labels; each ad keeps its own price, dates, provider. The campaign view
-   shows an Orphan-spaces list (added but not yet placed in an adset) with a one-click "Move all
-   to new adset"; orphans can't reach checkout while orphan.
-6. **Attach media per ad.** Upload media per ad — image for billboard, MP3 for radio, video for
-   big screens. The system warns on type mismatch before upload completes. Next to the upload
-   control the client sees the provider's upload instructions inline (a human-readable summary
-   of the space's media-delivery specs + any free-text rule), kept visible during/after upload.
-7. **Upload an ad that conforms to space media specs.** On upload, the system validates the file
-   against the provider-declared specs (format, resolution, color profile, bleed, duration,
-   bitrate, size). On failure, upload is rejected with a clear message (e.g. "your file must be
-   PDF/X-1a, CMYK, 150 DPI at trim size, with 1 cm bleed").
-8. **Set the time window and pay.** Set a per-ad time window. Conflicting calendars surface "Book
-   it for later." One checkout per campaign covers all ads regardless of provider. For not-yet-
-   free windows the client MAY mark the booking **Pre-pay** — funds captured, booking enters the
-   provider's pre-pay waiting list; the provider picks which offer to confirm when the slot opens
-   (highest total, longest window, repeat client). Pre-pay funds stay in escrow until confirm; if
-   the slot never opens within the expiry window, the client is refunded to wallet. Non-pre-pay
-   entries stay queued without funds, resolved FCFS when the calendar frees. (Pre-pay is OPTIONAL.)
-9. **Wait for approvals.** Each ad shows one of three states: waiting for provider approval,
-   waiting for booking confirmation, or live.
-10. **Watch for proofs.** Providers have 5 days from display start to upload proof (admin-
-    configurable). The client is notified when a proof lands. Missing the deadline auto-cancels
-    the ad and refunds the client to wallet.
-11. **Invite collaborators.** Invite teammates by email from an account-scoped Collaborators menu
-    (under Configurations) — a collaborator belongs to the whole ACCOUNT, not a single campaign
-    ([owner 2026-06-20]). Per their role they review proofs, chat with providers, open tickets,
-    and act across ALL the account's campaigns, but cannot see billing or initiate payment.
-12. **Chat with the provider.** A chat button on every ad/adset/campaign and a global Help menu.
-    PII (phones, emails, URLs) is masked in transit.
-13. **Open a support ticket.** "Talk to support" on any campaign/adset/ad opens a thread that
-    auto-attaches object context (provider, dates, payment status, proof state).
-14. **Cancel or pause.** [owner 2026-06-27] Refunds are 100% by default unless the booking was
-    already in-process (work started), reduced per the Terms & Conditions. The refund policy,
-    terms & conditions, and privacy policy are linked in the footer and on the checkout screen
-    before paying.
-15. **Flag a mismatch.** A client or collaborator can flag a proof as not matching what they paid
-    for. The flag immediately holds the provider payout and opens a support ticket with the ad and
-    proof attached.
+Scenario prose for each role is folded into §1–14 specs and the journeys below; only the
+non-redundant UX details unique to stories are kept here.
 
-= PROVIDER scenarios =
-1. **List a space with two spec sets.** Create a space with type, name, text address, lat/long,
-   photos, pricing per day/month/custom span. Declare (a) PHYSICAL specs (size cm, resolution,
-   wattage, station frequency, loop length, daily impressions) and (b) MEDIA-DELIVERY specs the
-   client must conform to. Media specs auto-populate from a per-type template (the provider can
-   tighten them) plus free-text rules. The provider may reject any ad; on rejection the client
-   isn't charged.
-2. **Set availability.** Edit the calendar by hand, import .ical, or paste a public
-   Google/Outlook URL; a "?" explains how to find the URL. The UI strongly recommends a live URL.
-   If a calendar was last set up >7 days ago, an alert appears next to that space.
-3. **Manage the listing.** Pause, unpublish, or delete. Delete is blocked with active/future
-   confirmed bookings or any open support tickets on the space.
-4. **Review booking requests.** Queue shows client, dates, total, attached media. Actions are
-   **Approve** or **Reject** only (reason optional, helps the client re-submit). No counter-offers.
-5. **See confirmed bookings.** Confirmed bookings move to an installation queue with install date
-   and the client's file; the provider can add Installator collaborators to view this list.
-6. **Install and upload proof.** Within 5 days of display start, upload a photo (printed/screen)
-   or short video (radio/audio). Reminders day 3 and day 4. Missing day 5 auto-cancels, refunds
-   the client, accrues a strike.
-7. **Re-upload after a proof rejection.** If the CLIENT rejects (or a collaborator flags), the
-   provider has 48 h to re-upload, and a ticket with the payment attached opens for BOTH Support
-   and Payments while the payout stays held ([owner 2026-06-20] — Payments doesn't review content).
-8. **Chat with clients.** From any booking/ad; PII masked.
-9. **Revenue dashboard.** Upcoming, held, paid, refunded amounts + trailing-90-day strike counter.
-10. **Dispute a rejection/flag.** Open a support thread tied to the ad; Support can join and flag
-    a payout-hold or refund (Payments executes).
+= CLIENT UX notes (not already in specs) =
+- Multi-select spaces → "Add to a new/existing campaign" + a 10-second "Go to my new campaign"
+  toast; selected spaces sit in the backlog until placed in an adset.
+- "Send all selected to a new adset"; the campaign view's Orphan-spaces list has a one-click
+  "Move all to new adset"; orphans can't reach checkout.
+- The upload control shows the provider's upload-instructions summary inline, kept visible
+  during/after upload; on spec-mismatch the upload is rejected with a clear message (e.g. "your
+  file must be PDF/X-1a, CMYK, 150 DPI at trim, 1 cm bleed").
+- Refund policy, terms & conditions, and privacy policy are linked in the footer and on the
+  checkout screen before paying.
 
-= SUPPORT scenarios =
-1. **Ticket queue with full object context** (campaign/adset/ad ref, provider, payment status,
-   proof state). 2. **Join existing client↔provider chats** (announced; full history readable).
-   3. **Resolve disputes** — valid → request refund + re-open cancel path; invalid → close with
-   reason. 4. **Ad-hoc tickets on behalf of a user** — visible only to the provider involved.
-   5. **No money powers** — can only FLAG a refund/payout-hold for Payments to execute.
+= PROVIDER UX notes =
+- Media specs auto-populate from a per-type template (provider can tighten) plus free-text rules.
+- Confirmed bookings move to an installation queue (install date + client file), viewable by
+  Installator collaborators.
+- Revenue dashboard: upcoming / held / paid / refunded + trailing-90-day strike counter.
 
-= PAYMENTS scenarios =
-1. **Release payouts (money only — NOT proof content; [owner 2026-06-20]).** When the CLIENT
-   accepts a proof the payment becomes releasable and Payments manually releases (auto only under
-   the admin threshold). 2. **Held payments queue** — on client reject / mismatch flag, the
-   payment auto-HOLDS and a ticket with the payment attached lands for both Payments and Support;
-   release only on agreement. 3. **Process refunds** — automatic on deadline miss, manual on
-   support-validated disputes; mocked MP/PayPal; refunds land in the client wallet with a withdraw
-   option. Payments+Support can open a private thread the client never sees. 4. **Strike accrual
-   is not a Payments power** — strikes route to Support then Admin; 3 in 90 days flags Admin
-   review. 5. **No content powers.**
-
-= ADMIN scenarios =
-1. **CRUD users** — create providers via a dedicated form (company_name, address, phone
-   required); freeze and delete with guardrails (no delete with active bookings/unsettled funds).
-   2. **Moderate spaces** — take down/restore. 3. **Edit the RBAC matrix** — resource×action grid
-   per role; admin's permission routes can't be revoked. 4. **Audit anything** — read-only
-   immutable audit log. 5. **System health dashboard** — queue depths, refund rate, strike rate,
-   gateway health.
-
-= Cross-cutting (PII, Audit, Rate limits, Currency) =
-- PII masking: phone/email/URL/off-space address masked in client↔provider chat; relaxes on
-  Support/Payments join (announced); never on internal staff threads.
-- Audit: append-only; every state-changing action logged with actor/target/before-after/ts;
-  per-object history.
-- Rate limits: per-IP + per-account caps on login/chat/upload/search/booking + burst + retry-after.
-- All amounts MXN.
+(SUPPORT / PAYMENTS / ADMIN story details are fully covered by §2 powers, §7 proof/strikes,
+§8 money, §11 tickets, §12 admin — not restated here.)
 
 = NOTIFICATION & ALERT SCHEMA =
 Columns: Event | Trigger | Recipients (roles) | Channel | Urgency | Message template (≤140).
@@ -976,27 +806,15 @@ Columns: Space type | Provider declares (physical) | Client must deliver (file).
 ¹ 150 DPI at trim is standard for large-format outdoor viewed from 3 m+; small panels (kiosk)
 bump to 200 DPI. ² −14 LUFS aligns with common Mexican broadcast loudness; provider can override.
 
-= Revised journeys =
+= Representative end-to-end journeys =
 1. First-time client, single billboard: map → detail → new campaign → adset → upload validated
-   PDF → checkout → wait approval → live → proof received → done.
-2. First-time provider: sign up → list a space → declare specs → set calendar via URL → first
+   PDF → checkout → wait approval → live → proof received → accept → done.
+2. First-time provider: sign up → list space + declare specs → set calendar via URL → first
    booking → approve → install → upload proof day 2 → payout released.
-3. Radio campaign, 3 stations: filter radio in range → multi-select 3 → new campaign → upload
-   three −14 LUFS 30 s MP3s validated per station → adset "Morning Drive" → checkout → approvals
-   → proofs → payouts.
-4. Mixed-media campaign: billboard + big screen + radio in one campaign; adsets by neighborhood;
-   each file validated; some slots "book for later"; single checkout.
-5. Missed deadline: provider misses day 5 → auto-cancel → client wallet credited in full → strike
-   → critical alert to client/provider/Payments/Support.
-6. Mismatch flag from a collaborator: collaborator sees stale art → flags → payout held → Support
-   joins → resolved valid → refund, strike.
-7. Provider freeze: 3 strikes in 90 days → admin alerted → admin freezes → upcoming bookings
-   auto-cancel with full refund.
-8. Disputed proof → support: client rejects for blur → payment auto-held + ticket to
-   Support&Payments → provider disputes/re-uploads → Support+Payments agree → payout released.
-9. Conversation that travels: inquiry → booking thread on approval → support ticket on a mismatch
-   flag, all one chronological thread with system messages marking each transition + the masking
-   change when Support joins.
+3. Disputed proof that travels: inquiry chat → booking thread on approval → client rejects proof
+   for blur → payment auto-held + ONE ticket to Support&Payments (masking relaxes when Support
+   joins) → provider re-uploads → Support+Payments agree → payout released — all one chronological
+   thread with system-transition messages.
 
 == 20. Roadmap, Revisions & Known Gaps ==
 
