@@ -316,6 +316,22 @@
       "owner_decisions_2026_06_27": "Pre-pay OPTIONAL + provider can reject file repeatedly + client can cancel. Proof deadlock -> Support leans client, default cancel+full-refund+rebook. ONE account per email. Refunds 100% unless in-process (supersedes 90/5/5; add to T&C). Ratings immutable/transparent. Provider subroles = installator/sales/supervisor (Sales=messages-only; Supervisor=all-except-remove-people/configs/delete-spaces).",
       "OPEN_decision_strike_reversal": "When a reversed strike already triggered a freeze that auto-cancelled+refunded upcoming bookings: (A) immediate cancel, reversal restores only future (past permanent); or (B, recommended) freeze pauses new bookings now but DELAYS auto-cancel of upcoming for a configurable appeal window (48-72h) so a reversal within the window is a clean undo. AWAITING owner pick; then write to design.md §7/§12 + add todos.",
       "next": "Owner picks strike-reversal A/B. Then resume backend-first build from spec_backlog critical_path_P1 (accounts table -> account collaborators -> enum migrations -> B9 removal -> audit log...). Nothing committed."
+    },
+    "mvp_focus_2026_06_23": {
+      "deliberation": "3-lens team (mvp-pragmatist/backend-architect/product-flow) + synth: VERDICT continue-backend-first, sequence by money-loop + visibility, ruthlessly cut to ship ASAP.",
+      "strike_reversal_now_MOOT": "OPEN_decision_strike_reversal no longer blocks: strikes are CUT to after-MVP. Build can start with no pending owner decision.",
+      "state_verified_2026_06_23": "design.md = single canonical doc (1052 lines; ARCHITECTURE/cases/platform-graph/compliance-report consolidated in + deleted). B9 NOT started: proofs.status=pending_review|approved|rejected, bookings.status=original 8-state, payments.status already has held|released, wallet already decimal pesos (Batch M). /payments/proofs still wired in proof-review-list.component.ts + sidebar.component.ts.",
+      "MVP_minimal_order": [
+        "M (money->pesos) — DONE.",
+        "B9-schema (MINIMAL, not full enum rewrite): add proofs.status client_accepted|client_rejected; add bookings.rejection_reason text nullable. (payments.held/released already exist.)",
+        "B9-endpoints: POST /client/proofs/{proof}/accept (-> payment releasable) + /reject (-> payment HELD). Fold existing flag-mismatch into reject.",
+        "B9-cleanup: remove Payments\\ProofReviewController routes /payments/proofs* AFTER unwiring proof-review-list.component.ts + sidebar (else Payments UI 404s). Payments keeps release/cancel + read-only proof view on HELD payments only.",
+        "PV-booking: provider action = Approve OR Reject(reason) writing bookings.rejection_reason (minimal; no full state-machine rewrite).",
+        "Gate releasePayout on proof client_accepted (manual Payments release; NO auto-approve threshold for MVP).",
+        "Day-0 frontend wiring pass (needs IDE frontend tabs CLOSED): start-chat button (POST /conversations), render green/red 'doesn't coincide' availability tag (SpaceSearchController already returns it), wire unused adset/ad/booking/invoice show+PUT edit screens.",
+        "Verify book->approve->prove->accept->release loop runtime on the live publisher stack."
+      ],
+      "AFTER_MVP_cut_or_defer": "ALL already tracked elsewhere in this file (new_subsystems N1-N8 + spec_backlog) — flagged AFTER-MVP here, DO NOT build for v1: N1 ratings, N6 notifications/SMS/Twilio, N7 strikes+cron+auto-cancel, N8/RT tiered refund engine, N4 prepay-escrow+waitlist+sibling-cancel, N5/AU audit_logs, B6 account collaborators+account_grants, N2 media-spec HARD-FAIL validator (keep only basic format/size), N3 campaign checkout+invoice line-items, B4 support edit-any, B5 admin eagle-eye per-object+filters, B10 auto-approve toggle, WT wallet withdraw, SB-overlap gist EXCLUDE (use a lightweight app-level double-book guard if needed), gateway webhooks/FX/clawback/rate-limits/calendar-staleness/multi-file."
     }
   }
 }
