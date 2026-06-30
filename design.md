@@ -647,35 +647,22 @@ TicketMessage. User ─< WalletEntry.
 
 == 16. Data Model & Integrity Invariants ==
 
-Load-bearing implementation rules (source: 2026-06-05 architecture review; decision history in
-history.md):
-- **Money/wallet:** append-only double-entry ledger; balance = `SUM(amount)`, never a writable
-  column; cached balance reconciled from the ledger in the same txn. Every refund/payout has a
-  UNIQUE idempotency_key so a retried call/cron can't double-pay; `SUM(refunds) ≤ captured`.
-- **Escrow/payout:** escrow capture/release + booking state change in ONE txn with a row lock on
-  the booking. Payout state machine `held → released → settled`, single allowed transition,
-  re-checking holds inside the locked txn. Gateway webhooks signature-verified, raw-persisted,
-  idempotent by event id + nightly reconciliation.
-- **Concurrency:** `EXCLUDE USING gist (space_id WITH =, daterange(start,end) WITH &&)` blocks
-  overlapping CONFIRMED bookings. Slot allocation, pre-pay confirm, payout release, offer expiry
-  all `SELECT … FOR UPDATE`. Confirming one pre-pay offer atomically lost-cancels + wallet-refunds
-  all sibling offers for that slot. Day-5 auto-cancel cron locks the booking and re-checks
-  `proof IS NULL` in-txn.
-- **Time:** `display_start` is the concrete stored timestamp the deadline/reminder/auto-cancel
-  cron keys off. Store UTC; compute against the admin-default tz (Monterrey); display per-user.
-- **Snapshots:** media-delivery specs + relevant config snapshot onto booking/ad at
-  creation/checkout; "apply to in-flight" checkbox opts into re-applying a changed config.
-- **RBAC:** global matrix for system roles; per-account `account_grants` overlay for
-  collaborators, evaluated after and scoped so grants never leak across accounts. Provider freeze
-  busts permission/session cache immediately + revokes Sanctum tokens.
-- **Conversations/PII:** polymorphic anchor + `conversation_links` travel history; internal
-  staff threads are SEPARATE rows with membership ACL (test: a client can never fetch an
-  internal-thread message); PII masking evaluated per-message at render, never store only-masked
-  if audit needs raw.
-- **Audit:** DB-level immutability (INSERT-only grant + trigger raising on UPDATE/DELETE,
-  optional hash-chain); audit row written in the same txn as the state change; erase-all-data
-  env-guarded.
-- **Strikes:** decoupled from notification delivery; reversible by Support/Admin (audited).
+Integrity rules (terse; most are AFTER-MVP — build when their subsystem ships):
+- **Money [MVP]:** wallet = append-only entries, balance = `SUM(amount)` (decimal pesos), never a
+  writable column; every refund/payout has a UNIQUE idempotency_key (no double-pay); `SUM(refunds) ≤ captured`.
+- **Money [AFTER-MVP]:** escrow capture/release + booking change in one row-locked txn; payout
+  `held→released→settled` single-transition; gateway webhooks signed/idempotent + nightly reconcile.
+- **Concurrency:** MVP = lightweight app-level overlap check on booking create. AFTER-MVP = Postgres
+  `EXCLUDE USING gist` + `SELECT … FOR UPDATE` on slot/payout/expiry; pre-pay confirm atomically
+  cancels+refunds sibling offers; auto-cancel cron re-checks `proof IS NULL` in-txn.
+- **Snapshots [MVP]:** config snapshot onto booking at creation; "apply to in-flight" checkbox re-applies.
+- **RBAC:** global matrix for system roles; collaborators via per-account `account_grants` overlay
+  (scoped, no cross-account leak). Provider freeze busts perm/session cache + revokes tokens. [account_grants = AFTER-MVP]
+- **AFTER-MVP:** `display_start` stored timestamp for proof crons; polymorphic conversations +
+  internal-thread membership ACL; DB-level audit immutability (INSERT-only + trigger); strikes
+  decoupled from notifications + reversible.
+- **NOTE:** `proofs.status` is currently a SUPERSET (legacy `pending_review/approved/rejected` +
+  B9 `client_accepted/client_rejected`) until the deprecated Payments proof-review is removed.
 
 == 17. Backend Endpoint Map ==
 
@@ -694,14 +681,15 @@ Client (role:client, prefix /client):
   POST,GET /campaigns/{c}/collaborators · DELETE /…/{col} — ⚠ campaign-scoped (must be account; see Planned)
   GET /invoices · GET /invoices/{i} · GET /invoices/{i}/pdf
   POST /campaigns/{c}/backlog · GET /campaigns/{c}/orphans · POST /campaigns/{c}/adsets/move
-  POST /proofs/{proof}/flag-mismatch — reject proof + ticket ⚠ no client ACCEPT counterpart
+  POST /proofs/{proof}/accept — client accepts proof → payout releasable (B9, LIVE)
+  POST /proofs/{proof}/reject — client rejects → payout HELD + ticket on payment (B9, LIVE; flag-mismatch aliases this)
   GET /wallet — balance + entries ⚠ no withdraw
 
 Provider (role:provider, prefix /provider):
   POST,GET /spaces · GET,PUT,DELETE /spaces/{s} — space CRUD ⚠ no spec columns; DELETE no guard
   POST /spaces/{s}/media · DELETE /…/media/{m} — space media ⚠ live route named /photos; rename to /media
   GET,POST /spaces/{s}/availabilities · DELETE /…/{av} · POST /…/sync-ical · POST /…/import-ical
-  GET /bookings · PUT /bookings/{b} — booking queue: Approve / Reject (reason OPTIONAL) ⚠ live code bare confirm/cancel
+  GET /bookings · PUT /bookings/{b} — booking queue: Approve / Reject(reason OPTIONAL, stored) — LIVE; ⚠ provider UI button still bare
   GET /dashboard
   GET,POST /proofs · GET /proofs/{proof} — primary proof; deadline EXISTS by design (5 d) ⚠ missing enforcement cron + strikes
 
@@ -729,7 +717,6 @@ Shared (any authenticated):
 Account-scoped collaborators (BOTH sides — replace the campaign-nested client routes):
   Client:   GET,POST /client/collaborators · DELETE /…/{col}   (subroles publicist, manager)
   Provider: GET,POST /provider/collaborators · DELETE /…/{col}  (subroles installator, sales, supervisor)
-Client proof gate (B9): POST /client/proofs/{proof}/accept (→ payout releasable) · POST /…/reject (→ re-upload + held + dual ticket)
 Media specs: spaces gain physical_specs+media_specs+upload_instructions; GET /client/spaces/{s}/media-specs; ad upload HARD-FAILS on spec mismatch
 Checkout/escrow: POST /client/campaigns/{c}/checkout (ONE payment + ONE invoice) · POST /client/bookings {is_prepay} · GET /provider/spaces/{s}/waiting-list · POST /provider/waiting-list/{offer}/confirm
 Ratings: POST /client/campaigns/{c}/rating · GET /spaces/{s} (avg+count)
@@ -1028,28 +1015,7 @@ Revised decisions (override above where older):
 - PROVIDER BOOKING ACTION: Approve (and send to an installator) OR Reject (reason optional). Not
   bare Confirm/Cancel.
 
-Roadmap (build endpoints first, then UI, per feature group):
-- PHASE 1 (now): owner-decision fixes + wiring — map landing/render, campaign spec edit + per-ad
-  Book, conversation attach/start-chat, provider approve→installer / reject, client proof
-  accept/reject + Payments hold-view, account-wide collaborators + Configurations tabs, nav/header,
-  wire existing-but-unused endpoints (adset/ad/booking/invoice edit, green/red availability),
-  per-ad availability text.
-- PHASE 2: Support powers (edit-any-non-money + audit log) and Admin eagle-eye over all objects
-  (per-object views + filters, RBAC for employees only + support collaborator-role editor).
-- PHASE 3 (deferred, pick per need): strikes, ratings, notifications dispatcher (+ Twilio mock),
-  escrow / pre-pay waiting list, media-delivery spec validator, admin moderation
-  (takedown/restore/freeze) + deletion guardrails, overlapping-booking constraint, invoice
-  per-ad/per-adset line items.
-
-Known code-vs-design gaps (from the compliance audit — the granular spec→todo backlog lives in
-`.claude/todos/mvp-sprint.json`):
-- LIVE code still diverges: Payments proof-review endpoints wired (B9 not enforced);
-  collaborators `campaign_id` not `account_id`; bookings/proofs enums not yet migrated; provider
-  booking is bare confirm/cancel; conversations not polymorphic; hard-deletes lack guardrails.
-- Backend-ahead-of-UI (wired backend, UI not calling): space-search green/red availability flag
-  ignored; adset/ad/booking/invoice show+PUT routes unused; `POST /conversations` never called
-  (clients can't yet start a chat); config apply-to-in-flight only patches `proof_deadline_days`;
-  proof-reject ticket doesn't attach payment nor route to both Support+Payments.
-- Not built at the schema level (designed): accounts, account_grants, strikes, ratings,
-  audit_logs, notifications; escrow/pre-pay; overlapping-booking EXCLUDE constraint; media-spec
-  validator; admin moderation.
+Roadmap, per-feature build order, and the live code-vs-design gap list are tracked in
+`.claude/todos/mvp-sprint.json` (not duplicated here). Shorthand: PHASE 1 = owner-decision fixes +
+UI wiring; PHASE 2 = Support edit-any + audit log, Admin eagle-eye; PHASE 3 (deferred) = strikes,
+ratings, notifications, escrow/pre-pay, media-spec validator, moderation, invoice line-items.
