@@ -89,7 +89,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('campaigns/{campaign}/orphans', [BacklogController::class, 'listOrphans'])->middleware('permission:campaigns,read');
         Route::post('campaigns/{campaign}/adsets/move', [BacklogController::class, 'moveToAdset'])->middleware('permission:campaigns,update');
 
-        // Proof mismatch flag (C07/C09)
+        // Client proof review (B9): accept -> payout releasable; reject -> payout held + ticket.
+        Route::post('proofs/{proof}/accept', [ProofFlagController::class, 'accept'])->middleware('permission:proofs,read');
+        Route::post('proofs/{proof}/reject', [ProofFlagController::class, 'reject'])->middleware('permission:proofs,read');
+        // Back-compat alias (now == reject).
         Route::post('proofs/{proof}/flag-mismatch', [ProofFlagController::class, 'flagMismatch'])->middleware('permission:proofs,read');
 
         // Wallet (C10)

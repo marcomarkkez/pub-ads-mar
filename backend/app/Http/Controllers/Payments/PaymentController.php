@@ -90,7 +90,18 @@ class PaymentController extends Controller
      */
     public function releasePayout(Payment $payment): JsonResponse
     {
-        $payment->loadMissing('booking.space');
+        $payment->loadMissing('booking.space', 'booking.proofs');
+
+        // B9 gate: payout only releases after the CLIENT accepted the proof.
+        $clientAccepted = $payment->booking?->proofs
+            ?->contains(fn ($p) => $p->status === 'client_accepted') ?? false;
+
+        abort_unless(
+            $clientAccepted,
+            422,
+            'Payout can only be released after the client accepts the proof of display.'
+        );
+
         $providerId = $payment->booking?->space?->user_id;
 
         $amount = (float) $payment->amount;

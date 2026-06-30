@@ -27,10 +27,22 @@ class BookingController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        // 'cancelled' added so the provider Cancel button works (UI sends it).
+        // Provider action: Approve (confirmed -> send to installator) OR Reject(reason).
+        // 'cancelled' kept so the Cancel button works.
         $validated = $request->validate([
             'status' => 'required|in:confirmed,rejected,active,waiting_proof,completed,cancelled',
+            'rejection_reason' => 'nullable|string|max:1000',
         ]);
+
+        // Require a reason when rejecting, so the client knows what to fix.
+        if ($validated['status'] === 'rejected' && empty($validated['rejection_reason'])) {
+            return response()->json(['message' => 'A rejection reason is required.'], 422);
+        }
+
+        // Clear any stale reason when not rejecting.
+        if ($validated['status'] !== 'rejected') {
+            $validated['rejection_reason'] = null;
+        }
 
         $booking->update($validated);
 
