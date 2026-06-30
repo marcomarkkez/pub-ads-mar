@@ -4,6 +4,9 @@ useful parts of compliance-report.md (consolidated 2026-06-27) — design.md is 
 home for schema, routes, specs, decisions, the role/object graph, and user stories.
 `[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.
 Sections 1–18 are the SPECS (kept tight); section 19 is the verbose USER STORIES.
+Writing rule: state each rule ONCE in the fewest human-readable words — no redundancy,
+verbosity or over-engineering. Code traceability: every file/class/method implementing a
+behavior here carries a short comment naming the spec it satisfies (e.g. `design.md §7 proof`).
 
 == 1. Overview & Roles ==
 
