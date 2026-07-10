@@ -200,9 +200,22 @@ Availability turns green/red for the chosen date range. Spaces whose calendar do
 are TAGGED ("doesn't coincide with your timespan"), not hidden, and remain bookable "for later."
 The campaign view shows an Orphan-spaces list (backlog spaces not yet in any adset); a client
 MAY check out a partial campaign, but any orphaned ad cannot go live and its payment cannot be
-processed — orphans can be bulk-moved into an adset to become bookable. The upload control
+processed — orphans can be bulk-moved into an adset (either a NEW adset created
+inline, or an EXISTING adset chosen from the campaign) to become bookable. The upload control
 shows the provider's media-delivery summary + free-text instructions inline, kept visible
 during and after upload.
+
+INVARIANT — ad origin. A client NEVER creates a space or an ad from scratch;
+that is a provider/catalog concept. Every ad ALWAYS belongs to an existing
+provider space (ad = space + provider + the client's creative). Ads originate
+ONLY by selecting existing spaces on the map → campaign backlog (orphan ads) →
+adset. Therefore, inside an adset there is NO "create a new ad/space" action:
+the way to populate an adset is to move ads in FROM the unassigned backlog (a
+NEW or EXISTING adset, per above). The only per-ad action inside an adset is
+uploading THAT ad's creative media (one file per ad, MVP), validated against the
+space's media-delivery specs. Any UI that lets a client type an ad name + pick a
+media type + upload a file to mint a brand-new, space-less ad is a bug — such an
+ad has no space and can never be booked.
 
 = Booking action & per-ad go-live =
 Provider acts on a request with **Approve** or **Reject** only — NO counter-offers. The

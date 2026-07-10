@@ -77,9 +77,12 @@ class BacklogController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        // design.md → Filters & backlog: orphans can be bulk-moved into an adset,
+        // either a NEW adset (adset_id omitted) or an EXISTING one (adset_id given).
         $validated = $request->validate([
             'ad_ids' => 'required|array|min:1',
             'ad_ids.*' => 'integer|exists:ads,id',
+            'adset_id' => 'nullable|integer|exists:adsets,id',
         ]);
 
         // Only move orphans that actually belong to this campaign.
@@ -93,15 +96,23 @@ class BacklogController extends Controller
             return response()->json(['message' => 'No matching orphan ads to move.'], 422);
         }
 
-        $firstSpace = $ads->first()->space;
-
-        $adset = $campaign->adsets()->create([
-            'name' => 'Adset ' . ($campaign->adsets()->count() + 1),
-            'latitude' => $firstSpace?->latitude,
-            'longitude' => $firstSpace?->longitude,
-            'location_name' => $firstSpace?->location_text,
-            'status' => 'active',
-        ]);
+        if (!empty($validated['adset_id'])) {
+            // Move into an existing adset — must belong to this campaign.
+            $adset = $campaign->adsets()->find($validated['adset_id']);
+            if (!$adset) {
+                return response()->json(['message' => 'Adset does not belong to this campaign.'], 422);
+            }
+        } else {
+            // Create a new adset (default behavior).
+            $firstSpace = $ads->first()->space;
+            $adset = $campaign->adsets()->create([
+                'name' => 'Adset ' . ($campaign->adsets()->count() + 1),
+                'latitude' => $firstSpace?->latitude,
+                'longitude' => $firstSpace?->longitude,
+                'location_name' => $firstSpace?->location_text,
+                'status' => 'active',
+            ]);
+        }
 
         foreach ($ads as $ad) {
             $ad->adset_id = $adset->id;

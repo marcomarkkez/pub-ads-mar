@@ -102,21 +102,38 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
           </div>
           <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
             These spaces were added to the campaign but are not in an adset yet, so they can't be booked.
-            Move them into a new adset to continue.
+            Move them into a new adset, or into one of your existing adsets, to continue.
           </p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
             @for (orphan of orphans(); track orphan.id) {
               <span class="badge" style="background:var(--hover);padding:6px 10px;">{{ orphan.name }}</span>
             }
           </div>
-          <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
-            (click)="moveOrphansToAdset()" [disabled]="movingOrphans()">
-            @if (movingOrphans()) {
-              <span class="spinner"></span>
-            } @else {
-              Move all to a new adset
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+            <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
+              (click)="moveOrphansToAdset()" [disabled]="movingOrphans()">
+              @if (movingOrphans()) {
+                <span class="spinner"></span>
+              } @else {
+                Move all to a new adset
+              }
+            </button>
+
+            @if (adsets().length > 0) {
+              <span style="color:var(--text-muted);font-size:13px;">or</span>
+              <select [(ngModel)]="moveTargetAdsetId" name="moveTargetAdsetId" [disabled]="movingOrphans()">
+                <option [ngValue]="null">Choose an existing adset…</option>
+                @for (adset of adsets(); track adset.id) {
+                  <option [ngValue]="adset.id">{{ adset.name }}</option>
+                }
+              </select>
+              <button class="btn btn-sm"
+                (click)="moveOrphansToAdset(moveTargetAdsetId)"
+                [disabled]="movingOrphans() || moveTargetAdsetId === null">
+                Move to this adset
+              </button>
             }
-          </button>
+          </div>
         </div>
       }
 
@@ -344,6 +361,7 @@ export class CampaignDetailComponent implements OnInit {
   // Orphan ads (backlog spaces added from search, not yet in an adset) — C03
   orphans = signal<Ad[]>([]);
   movingOrphans = signal(false);
+  moveTargetAdsetId: number | null = null;
 
   constructor(
     private http: HttpClient,
@@ -475,14 +493,23 @@ export class CampaignDetailComponent implements OnInit {
 
   /* ── Orphan backlog (C03) ── */
 
-  moveOrphansToAdset(): void {
+  // design.md → Filters & backlog: move orphan spaces into a NEW adset
+  // (adsetId omitted) or an EXISTING one (adsetId given).
+  moveOrphansToAdset(adsetId: number | null = null): void {
     const ad_ids = this.orphans().map(a => a.id);
     if (ad_ids.length === 0) return;
     this.movingOrphans.set(true);
-    this.http.post(`${this.api}/client/campaigns/${this.campaignId}/adsets/move`, { ad_ids }).subscribe({
+    const payload: { ad_ids: number[]; adset_id?: number } = { ad_ids };
+    if (adsetId !== null) payload.adset_id = adsetId;
+    this.http.post(`${this.api}/client/campaigns/${this.campaignId}/adsets/move`, payload).subscribe({
       next: () => {
         this.movingOrphans.set(false);
-        this.notify.success('Spaces moved into a new adset — they are now bookable.');
+        this.moveTargetAdsetId = null;
+        this.notify.success(
+          adsetId !== null
+            ? 'Spaces moved into the adset — they are now bookable.'
+            : 'Spaces moved into a new adset — they are now bookable.',
+        );
         this.loadAdsets();
         this.loadOrphans();
       },
