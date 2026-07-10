@@ -19,9 +19,14 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:4200'],
+    'allowed_origins' => array_filter(explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:4200'))),
 
-    'allowed_origins_patterns' => [],
+    // Matches GitHub Codespaces forwarded-port URLs, e.g.
+    // https://<codespace-name>-4200.app.github.dev — the dev environment
+    // (see claude.md → GitHub Codespaces).
+    'allowed_origins_patterns' => [
+        '#^https://.*\.(app\.github\.dev|githubpreview\.dev)$#',
+    ],
 
     'allowed_headers' => ['*'],
 
