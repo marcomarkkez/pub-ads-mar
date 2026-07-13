@@ -31,6 +31,29 @@
     { "id": "C12", "item": "Admin configurations; apply-scope new-only vs all objects", "status": "implemented", "note": "ConfigurationController apply_scope new_only|all + in-flight snapshot; not UI-walked" },
     { "id": "C13", "item": "End-to-end client journey (map-select -> campaign -> adset -> book/refund -> support chat)", "status": "verified", "note": "core chain runtime-verified; provider-reject/auto-reject/proof legs are implemented, partial UI walk pending" }
   ],
+  "feature_review": {
+    "method": "See claude.md -> Working Method. One feature at a time: doubts/clashes -> ask owner; else resolve with MVP common sense, mark status, report next feature. design.md is the single spec.",
+    "status_legend": { "pending": "not yet reviewed", "reviewing": "under review now", "needs_decision": "blocked on owner decision", "resolved": "spec clear + marked; code may still be pending", "deferred": "AFTER-MVP" },
+    "features": [
+      { "id": "F01", "title": "Auth & 5 roles (client, provider, support, payments, admin)", "design_section": "1, 14", "checklist": ["C01"], "mvp": true, "status": "resolved", "note": "spec clear, verified (C01)" },
+      { "id": "F02", "title": "Accounts & collaborators (subroles: client publicist/manager; provider installator/sales/supervisor; never billing)", "design_section": "3", "checklist": ["C02"], "mvp": true, "status": "resolved", "note": "spec clear (design.md 3), verified (C02)" },
+      { "id": "F03", "title": "Catalog & map search (3-pane menu|map|list, nearest-first, radio-in-map-range, exact dates)", "design_section": "5", "checklist": ["C03"], "mvp": true, "status": "resolved", "note": "spec clear; O11 unavailable-sorted-to-bottom added. CODE GAP: mvp-build space-search is a map/list TOGGLE, not the simultaneous 3-pane (design.md 5) -> impl pending" },
+      { "id": "F04", "title": "Campaign->adset->ad backlog (orphans; move to new OR existing adset; ad-origin invariant)", "design_section": "4, 5", "checklist": ["C03", "C13"], "mvp": true, "status": "resolved", "note": "orphans move to new/existing adset (done); ad-origin invariant documented" },
+      { "id": "F05", "title": "Client uploads THEIR creative per ad (image/video/audio) vs space media-specs; client never creates spaces/ads; installer subrole uploads proofs", "design_section": "5, 7, 19-case4", "checklist": [], "mvp": true, "status": "resolved", "note": "Spec confirmed correct in design.md + new actor-boundary case (19 journey 4). CODE GAP: remove the '+ Ad Space' create-from-scratch form; per-ad action = upload creative to the existing (rented-space) ad. Impl pending owner go-ahead." },
+      { "id": "F06", "title": "Booking action & per-ad go-live (provider Approve->installator / Reject; optional reason; no counter-offers)", "design_section": "5, 20", "checklist": ["C13"], "mvp": true, "status": "pending" },
+      { "id": "F07", "title": "Proof of display (installator uploads; client accept/reject; deadline; reject->re-upload loop)", "design_section": "7", "checklist": ["C07", "C09"], "mvp": true, "status": "pending" },
+      { "id": "F08", "title": "Chat & PII masking (contact masked; booked-space address whitelisted)", "design_section": "10", "checklist": ["C06"], "mvp": true, "status": "pending" },
+      { "id": "F09", "title": "Tickets & support (Support button on any object; auto-ticket on proof mismatch)", "design_section": "11", "checklist": ["C04", "C08", "C09"], "mvp": true, "status": "pending" },
+      { "id": "F10", "title": "Money (Payments payouts/refunds, wallet, per-provider payout, per-ad invoice lines)", "design_section": "8", "checklist": ["C10"], "mvp": true, "status": "pending" },
+      { "id": "F11", "title": "Admin oversight / eagle-eye (sees all incl. support & payments chats)", "design_section": "12", "checklist": ["C11"], "mvp": true, "status": "pending" },
+      { "id": "F12", "title": "Admin configurations (apply-scope new-only vs all; snapshot-at-creation)", "design_section": "12", "checklist": ["C12"], "mvp": true, "status": "pending" },
+      { "id": "F13", "title": "Notifications & calendar (availability, iCal/Google sync, date ranges)", "design_section": "13", "checklist": ["C05"], "mvp": true, "status": "pending" },
+      { "id": "F14", "title": "RBAC & capabilities (role_permissions, per-route middleware, permissions editor)", "design_section": "14", "checklist": [], "mvp": true, "status": "pending" },
+      { "id": "F15", "title": "Book-for-later, pre-pay & escrow", "design_section": "6", "checklist": [], "mvp": false, "status": "deferred" },
+      { "id": "F16", "title": "Strikes (90-day counter, appeals)", "design_section": "7", "checklist": [], "mvp": false, "status": "deferred" },
+      { "id": "F17", "title": "Ratings", "design_section": "9", "checklist": [], "mvp": false, "status": "deferred" }
+    ]
+  },
   "workstreams": [
     { "id": "WS-beads", "title": "Diagnose + restore beads (dolt->sqlite)", "status": "done" },
     { "id": "WS-audit", "title": "Audit 13 checklist items + doc state vs code", "status": "done" },

@@ -197,7 +197,8 @@ re-queries radio stations in range; pan/zoom updates the station list.
 Filters: space type, date range, budget per day. Dates are EXACT — there is NO date-flexibility
 (±X days) filter; clients/providers add slack via wider windows or "book for later."
 Availability turns green/red for the chosen date range. Spaces whose calendar doesn't coincide
-are TAGGED ("doesn't coincide with your timespan"), not hidden, and remain bookable "for later."
+are TAGGED ("doesn't coincide with your timespan"), not hidden, and remain bookable "for later";
+they are SORTED to the BOTTOM of the nearest-first list (available spaces first, unavailable last).
 The campaign view shows an Orphan-spaces list (backlog spaces not yet in any adset); a client
 MAY check out a partial campaign, but any orphaned ad cannot go live and its payment cannot be
 processed — orphans can be bulk-moved into an adset (either a NEW adset created
@@ -828,6 +829,20 @@ bump to 200 DPI. ² −14 LUFS aligns with common Mexican broadcast loudness; pr
    for blur → payment auto-held + ONE ticket to Support&Payments (masking relaxes when Support
    joins) → provider re-uploads → Support+Payments agree → payout released — all one chronological
    thread with system-transition messages.
+4. Ad creative & installation — WHO does WHAT (actor boundaries; INVARIANT, added to stop the
+   recurring "client creates a space/ad" drift):
+   - PROVIDER creates the space (billboard, photo/video panel, radio station) with its own
+     photos + media-delivery specs. A CLIENT never creates a space, never uploads a space photo,
+     and never sets media specs — that is exclusively the provider's job.
+   - CLIENT rents spaces from the map; each rented space becomes an ad in the campaign backlog.
+     The client's ONLY content action is uploading THEIR creative — the image, video, or audio
+     they want shown in that space — for each ad, validated against the space's media-delivery
+     specs. The client never mints a space-less ad (see §5 ad-origin invariant).
+   - PROVIDER approves the booking and dispatches it to an INSTALLATOR (a subrole employee under
+     the provider's own account).
+   - INSTALLATOR physically installs the ad and uploads the PROOF of display (photo, or video for
+     radio/audio), logged in with their installator subrole under the provider's account. Proofs
+     are a provider-side artifact; the client only ACCEPTS or REJECTS a proof, never uploads one.
 
 == 20. Roadmap, Revisions & Known Gaps ==
 

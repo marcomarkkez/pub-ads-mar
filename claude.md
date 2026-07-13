@@ -25,6 +25,25 @@ Web-based advertising spaces marketplace built with **Laravel 12** (API backend)
   is printed in the Claude UI chat, NOT written to a file, unless the owner explicitly asks for a
   file. Temporary working files must be folded into design.md/todos and deleted once consumed.
 
+## Working Method — feature-by-feature MVP review (owner rule, 2026-07-10)
+
+Too much time was lost on definitions that never got acted on. From now on we
+review the product **one feature at a time**, driving to a deployable MVP:
+
+- **Enumerate every feature** and keep them ordered in the todos JSON
+  (`.claude/todos/`) and mirrored to the relevant `design.md` section. `design.md`
+  is the single canonical spec (there is no ARCHITECTURE.md).
+- **MVP bias: functional over precise.** Shipping something that runs beats a
+  perfect spec. **No feature is in a client's or architect's request backlog**,
+  so we are free to decide. If a feature question is simple, RESOLVE IT NOW with
+  common sense and record the decision — do not defer.
+- **Only escalate real forks:** ask the owner ONLY when a feature is genuinely
+  ambiguous or when two features clash with each other. Otherwise decide and move.
+- **Per feature:** if doubts/clashes → ask; else resolve + mark the feature's
+  status in the todos + update `design.md` if needed, then report the NEXT
+  feature in the list so the owner can review, correct, or skip to the next.
+- Latest owner instruction on a topic wins over any earlier spec.
+
 ## Key Files
 
 | File | Purpose |
