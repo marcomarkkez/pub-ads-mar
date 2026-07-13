@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
@@ -9,7 +10,7 @@ import { Booking } from '../../../core/models';
 @Component({
   selector: 'app-provider-booking-list',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="page-header">
       <h1>Bookings</h1>
@@ -66,26 +67,40 @@ import { Booking } from '../../../core/models';
                     </span>
                   </td>
                   <td class="actions">
-                    @if (booking.status === 'pending') {
-                      <button class="btn btn-sm btn-success"
-                              (click)="updateStatus(booking, 'confirmed')"
+                    <!-- design.md §5 [F06]: provider acts with Approve or Reject (reason OPTIONAL); no counter-offers. -->
+                    @if (rejectingId() === booking.id) {
+                      <input type="text" class="reject-reason" [(ngModel)]="rejectReason"
+                             name="rejectReason" placeholder="Reason (optional)" />
+                      <button class="btn btn-sm btn-danger" (click)="confirmReject(booking)"
                               [disabled]="updatingId() === booking.id">
-                        @if (updatingId() === booking.id) {
-                          <span class="spinner"></span>
-                        } @else {
-                          Confirm
-                        }
+                        @if (updatingId() === booking.id) { <span class="spinner"></span> } @else { Confirm reject }
                       </button>
-                    }
-                    @if (booking.status === 'pending' || booking.status === 'confirmed') {
-                      <button class="btn btn-sm btn-danger"
-                              (click)="updateStatus(booking, 'cancelled')"
-                              [disabled]="updatingId() === booking.id">
-                        Cancel
-                      </button>
-                    }
-                    @if (booking.status === 'confirmed') {
-                      <span class="confirmed-label">Confirmed</span>
+                      <button class="btn btn-sm" (click)="cancelReject()">Back</button>
+                    } @else {
+                      @if (booking.status === 'pending') {
+                        <button class="btn btn-sm btn-success"
+                                (click)="updateStatus(booking, 'confirmed')"
+                                [disabled]="updatingId() === booking.id">
+                          @if (updatingId() === booking.id) {
+                            <span class="spinner"></span>
+                          } @else {
+                            Approve
+                          }
+                        </button>
+                        <button class="btn btn-sm btn-danger"
+                                (click)="openReject(booking)"
+                                [disabled]="updatingId() === booking.id">
+                          Reject
+                        </button>
+                      }
+                      @if (booking.status === 'confirmed') {
+                        <button class="btn btn-sm btn-danger"
+                                (click)="updateStatus(booking, 'cancelled')"
+                                [disabled]="updatingId() === booking.id">
+                          Cancel
+                        </button>
+                        <span class="confirmed-label">Confirmed</span>
+                      }
                     }
                     <!-- [todo B2] Provider needs a quick path to add proof for a booking awaiting it. -->
                     @if (booking.status === 'waiting_proof' || booking.status === 'active' || booking.status === 'confirmed') {
@@ -125,6 +140,11 @@ import { Booking } from '../../../core/models';
       font-weight: 600;
       color: var(--success);
     }
+    .reject-reason {
+      font-size: 12px;
+      padding: 4px 8px;
+      max-width: 180px;
+    }
   `],
 })
 export class ProviderBookingListComponent implements OnInit {
@@ -132,6 +152,8 @@ export class ProviderBookingListComponent implements OnInit {
   loading = signal(false);
   error = signal('');
   updatingId = signal<number | null>(null);
+  rejectingId = signal<number | null>(null);
+  rejectReason = '';
 
   private readonly api = environment.apiUrl;
 
@@ -177,6 +199,35 @@ export class ProviderBookingListComponent implements OnInit {
       },
       error: (err) => {
         this.notify.error(err.error?.message || `Failed to ${status} booking.`);
+        this.updatingId.set(null);
+      },
+    });
+  }
+
+  // design.md §5 [F06]: Reject with an OPTIONAL reason.
+  openReject(booking: Booking): void {
+    this.rejectingId.set(booking.id);
+    this.rejectReason = '';
+  }
+
+  cancelReject(): void {
+    this.rejectingId.set(null);
+    this.rejectReason = '';
+  }
+
+  confirmReject(booking: Booking): void {
+    this.updatingId.set(booking.id);
+    const payload = { status: 'rejected', rejection_reason: this.rejectReason.trim() || null };
+    this.http.put<{ data: Booking }>(`${this.api}/provider/bookings/${booking.id}`, payload).subscribe({
+      next: (res) => {
+        this.bookings.update(list => list.map(b => b.id === booking.id ? res.data : b));
+        this.notify.success('Booking rejected.');
+        this.updatingId.set(null);
+        this.rejectingId.set(null);
+        this.rejectReason = '';
+      },
+      error: (err) => {
+        this.notify.error(err.error?.message || 'Failed to reject booking.');
         this.updatingId.set(null);
       },
     });

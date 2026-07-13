@@ -1,0 +1,401 @@
+diff --git a/.claude/todos/mvp-sprint.json b/.claude/todos/mvp-sprint.json
+index ad3798e..7dcf298 100644
+--- a/.claude/todos/mvp-sprint.json
++++ b/.claude/todos/mvp-sprint.json
+@@ -32,7 +32,7 @@
+     { "id": "C13", "item": "End-to-end client journey (map-select -> campaign -> adset -> book/refund -> support chat)", "status": "verified", "note": "core chain runtime-verified; provider-reject/auto-reject/proof legs are implemented, partial UI walk pending" }
+   ],
+   "feature_review": {
+-    "method": "See claude.md -> Working Method. One feature at a time: doubts/clashes -> ask owner; else resolve with MVP common sense, mark status, report next feature. design.md is the single spec.",
++    "method": "See claude.md -> Working Method. One feature at a time: doubts/clashes -> ask owner; else resolve with MVP common sense, mark status, report next feature. design.md is the single spec; its section/sub-section headers carry the matching [Fxx] tag so codes are shared between design.md and this index.",
+     "status_legend": { "pending": "not yet reviewed", "reviewing": "under review now", "needs_decision": "blocked on owner decision", "resolved": "spec clear + marked; code may still be pending", "deferred": "AFTER-MVP" },
+     "features": [
+       { "id": "F01", "title": "Auth & 5 roles (client, provider, support, payments, admin)", "design_section": "1, 14", "checklist": ["C01"], "mvp": true, "status": "resolved", "note": "spec clear, verified (C01)" },
+@@ -40,7 +40,7 @@
+       { "id": "F03", "title": "Catalog & map search (3-pane menu|map|list, nearest-first, radio-in-map-range, exact dates)", "design_section": "5", "checklist": ["C03"], "mvp": true, "status": "resolved", "note": "spec clear; O11 unavailable-sorted-to-bottom added. CODE GAP: mvp-build space-search is a map/list TOGGLE, not the simultaneous 3-pane (design.md 5) -> impl pending" },
+       { "id": "F04", "title": "Campaign->adset->ad backlog (orphans; move to new OR existing adset; ad-origin invariant)", "design_section": "4, 5", "checklist": ["C03", "C13"], "mvp": true, "status": "resolved", "note": "orphans move to new/existing adset (done); ad-origin invariant documented" },
+       { "id": "F05", "title": "Client uploads THEIR creative per ad (image/video/audio) vs space media-specs; client never creates spaces/ads; installer subrole uploads proofs", "design_section": "5, 7, 19-case4", "checklist": [], "mvp": true, "status": "resolved", "note": "Spec confirmed correct in design.md + new actor-boundary case (19 journey 4). CODE GAP: remove the '+ Ad Space' create-from-scratch form; per-ad action = upload creative to the existing (rented-space) ad. Impl pending owner go-ahead." },
+-      { "id": "F06", "title": "Booking action & per-ad go-live (provider Approve->installator / Reject; optional reason; no counter-offers)", "design_section": "5, 20", "checklist": ["C13"], "mvp": true, "status": "pending" },
++      { "id": "F06", "title": "Booking action & per-ad go-live (provider Approve->installator / Reject; optional reason; no counter-offers)", "design_section": "5, 20", "checklist": ["C13"], "mvp": true, "status": "resolved", "note": "Owner-confirmed 2026-07-10. Approve/Reject+optional reason: backend done; ADDED the provider-UI Reject flow with optional reason (was Approve/Cancel only). Per-ad go-live inherent (bookings carry ad_id). DEFERRED to their features: installation queue (install_date + installator view) -> F07; inquiry->booking thread on approval+payment -> F08." },
+       { "id": "F07", "title": "Proof of display (installator uploads; client accept/reject; deadline; reject->re-upload loop)", "design_section": "7", "checklist": ["C07", "C09"], "mvp": true, "status": "pending" },
+       { "id": "F08", "title": "Chat & PII masking (contact masked; booked-space address whitelisted)", "design_section": "10", "checklist": ["C06"], "mvp": true, "status": "pending" },
+       { "id": "F09", "title": "Tickets & support (Support button on any object; auto-ticket on proof mismatch)", "design_section": "11", "checklist": ["C04", "C08", "C09"], "mvp": true, "status": "pending" },
+diff --git a/design.md b/design.md
+index 86bdd95..fbfaa1d 100644
+--- a/design.md
++++ b/design.md
+@@ -7,8 +7,12 @@ Sections 1–18 are the SPECS (kept tight); section 19 is the verbose USER STORI
+ Writing rule: state each rule ONCE in the fewest human-readable words — no redundancy,
+ verbosity or over-engineering. Code traceability: every file/class/method implementing a
+ behavior here carries a short comment naming the spec it satisfies (e.g. `design.md §7 proof`).
++Feature codes: section/sub-section headers carry a `[Fxx]` tag matching the feature index in
++`.claude/todos/mvp-sprint.json` → `feature_review` (e.g. `[F06]` = booking action & per-ad
++go-live). Use these shared codes when referring to a feature. `[infra]`/`[dev]`/`[all]` mark
++cross-cutting sections that are not a single feature.
+ 
+-== 1. Overview & Roles ==
++== 1. Overview & Roles ==  [F01]
+ 
+ Web advertising-spaces marketplace: clients book provider ad spaces (billboards, screens,
+ radio, transit, kiosks), pay per time span, and verify display via proof. Laravel 12 (API,
+@@ -34,7 +38,7 @@ SYSTEM roles (`users.role` enum = `client|provider|admin|support|payments`):
+ 
+ (Legacy `Manager\UserController` is the old 3-role MVP name for Admin — compat only.)
+ 
+-== 2. Role × Object Power Matrix ==
++== 2. Role × Object Power Matrix ==  [F01,F14]
+ 
+ Rows = object, cols = role. Legend: 🟢 own CRUD · 👁 inspect (read) · ✏ edit-any · $ money
+ action · 🤫 silent observe · 📣 announced join · 📝 audit-logged · · = no access. Collaborator
+@@ -69,7 +73,7 @@ Separation-of-powers (load-bearing; roles defined in §1):
+   default OFF; larger payments still need manual Payments review.
+ - Audit log is append-only/immutable; every staff (✏/$) action is 📝-logged.
+ 
+-== 3. Accounts & Collaborators ==
++== 3. Accounts & Collaborators ==  [F02]
+ 
+ **Account object** (owner 2026-06-25): a first-class object. Every owner user — a client or a
+ provider — has exactly ONE account; for MVP an account IS that single owner user (1 user = 1
+@@ -109,7 +113,7 @@ PROVIDER-side subroles (owner 2026-06-25, confirmed 2026-06-26):
+ Money/billing is visible only to the owner and each side's money role (client Manager /
+ provider Supervisor) — never to Publicists, Sales, or Installators.
+ 
+-== 4. Core Objects & Lifecycles ==
++== 4. Core Objects & Lifecycles ==  [F04,F06,F07]
+ 
+ = Object hierarchy =
+ - **Campaign** — top user-level unit; holds a budget and one or more adsets. Lists with
+@@ -169,9 +173,9 @@ When a booked window straddles two of a provider's pricing tiers (e.g. per-day a
+ the price is the CHEAPEST valid decomposition: fit the largest cheaper blocks first (e.g. 40
+ days = 1 month + 10 days if that beats 40 × daily), so a longer booking is never penalized.
+ 
+-== 5. Catalog, Search & Booking ==
++== 5. Catalog, Search & Booking ==  [F03,F04,F05,F06]
+ 
+-= Map stack =
++= Map stack =  [F03]
+ Leaflet/OpenStreetMap is the map provider, with **what3words** layered on the location picker —
+ a geocoding service mapping every 3m×3m square on Earth to a fixed three-word address (e.g.
+ `///filled.count.soap`) so a provider can pin a space precisely without reading raw lat/long.
+@@ -179,7 +183,7 @@ what3words is OPTIONAL client-side sugar (autosuggest only), stores NO column; t
+ location stays latitude/longitude/location_name. The whole map stack is swappable to Google
+ Maps via `environment.mapProvider`.
+ 
+-= Landing & nearest-first sidebar =
++= Landing & nearest-first sidebar =  [F03]
+ Client lands on a map centered on their geolocation (default Monterrey, NL). The right rail
+ (3-pane layout: menu | map | detail sidebar) lists nearby spaces sorted near-to-far via the
+ map provider's distance calc (or simple lat/long triangulation), each tagged with type
+@@ -188,12 +192,12 @@ multi-select; selecting one or more shows two buttons below: "Add to an existing
+ "Add to a new campaign" (new campaign → 10-second toast with "Go to my new campaign").
+ Selecting a space shows its full detail in the right sidebar.
+ 
+-= Radio-in-map-range =
++= Radio-in-map-range =  [F03]
+ "In range" for a radio station = inside the current MAP view range (typically a whole city) —
+ NOT listener location or broadcast footprint. Changing the map center re-sorts the list and
+ re-queries radio stations in range; pan/zoom updates the station list.
+ 
+-= Filters (exact dates) & backlog =
++= Filters (exact dates) & backlog =  [F04,F05]
+ Filters: space type, date range, budget per day. Dates are EXACT — there is NO date-flexibility
+ (±X days) filter; clients/providers add slack via wider windows or "book for later."
+ Availability turns green/red for the chosen date range. Spaces whose calendar doesn't coincide
+@@ -218,7 +222,7 @@ space's media-delivery specs. Any UI that lets a client type an ad name + pick a
+ media type + upload a file to mint a brand-new, space-less ad is a bug — such an
+ ad has no space and can never be booked.
+ 
+-= Booking action & per-ad go-live =
++= Booking action & per-ad go-live =  [F06]
+ Provider acts on a request with **Approve** or **Reject** only — NO counter-offers. The
+ rejection reason is OPTIONAL (a given reason helps the client re-submit a corrected file). The
+ request queue shows client, dates, total, and the attached media file. Confirmed bookings move
+@@ -228,7 +232,7 @@ on its own approval independently — a slow/rejected provider never blocks the
+ campaign. An inquiry chat becomes a confirmed booking thread only when BOTH provider approval
+ AND client payment are complete; either alone leaves it an inquiry.
+ 
+-== 6. Book-for-later, Pre-pay & Escrow (AFTER-MVP) ==
++== 6. Book-for-later, Pre-pay & Escrow (AFTER-MVP) ==  [F15]
+ 
+ When a requested window isn't yet free the client sees "Book it for later." Two per-space queues:
+ - **PRE-PAY** — funds captured into escrow; the booking joins the provider's per-space waiting
+@@ -244,9 +248,9 @@ When a requested window isn't yet free the client sees "Book it for later." Two
+   display; on any cancel/reject escrowed funds return to the client's wallet. (One checkout per
+   campaign covers all ads regardless of provider.)
+ 
+-== 7. Proof of Display, Deadlines & Strikes ==
++== 7. Proof of Display, Deadlines & Strikes ==  [F05,F07,F16]
+ 
+-= Primary & secondary proofs =
++= Primary & secondary proofs =  [F07]
+ The PROVIDER owns the PRIMARY proof of display — only the primary proof makes a booking
+ eligible for payout. Within the proof deadline the provider uploads a photo (printed/screen
+ ads) or a short video (radio/audio ads). Collaborators (per role) may upload SECONDARY proofs
+@@ -259,7 +263,7 @@ and day 4 (day-4 includes SMS). Missing the day-5 deadline auto-cancels the book
+ client to wallet in full, and accrues a provider strike. The auto-cancel cron locks the booking
+ and re-checks `proof IS NULL` inside the transaction.
+ 
+-= Review, payout & the reject→re-upload loop =
++= Review, payout & the reject→re-upload loop =  [F07]
+ The client's payment is HELD from booking until the CLIENT accepts the primary proof. The
+ **CLIENT** — and their collaborators, per role — review proof content. **Payments does NOT
+ review proof content**; Payments only sees the resulting money state and executes the release.
+@@ -280,14 +284,14 @@ Proof photos are NOT auto geotag-checked against the space lat/long — the spac
+ provider, who knows where it is; a proof that doesn't match the booked ad is caught by the
+ client/collaborator mismatch-flag → Support/Payments path instead.
+ 
+-= Strikes (AFTER-MVP) =
++= Strikes (AFTER-MVP) =  [F16]
+ Strikes accrue on missed proof deadline, provider cancel of a confirmed booking, or upheld
+ mismatch; accrual is decoupled from notification delivery. NOT a Payments power — routes Support
+ then Admin. 3 strikes in a trailing 90-day window flag the account for Admin review (possible
+ freeze); count shows on the provider dashboard. Provider appeals via ticket; SUPPORT (not
+ Payments) can remove a strike from the counter (reversible, audited).
+ 
+-== 8. Money ==
++== 8. Money ==  [F10]
+ 
+ All money is **decimal MXN pesos** — `decimal(12,2)`, single currency, no centavos (owner
+ 2026-06-15: "forget cents"). Gateway callbacks settling in another currency (e.g. PayPal USD)
+@@ -338,7 +342,7 @@ timer), then pays in full if resolved in the provider's favor (or is refunded pe
+ regardless of provider), with **per-ad line items** and **per-provider payouts**. An orphan ad
+ (not in an adset) cannot go live and its payment cannot be processed.
+ 
+-== 9. Ratings (AFTER-MVP) ==
++== 9. Ratings (AFTER-MVP) ==  [F17]
+ 
+ Provider star rating (1–5 + count) on each space detail = average of per-campaign ratings +
+ optional comment; `GET /spaces/{s}` returns avg+count. **Eligibility:** only clients rate, only
+@@ -347,7 +351,7 @@ after a campaign with that provider **ended OR ran live ≥30 days**, **one per
+ transparent — no client edit/delete; abusive comments flagged for Support, removed only by rare
+ MANUAL admin action, never auto-hidden.
+ 
+-== 10. Chat & PII ==
++== 10. Chat & PII ==  [F08]
+ 
+ **Three chat surfaces:** (1) contextual client↔provider chat on every ad/adset/campaign; (2) a
+ global Help-menu chat for every user on an account; (3) the support-ticket chat (auto-attaches
+@@ -377,7 +381,7 @@ sees them. (Add a test asserting a client can never fetch an internal-thread mes
+ observe AND post into all internal threads. The account owner can see any conversation a
+ collaborator has.
+ 
+-== 11. Tickets & Support ==
++== 11. Tickets & Support ==  [F09]
+ 
+ **Ticket from any object.** A "Talk to support" button on any campaign/adset/ad/space opens a
+ thread that auto-attaches object context (provider, dates, payment status, proof state).
+@@ -402,7 +406,7 @@ user consent, but closing resolves only the ticket STATE — the conversation st
+ routed to BOTH; payout HELD; re-upload clock stops while open; Support leans client, default
+ resolution = cancel + full refund.
+ 
+-== 12. Admin: Moderation, Freeze, Audit, Configurations ==
++== 12. Admin: Moderation, Freeze, Audit, Configurations ==  [F11,F12]
+ 
+ Admin is the **eagle-eye** role: reads EVERYTHING (all chats, all Support threads, all internal
+ Support↔Payments threads, the audit log, users, RBAC). Admin posts into any thread
+@@ -456,7 +460,7 @@ eagle-eye mode (conversations opened SILENTLY).
+ submission, with a burst allowance for known-good accounts; throttled responses include
+ retry-after. Thresholds are admin-configurable.
+ 
+-== 13. Notifications & Calendar ==
++== 13. Notifications & Calendar ==  [F13]
+ 
+ **Dispatcher (AFTER-MVP).** Emit domain events (`BookingApproved`, `ProofRejected`, …); queued
+ listeners fan out via a channel/urgency lookup — no scattered `Notification::send`. API: internal
+@@ -478,7 +482,7 @@ availabilities`, `DELETE /…/{av}`, `POST /…/sync-ical`, `POST /…/import-ic
+ - If an imported calendar goes OFFLINE, the space FALLS BACK to its last-known/manual range
+   rather than vanishing, and the staleness alert prompts a fix.
+ 
+-== 14. RBAC & Capabilities ==
++== 14. RBAC & Capabilities ==  [F01,F14]
+ 
+ **Two layers.** The global `role_permissions` matrix governs SYSTEM roles only; a SEPARATE
+ per-ACCOUNT grant overlay governs collaborators, evaluated AFTER the global matrix and scoped so
+@@ -515,7 +519,7 @@ localized PER USER (each user may set their own tz; default = platform tz). The
+ deadline instant is identical for everyone; only rendering varies — never compute deadlines off
+ the requester's local clock.
+ 
+-== 15. Data Schema ==
++== 15. Data Schema ==  [infra]
+ 
+ Authoritative table list. PostgreSQL 17 — db `pub_ads_mar`, user postgres (trust auth). All
+ money is DECIMAL MXN pesos (`decimal(12,2)`) — no centavos. Timestamps stored in UTC.
+@@ -620,7 +624,7 @@ SpacePhoto/SpaceAvailability. Space+Ad+Adset+User(client) ─> Booking ─> Paym
+ ─> Proof. Space+client+provider ─> Conversation ─< Message. User ─< Ticket >─ ticketable ─<
+ TicketMessage. User ─< WalletEntry.
+ 
+-== 16. Data Model & Integrity Invariants ==
++== 16. Data Model & Integrity Invariants ==  [infra]
+ 
+ Integrity rules (terse; most are AFTER-MVP — build when their subsystem ships):
+ - **Money [MVP]:** wallet = append-only entries, balance = `SUM(amount)` (decimal pesos), never a
+@@ -639,7 +643,7 @@ Integrity rules (terse; most are AFTER-MVP — build when their subsystem ships)
+ - **NOTE:** `proofs.status` is currently a SUPERSET (legacy `pending_review/approved/rejected` +
+   B9 `client_accepted/client_rejected`) until the deprecated Payments proof-review is removed.
+ 
+-== 17. Backend Endpoint Map ==
++== 17. Backend Endpoint Map ==  [infra]
+ 
+ Source of truth: `backend/routes/api.php`. Format: `METHOD path — purpose`. ⚠ = the LIVE code
+ diverges from canon. All paths prefixed `/api`. Two parts: LIVE (built) and PLANNED (designed).
+@@ -713,7 +717,7 @@ Compliance (arch/design/cases → backend):
+   money = decimal MXN pesos with idempotent refund/payout → wallet; PII masking at render;
+   ticket internal-note hiding.
+ 
+-== 18. System & Dev ==
++== 18. System & Dev ==  [dev]
+ 
+ Backend: Laravel 12 (API only), `backend/`. Frontend: Angular 18 SPA (SSR), `frontend/`. DB:
+ PostgreSQL 17 (Docker host :5435 → container :5432; bare-metal PG17 on :5434, trust auth). Auth:
+@@ -735,7 +739,7 @@ Monterrey/MXN; frontend booking list still hardcodes `currency:'EUR'`, should be
+ Implementation status: see §17 (LIVE vs PLANNED endpoint map) and §20 for the build phases —
+ not duplicated here.
+ 
+-== 19. User Stories (Cases) ==
++== 19. User Stories (Cases) ==  [all]
+ 
+ > The verbose, story-level source of truth for what each role does. The canonical DESIGN
+ > (modules, enums, policies) is in §1–18 — when a story and a spec ever disagree, the spec wins.
+@@ -844,7 +848,7 @@ bump to 200 DPI. ² −14 LUFS aligns with common Mexican broadcast loudness; pr
+      radio/audio), logged in with their installator subrole under the provider's account. Proofs
+      are a provider-side artifact; the client only ACCEPTS or REJECTS a proof, never uploads one.
+ 
+-== 20. Roadmap, Revisions & Known Gaps ==
++== 20. Roadmap, Revisions & Known Gaps ==  [all]
+ 
+ These owner decisions SUPERSEDE earlier text where they conflict (latest wins). The team builds
+ toward ~90% compliance across the design, not 100% — some older text is intentionally stale.
+diff --git a/frontend/src/app/features/provider/bookings/provider-booking-list.component.ts b/frontend/src/app/features/provider/bookings/provider-booking-list.component.ts
+index eaa3627..d139279 100644
+--- a/frontend/src/app/features/provider/bookings/provider-booking-list.component.ts
++++ b/frontend/src/app/features/provider/bookings/provider-booking-list.component.ts
+@@ -1,5 +1,6 @@
+ import { Component, OnInit, signal } from '@angular/core';
+ import { CommonModule } from '@angular/common';
++import { FormsModule } from '@angular/forms';
+ import { RouterLink } from '@angular/router';
+ import { HttpClient } from '@angular/common/http';
+ import { environment } from '../../../../environments/environment';
+@@ -9,7 +10,7 @@ import { Booking } from '../../../core/models';
+ @Component({
+   selector: 'app-provider-booking-list',
+   standalone: true,
+-  imports: [CommonModule, RouterLink],
++  imports: [CommonModule, FormsModule, RouterLink],
+   template: `
+     <div class="page-header">
+       <h1>Bookings</h1>
+@@ -66,26 +67,40 @@ import { Booking } from '../../../core/models';
+                     </span>
+                   </td>
+                   <td class="actions">
+-                    @if (booking.status === 'pending') {
+-                      <button class="btn btn-sm btn-success"
+-                              (click)="updateStatus(booking, 'confirmed')"
++                    <!-- design.md §5 [F06]: provider acts with Approve or Reject (reason OPTIONAL); no counter-offers. -->
++                    @if (rejectingId() === booking.id) {
++                      <input type="text" class="reject-reason" [(ngModel)]="rejectReason"
++                             name="rejectReason" placeholder="Reason (optional)" />
++                      <button class="btn btn-sm btn-danger" (click)="confirmReject(booking)"
+                               [disabled]="updatingId() === booking.id">
+-                        @if (updatingId() === booking.id) {
+-                          <span class="spinner"></span>
+-                        } @else {
+-                          Confirm
+-                        }
++                        @if (updatingId() === booking.id) { <span class="spinner"></span> } @else { Confirm reject }
+                       </button>
+-                    }
+-                    @if (booking.status === 'pending' || booking.status === 'confirmed') {
+-                      <button class="btn btn-sm btn-danger"
+-                              (click)="updateStatus(booking, 'cancelled')"
+-                              [disabled]="updatingId() === booking.id">
+-                        Cancel
+-                      </button>
+-                    }
+-                    @if (booking.status === 'confirmed') {
+-                      <span class="confirmed-label">Confirmed</span>
++                      <button class="btn btn-sm" (click)="cancelReject()">Back</button>
++                    } @else {
++                      @if (booking.status === 'pending') {
++                        <button class="btn btn-sm btn-success"
++                                (click)="updateStatus(booking, 'confirmed')"
++                                [disabled]="updatingId() === booking.id">
++                          @if (updatingId() === booking.id) {
++                            <span class="spinner"></span>
++                          } @else {
++                            Approve
++                          }
++                        </button>
++                        <button class="btn btn-sm btn-danger"
++                                (click)="openReject(booking)"
++                                [disabled]="updatingId() === booking.id">
++                          Reject
++                        </button>
++                      }
++                      @if (booking.status === 'confirmed') {
++                        <button class="btn btn-sm btn-danger"
++                                (click)="updateStatus(booking, 'cancelled')"
++                                [disabled]="updatingId() === booking.id">
++                          Cancel
++                        </button>
++                        <span class="confirmed-label">Confirmed</span>
++                      }
+                     }
+                     <!-- [todo B2] Provider needs a quick path to add proof for a booking awaiting it. -->
+                     @if (booking.status === 'waiting_proof' || booking.status === 'active' || booking.status === 'confirmed') {
+@@ -125,6 +140,11 @@ import { Booking } from '../../../core/models';
+       font-weight: 600;
+       color: var(--success);
+     }
++    .reject-reason {
++      font-size: 12px;
++      padding: 4px 8px;
++      max-width: 180px;
++    }
+   `],
+ })
+ export class ProviderBookingListComponent implements OnInit {
+@@ -132,6 +152,8 @@ export class ProviderBookingListComponent implements OnInit {
+   loading = signal(false);
+   error = signal('');
+   updatingId = signal<number | null>(null);
++  rejectingId = signal<number | null>(null);
++  rejectReason = '';
+ 
+   private readonly api = environment.apiUrl;
+ 
+@@ -181,4 +203,33 @@ export class ProviderBookingListComponent implements OnInit {
+       },
+     });
+   }
++
++  // design.md §5 [F06]: Reject with an OPTIONAL reason.
++  openReject(booking: Booking): void {
++    this.rejectingId.set(booking.id);
++    this.rejectReason = '';
++  }
++
++  cancelReject(): void {
++    this.rejectingId.set(null);
++    this.rejectReason = '';
++  }
++
++  confirmReject(booking: Booking): void {
++    this.updatingId.set(booking.id);
++    const payload = { status: 'rejected', rejection_reason: this.rejectReason.trim() || null };
++    this.http.put<{ data: Booking }>(`${this.api}/provider/bookings/${booking.id}`, payload).subscribe({
++      next: (res) => {
++        this.bookings.update(list => list.map(b => b.id === booking.id ? res.data : b));
++        this.notify.success('Booking rejected.');
++        this.updatingId.set(null);
++        this.rejectingId.set(null);
++        this.rejectReason = '';
++      },
++      error: (err) => {
++        this.notify.error(err.error?.message || 'Failed to reject booking.');
++        this.updatingId.set(null);
++      },
++    });
++  }
+ }
