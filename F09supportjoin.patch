@@ -1,0 +1,178 @@
+diff --git a/.claude/todos/mvp-sprint.json b/.claude/todos/mvp-sprint.json
+index 6a17200..a7d4a1e 100644
+--- a/.claude/todos/mvp-sprint.json
++++ b/.claude/todos/mvp-sprint.json
+@@ -43,7 +43,7 @@
+       { "id": "F06", "title": "Booking action & per-ad go-live (provider Approve->installator / Reject; optional reason; no counter-offers)", "design_section": "5, 20", "checklist": ["C13"], "mvp": true, "status": "resolved", "note": "Owner-confirmed 2026-07-10. Approve/Reject+optional reason: backend done; ADDED the provider-UI Reject flow with optional reason (was Approve/Cancel only). Per-ad go-live inherent (bookings carry ad_id). DEFERRED to their features: installation queue (install_date + installator view) -> F07; inquiry->booking thread on approval+payment -> F08." },
+       { "id": "F07", "title": "Proof of display (provider/installator/supervisor upload primary proof; client accept/reject; deadline; NO re-upload loop -> reject auto-holds + auto-routes to Payments+Support, manual human release)", "design_section": "7", "checklist": ["C07", "C09"], "mvp": true, "status": "spec_resolved", "note": "Owner 2026-07-10: NO re-upload cycle. Client reject -> ONLY automatic = payout auto-hold + auto-route ONE ticket to Payments+Support (payment attached). Release/refund is a MANUAL Payments+Support human decision. Primary-proof uploaders = provider owner OR Installator OR Supervisor subrole (NOT Sales, no client role); 'manager' interpreted as provider Supervisor (confirm). design.md reconciled (removed 48h re-upload window in ~8 places). CODE PENDING: verify/enforce uploader roles; remove any re-upload UI; ensure reject -> auto-hold + auto dual-ticket + no auto-release." },
+       { "id": "F08", "title": "Chat & PII masking (contact masked; booked-space address whitelisted; internal Support<->Payments threads client-invisible)", "design_section": "10", "checklist": ["C06"], "mvp": true, "status": "resolved", "note": "Owner-approved 2026-07-10. Masking core done (phone/email/URL/address + booked-space whitelist + privileged roles see raw). ADDED: explicit internal-thread ACL in MessageController (non-staff blocked from type=internal on read AND post) + Feature test InternalThreadAclTest (spec-requested: client 403, payments 200) - run in Codespace (php artisan test). DEFERRED to F09/F11: Support/Payments JOIN flow (support_joined_at never set yet; masking already relaxes on it) + Payments-join relax. Polymorphic conversation reconciliation = AFTER-MVP." },
+-      { "id": "F09", "title": "Tickets & support (Support button on any object; auto-ticket on proof mismatch)", "design_section": "11", "checklist": ["C04", "C08", "C09"], "mvp": true, "status": "pending" },
++      { "id": "F09", "title": "Tickets & support (Support button on any object; auto-ticket on proof mismatch; Support powers: join chat, flag refund/payout-hold, edit any non-money object)", "design_section": "11", "checklist": ["C04", "C08", "C09"], "mvp": true, "status": "in_progress", "note": "Ticket system done (polymorphic CRUD + support queue + auto-ticket on proof mismatch + oversight). ADDED (this pass): Support JOIN conversation endpoint POST /support/conversations/{c}/join -> sets support_joined_at (relaxes F08 masking) + posts announcement; idempotent; Admin still silent via read-only oversight. Tests SupportJoinConversationTest (relax + idempotent). REMAINING F09 code: (a) flag-refund / flag-payout-hold endpoints (Support flags, Payments decides); (b) Support edit-any-non-money-object PUT endpoints (spaces/ads/users/bookings/collaborators, audited); (c) UI: where Support opens+joins the conversation (placement TBD)." },
+       { "id": "F10", "title": "Money (Payments payouts/refunds, wallet, per-provider payout, per-ad invoice lines)", "design_section": "8", "checklist": ["C10"], "mvp": true, "status": "pending" },
+       { "id": "F11", "title": "Admin oversight / eagle-eye (sees all incl. support & payments chats)", "design_section": "12", "checklist": ["C11"], "mvp": true, "status": "pending" },
+       { "id": "F12", "title": "Admin configurations (apply-scope new-only vs all; snapshot-at-creation)", "design_section": "12", "checklist": ["C12"], "mvp": true, "status": "pending" },
+diff --git a/backend/app/Http/Controllers/Support/ConversationController.php b/backend/app/Http/Controllers/Support/ConversationController.php
+new file mode 100644
+index 0000000..499799b
+--- /dev/null
++++ b/backend/app/Http/Controllers/Support/ConversationController.php
+@@ -0,0 +1,40 @@
++<?php
++
++namespace App\Http\Controllers\Support;
++
++use App\Http\Controllers\Controller;
++use App\Models\Conversation;
++use Illuminate\Http\JsonResponse;
++use Illuminate\Http\Request;
++
++/**
++ * design.md §11 [F09]: Support joins a client↔provider chat via
++ * POST /support/conversations/{c}/join. Joining is ANNOUNCED (a system message)
++ * and sets support_joined_at, which RELAXES PII masking for the thread (§10 [F08]).
++ * Admin observes silently through the read-only oversight endpoints instead —
++ * Admin never uses this route, so Admin entry is never announced.
++ */
++class ConversationController extends Controller
++{
++    public function join(Request $request, Conversation $conversation): JsonResponse
++    {
++        // Internal Support↔Payments threads don't need a "join" — they're already
++        // staff-only. This endpoint is for joining a client↔provider thread.
++        if (($conversation->type ?? null) === 'internal') {
++            return response()->json(['message' => 'Internal threads cannot be joined.'], 422);
++        }
++
++        // Idempotent: only announce + stamp the first time.
++        if ($conversation->support_joined_at === null) {
++            $conversation->support_joined_at = now();
++            $conversation->save();
++
++            $conversation->messages()->create([
++                'sender_user_id' => $request->user()->id,
++                'body' => 'Support has joined this conversation.',
++            ]);
++        }
++
++        return response()->json(['data' => $conversation->fresh()->load(['space', 'client', 'provider'])]);
++    }
++}
+diff --git a/backend/routes/api.php b/backend/routes/api.php
+index 460fb04..1c9c345 100644
+--- a/backend/routes/api.php
++++ b/backend/routes/api.php
+@@ -29,6 +29,7 @@
+ use App\Http\Controllers\Shared\ConversationController;
+ use App\Http\Controllers\Shared\MessageController;
+ use App\Http\Controllers\Shared\TicketController;
++use App\Http\Controllers\Support\ConversationController as SupportConversationController;
+ use App\Http\Controllers\Support\DashboardController as SupportDashboardController;
+ use App\Http\Controllers\Support\TicketController as SupportTicketController;
+ use Illuminate\Support\Facades\Route;
+@@ -171,6 +172,10 @@
+         Route::get('tickets/{ticket}', [SupportTicketController::class, 'show'])->middleware('permission:tickets,read');
+         Route::put('tickets/{ticket}', [SupportTicketController::class, 'update'])->middleware('permission:tickets,update');
+         Route::post('tickets/{ticket}/reply', [SupportTicketController::class, 'reply'])->middleware('permission:tickets,create');
++
++        // Join a client↔provider chat (announced; relaxes PII masking). Role-gated
++        // only — no permission mw, to avoid an RBAC reseed on the running DB.
++        Route::post('conversations/{conversation}/join', [SupportConversationController::class, 'join']);
+     });
+ 
+     // ── Payments routes ─────────────────────────────────────
+diff --git a/backend/tests/Feature/SupportJoinConversationTest.php b/backend/tests/Feature/SupportJoinConversationTest.php
+new file mode 100644
+index 0000000..af2ab01
+--- /dev/null
++++ b/backend/tests/Feature/SupportJoinConversationTest.php
+@@ -0,0 +1,90 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Models\Conversation;
++use App\Models\Space;
++use App\Models\User;
++use Database\Seeders\RolePermissionSeeder;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Laravel\Sanctum\Sanctum;
++use Tests\TestCase;
++
++/**
++ * design.md §11 [F09] + §10 [F08]: when Support JOINS a client↔provider chat it
++ * is announced (system message) and PII masking RELAXES for the thread.
++ */
++class SupportJoinConversationTest extends TestCase
++{
++    use RefreshDatabase;
++
++    private function makeThread(): array
++    {
++        $client = User::factory()->create(['role' => 'client']);
++        $provider = User::factory()->create(['role' => 'provider']);
++        $support = User::factory()->create(['role' => 'support']);
++
++        $space = Space::create([
++            'user_id' => $provider->id,
++            'name' => 'Test Space',
++            'latitude' => 25.6597,
++            'longitude' => -100.4023,
++        ]);
++
++        $convo = Conversation::create([
++            'space_id' => $space->id,
++            'client_user_id' => $client->id,
++            'provider_user_id' => $provider->id,
++        ]);
++        $convo->messages()->create([
++            'sender_user_id' => $provider->id,
++            'body' => 'Call me at 555-123-4567',
++        ]);
++
++        return compact('client', 'provider', 'support', 'convo');
++    }
++
++    public function test_support_join_announces_and_relaxes_masking(): void
++    {
++        $this->seed(RolePermissionSeeder::class);
++        ['client' => $client, 'support' => $support, 'convo' => $convo] = $this->makeThread();
++
++        // Before join: the client sees the phone masked.
++        Sanctum::actingAs($client);
++        $this->getJson("/api/conversations/{$convo->id}/messages")
++            ->assertStatus(200)
++            ->assertJsonPath('data.messages.0.body', 'Call me at [phone removed]');
++
++        // Support joins.
++        Sanctum::actingAs($support);
++        $this->postJson("/api/support/conversations/{$convo->id}/join")
++            ->assertStatus(200);
++
++        $convo->refresh();
++        $this->assertNotNull($convo->support_joined_at);
++        // Announcement system message posted.
++        $this->assertTrue($convo->messages()->where('body', 'Support has joined this conversation.')->exists());
++
++        // After join: masking relaxes — the client now sees the raw phone.
++        Sanctum::actingAs($client);
++        $this->getJson("/api/conversations/{$convo->id}/messages")
++            ->assertStatus(200)
++            ->assertJsonPath('data.messages.0.body', 'Call me at 555-123-4567');
++    }
++
++    public function test_support_join_is_idempotent(): void
++    {
++        $this->seed(RolePermissionSeeder::class);
++        ['support' => $support, 'convo' => $convo] = $this->makeThread();
++
++        Sanctum::actingAs($support);
++        $this->postJson("/api/support/conversations/{$convo->id}/join")->assertStatus(200);
++        $this->postJson("/api/support/conversations/{$convo->id}/join")->assertStatus(200);
++
++        // Only ONE announcement despite two joins.
++        $this->assertEquals(
++            1,
++            $convo->messages()->where('body', 'Support has joined this conversation.')->count()
++        );
++    }
++}
