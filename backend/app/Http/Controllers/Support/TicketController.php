@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Support;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
+use App\Models\Conversation;
+use App\Models\Payment;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use Illuminate\Http\JsonResponse;
@@ -30,7 +33,28 @@ class TicketController extends Controller
 
     public function show(Ticket $ticket): JsonResponse
     {
-        return response()->json($ticket->load(['user', 'assignedTo', 'ticketable', 'messages.user']));
+        $ticket->load(['user', 'assignedTo', 'ticketable', 'messages.user']);
+
+        // design.md §11 [F09]: surface the client↔provider conversation behind a
+        // payment/booking ticket so Support can open + join it from here.
+        $data = $ticket->toArray();
+        $data['related_conversation_id'] = $this->relatedConversationId($ticket);
+
+        return response()->json($data);
+    }
+
+    private function relatedConversationId(Ticket $ticket): ?int
+    {
+        $t = $ticket->ticketable;
+        $booking = $t instanceof Payment ? $t->booking : ($t instanceof Booking ? $t : null);
+
+        if (! $booking || ! $booking->space_id || ! $booking->client_user_id) {
+            return null;
+        }
+
+        return Conversation::where('space_id', $booking->space_id)
+            ->where('client_user_id', $booking->client_user_id)
+            ->value('id');
     }
 
     public function update(Request $request, Ticket $ticket): JsonResponse

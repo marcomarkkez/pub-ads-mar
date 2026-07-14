@@ -29,6 +29,8 @@ use App\Http\Controllers\Provider\SpacePhotoController;
 use App\Http\Controllers\Shared\ConversationController;
 use App\Http\Controllers\Shared\MessageController;
 use App\Http\Controllers\Shared\TicketController;
+use App\Http\Controllers\Support\ConversationController as SupportConversationController;
+use App\Http\Controllers\Support\PaymentController as SupportPaymentController;
 use App\Http\Controllers\Support\DashboardController as SupportDashboardController;
 use App\Http\Controllers\Support\TicketController as SupportTicketController;
 use Illuminate\Support\Facades\Route;
@@ -171,6 +173,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('tickets/{ticket}', [SupportTicketController::class, 'show'])->middleware('permission:tickets,read');
         Route::put('tickets/{ticket}', [SupportTicketController::class, 'update'])->middleware('permission:tickets,update');
         Route::post('tickets/{ticket}/reply', [SupportTicketController::class, 'reply'])->middleware('permission:tickets,create');
+
+        // Join a client↔provider chat (announced; relaxes PII masking). Role-gated
+        // only — no permission mw, to avoid an RBAC reseed on the running DB.
+        Route::post('conversations/{conversation}/join', [SupportConversationController::class, 'join']);
+
+        // Support FLAGS money actions for Payments to decide+execute (no money authority).
+        Route::post('payments/{payment}/flag-refund', [SupportPaymentController::class, 'flagRefund']);
+        Route::post('payments/{payment}/flag-payout-hold', [SupportPaymentController::class, 'flagPayoutHold']);
     });
 
     // ── Payments routes ─────────────────────────────────────

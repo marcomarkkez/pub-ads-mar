@@ -93,6 +93,24 @@ import { Ticket, TicketMessage } from '../../core/models';
             <span class="info-label">Description</span>
             <p class="description-text">{{ ticket()!.description }}</p>
           </div>
+
+          <!-- design.md §11 [F09]: Support powers — join the client↔provider chat
+               (announced; relaxes masking) and FLAG money actions for Payments. -->
+          @if (relatedConversationId() || referenceLabel() === 'Payment') {
+            <div class="support-actions">
+              <span class="info-label">Support actions</span>
+              <div class="actions-row">
+                @if (relatedConversationId()) {
+                  <a class="btn btn-sm btn-primary" [routerLink]="['/conversations', relatedConversationId()]"
+                     (click)="joinConversation()">Join conversation</a>
+                }
+                @if (referenceLabel() === 'Payment' && ticket()!.reference_id) {
+                  <button class="btn btn-sm" (click)="flagPayoutHold()" [disabled]="acting()">Flag payout-hold</button>
+                  <button class="btn btn-sm" (click)="flagRefund()" [disabled]="acting()">Flag refund</button>
+                }
+              </div>
+            </div>
+          }
         </div>
 
         <!-- Messages Section -->
@@ -249,6 +267,17 @@ import { Ticket, TicketMessage } from '../../core/models';
     .badge-low { background: #dbeafe; color: #1e40af; }
     .badge-medium { background: #fef3c7; color: #92400e; }
     .badge-high { background: #fee2e2; color: #991b1b; }
+    .support-actions {
+      padding-top: 16px;
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
   `],
 })
 export class SupportTicketDetailComponent implements OnInit {
@@ -260,6 +289,8 @@ export class SupportTicketDetailComponent implements OnInit {
   error = signal('');
   sending = signal(false);
   updatingStatus = signal(false);
+  relatedConversationId = signal<number | null>(null);
+  acting = signal(false);
   replyBody = '';
   selectedStatus = '';
 
@@ -293,6 +324,7 @@ export class SupportTicketDetailComponent implements OnInit {
       next: (res) => {
         this.ticket.set(res);
         this.selectedStatus = res.status;
+        this.relatedConversationId.set((res as { related_conversation_id?: number }).related_conversation_id ?? null);
         this.loading.set(false);
       },
       error: (err) => {
@@ -323,6 +355,36 @@ export class SupportTicketDetailComponent implements OnInit {
         this.selectedStatus = this.ticket()?.status || 'open';
         this.notify.error(err.error?.message || 'Failed to update status.');
       },
+    });
+  }
+
+  // design.md §11 [F09]: Support joins the client↔provider chat (announced;
+  // relaxes PII masking). The routerLink navigates; this fires the join.
+  joinConversation(): void {
+    const cid = this.relatedConversationId();
+    if (!cid) return;
+    this.http.post(`${this.api}/support/conversations/${cid}/join`, {}).subscribe({
+      next: () => this.notify.success('Joined the conversation — masking relaxed.'),
+      error: (err) => this.notify.error(err.error?.message || 'Failed to join conversation.'),
+    });
+  }
+
+  // Support FLAGS money actions; Payments decides + executes.
+  flagPayoutHold(): void {
+    this.flagPayment('flag-payout-hold', 'Payout-hold flagged for Payments.');
+  }
+
+  flagRefund(): void {
+    this.flagPayment('flag-refund', 'Refund flagged for Payments.');
+  }
+
+  private flagPayment(action: string, msg: string): void {
+    const pid = this.ticket()?.reference_id;
+    if (!pid) return;
+    this.acting.set(true);
+    this.http.post(`${this.api}/support/payments/${pid}/${action}`, {}).subscribe({
+      next: () => { this.acting.set(false); this.notify.success(msg); },
+      error: (err) => { this.acting.set(false); this.notify.error(err.error?.message || 'Flag failed.'); },
     });
   }
 

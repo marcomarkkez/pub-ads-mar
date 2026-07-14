@@ -3,3 +3,6 @@
 .dolt/
 *.db
 .beads-credential-key
+
+# Never commit transported patch files (they are apply-and-discard)
+*.patch
