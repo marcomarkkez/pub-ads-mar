@@ -10,11 +10,27 @@ use Illuminate\Http\Request;
 
 class MessageController extends Controller
 {
+    // design.md §10 [F08]: internal Support↔Payments threads are never visible to
+    // clients/providers — membership-based ACL, not a flag on a shared thread.
+    private const STAFF_ROLES = ['admin', 'support', 'payments'];
+
+    private function forbidsAccess(Conversation $conversation, $user): bool
+    {
+        // Internal threads: only staff (admin/support/payments) may read/post.
+        if (($conversation->type ?? null) === 'internal') {
+            return !in_array($user->role, self::STAFF_ROLES, true);
+        }
+
+        // Client↔provider threads: only the two participants.
+        return $conversation->client_user_id !== $user->id
+            && $conversation->provider_user_id !== $user->id;
+    }
+
     public function index(Request $request, Conversation $conversation): JsonResponse
     {
         $user = $request->user();
 
-        if ($conversation->client_user_id !== $user->id && $conversation->provider_user_id !== $user->id) {
+        if ($this->forbidsAccess($conversation, $user)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -46,7 +62,7 @@ class MessageController extends Controller
     {
         $user = $request->user();
 
-        if ($conversation->client_user_id !== $user->id && $conversation->provider_user_id !== $user->id) {
+        if ($this->forbidsAccess($conversation, $user)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
