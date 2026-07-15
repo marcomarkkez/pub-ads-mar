@@ -362,10 +362,17 @@ object context: provider, dates, payment status, proof state).
 **PII masking** is one server-side service, evaluated **per-message at render** against the
 viewer's role and the thread's join state — never store only-masked content if Admin/audit needs
 the raw. Masked in client↔provider chat: phone, email, full URL, off-space street address.
-Masking RELAXES when Support or Payments joins (announced by a system message) and NEVER applies
-on internal staff threads. When Support joins it sees the FULL prior history unmasked (near-admin
-level). **Admin is the exception to the announcement rule:** Admin reads and posts into any
-thread SILENTLY/incognito — no system message announces entry.
+Masking RELAXES when Support joins (announced by a system message) and NEVER applies on internal
+staff threads. When Support joins it can read/post and sees the FULL prior history unmasked
+(near-admin level). **Admin is the exception to the announcement rule:** Admin reads and posts into
+any thread SILENTLY/incognito — no system message announces entry.
+
+**Staff access to a client↔provider thread** [owner 2026-07-14]: the two participants always;
+SUPPORT only AFTER it has joined (announced) — before joining Support cannot read it; ADMIN via
+the read-only oversight endpoints (silent). PAYMENTS does NOT enter client↔provider threads at
+all — it works through the internal Support↔Payments thread, where Support relays the needed
+context. (So the masking-relax trigger for a client↔provider thread is a Support join, not a
+Payments one.)
 
 **Street-address whitelist.** In a thread tied to a space's booking, that space's ONE stored
 street address (and close variants) is whitelisted and shown normally — the client needs it to

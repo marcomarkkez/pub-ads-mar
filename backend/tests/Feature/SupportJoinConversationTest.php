@@ -72,6 +72,21 @@ class SupportJoinConversationTest extends TestCase
             ->assertJsonPath('data.messages.0.body', 'Call me at 555-123-4567');
     }
 
+    public function test_support_reads_thread_only_after_joining(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        ['support' => $support, 'convo' => $convo] = $this->makeThread();
+
+        Sanctum::actingAs($support);
+
+        // Before joining, Support cannot read the client↔provider thread.
+        $this->getJson("/api/conversations/{$convo->id}/messages")->assertStatus(403);
+
+        // Join, then it can read.
+        $this->postJson("/api/support/conversations/{$convo->id}/join")->assertStatus(200);
+        $this->getJson("/api/conversations/{$convo->id}/messages")->assertStatus(200);
+    }
+
     public function test_support_join_is_idempotent(): void
     {
         $this->seed(RolePermissionSeeder::class);

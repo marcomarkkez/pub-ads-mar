@@ -21,9 +21,21 @@ class MessageController extends Controller
             return !in_array($user->role, self::STAFF_ROLES, true);
         }
 
-        // Client↔provider threads: only the two participants.
-        return $conversation->client_user_id !== $user->id
-            && $conversation->provider_user_id !== $user->id;
+        // Client↔provider threads: the two participants always.
+        if ($conversation->client_user_id === $user->id
+            || $conversation->provider_user_id === $user->id) {
+            return false;
+        }
+
+        // Support may read/post ONCE it has joined (announced) — design.md §11 [F09]
+        // / §10 [F08]. Payments does NOT read these (it works via the internal
+        // Support↔Payments thread; owner 2026-07-14); Admin reads via the read-only
+        // oversight endpoints, not here.
+        if ($user->role === 'support' && ($conversation->support_joined_at ?? null) !== null) {
+            return false;
+        }
+
+        return true;
     }
 
     public function index(Request $request, Conversation $conversation): JsonResponse
