@@ -13,7 +13,9 @@ class PaymentController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Payment::with(['booking.client', 'booking.space', 'approvedBy']);
+        // Load the Support flags/tickets so Payments sees WHY money is held
+        // and what was requested (design.md §11 [F09] -> §8 [F10]).
+        $query = Payment::with(['booking.client', 'booking.space', 'approvedBy', 'tickets']);
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -26,7 +28,7 @@ class PaymentController extends Controller
 
     public function show(Payment $payment): JsonResponse
     {
-        return response()->json($payment->load(['booking.client', 'booking.space', 'booking.ad', 'approvedBy']));
+        return response()->json($payment->load(['booking.client', 'booking.space', 'booking.ad', 'approvedBy', 'tickets']));
     }
 
     public function approve(Request $request, Payment $payment): JsonResponse

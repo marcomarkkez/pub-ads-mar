@@ -267,20 +267,29 @@ and day 4 (day-4 includes SMS). Missing the day-5 deadline auto-cancels the book
 client to wallet in full, and accrues a provider strike. The auto-cancel cron locks the booking
 and re-checks `proof IS NULL` inside the transaction.
 
-= Review, payout & client reject → auto-hold =  [F07]  [owner 2026-07-10: NO re-upload loop]
+= Review, payout & client reject → auto-hold =  [F07]  [owner 2026-07-10: NO re-upload loop; 2026-07-14: dispute opens 3 Support threads]
+**Two phases.** PHASE 1 (the ONLY automatic opportunity): the provider must post the primary
+proof within the proof deadline (admin default 5 d, above). PHASE 2 (human analysis): once the
+client reviews the proof, humans take over — there is NO second automatic window before flagging.
 The client's payment is HELD from booking until the CLIENT accepts the primary proof. The
 **CLIENT** — and their collaborators, per role — review proof content. **Payments does NOT
 review proof content**; Payments only sees the resulting money state.
 - If the client ACCEPTS, the payment becomes releasable and Payments MANUALLY releases the payout.
-- If the client REJECTS (or a collaborator flags a mismatch), the ONLY automatic actions are:
-  (1) the payout is AUTO-HELD, and (2) the case is AUTO-ROUTED as ONE shared ticket to BOTH
-  Payments and Support, with the payment attached. There is NO re-upload cycle and NO re-upload
-  window/clock — the provider does NOT get an automatic chance to re-post a proof.
-- Releasing a held payout is a MANUAL, human decision made by **Payments together with Support**
-  after they review the specific case: either release to the provider, or cancel the booking and
-  refund the client in full. Support leans toward the client and watches for fraud; Payments
-  executes whatever money movement the joint decision implies. Nothing beyond the hold + routing
-  is automatic.
+- If the client REJECTS (or a collaborator flags a mismatch / the deadline passes with no
+  satisfactory proof), the ONLY automatic actions are: (1) the payout is AUTO-HELD; (2) a FLAG is
+  raised carrying informative reason text — `Payment held — <reason>` (e.g. "unsatisfactory
+  proof") — attached to the payment so Payments has context; and (3) THREE Support-anchored chat
+  threads auto-open so humans can inspect the whole situation:
+    · **Support↔Payments** (internal, `type=internal`) — the money decision; the ONLY thread Payments is in.
+    · **Support↔Client** — Support investigates with the client (provider not present).
+    · **Support↔Provider** — Support asks for a real/corrected proof (client not present).
+  There is NO automatic re-upload window or clock — any request for a new proof is a HUMAN one
+  Support makes in the Support↔Provider thread.
+- Releasing a held payout is a MANUAL, human decision by **Payments together with Support** after
+  they inspect the case across those threads: either release to the provider (e.g. once a
+  satisfactory proof is posted and the client accepts), or cancel the booking and refund the
+  client in full. Support leans toward the client and watches for fraud; Payments executes the
+  money movement. Nothing beyond the hold + flag + thread-opening is automatic.
 
 Proof photos are NOT auto geotag-checked against the space lat/long — the space belongs to the
 provider, who knows where it is; a proof that doesn't match the booked ad is caught by the
@@ -390,6 +399,14 @@ sees them. (Add a test asserting a client can never fetch an internal-thread mes
 observe AND post into all internal threads. The account owner can see any conversation a
 collaborator has.
 
+**Support-anchored dispute threads** [owner 2026-07-14]: on a proof-reject dispute (§7) Support
+opens a direct 1:1 thread with EACH party — `type=support_client` (Support↔Client) and
+`type=support_provider` (Support↔Provider), alongside the `type=internal` Support↔Payments
+thread. Each is membership-based: only Support (+Admin) and that ONE counterparty; the other
+counterparty and Payments never see it. These carry no PII masking (staff thread). This is how
+Support inspects the situation and, by human decision, asks the provider for a real proof — there
+is no automatic re-upload.
+
 == 11. Tickets & Support ==  [F09]
 
 **Ticket from any object.** A "Talk to support" button on any campaign/adset/ad/space opens a
@@ -411,9 +428,12 @@ Admin silent). Strike accrual/removal is Support, not Payments. Support can CLOS
 user consent, but closing resolves only the ticket STATE — the conversation stays LIVE/re-openable
 (not deletion, not a gag). Support-initiated ad-hoc tickets are visible only to the provider involved.
 
-**Dual Support↔Payments ticket on proof reject** — see §7: ONE ticket, `ticketable = payment`,
-auto-routed to BOTH; payout AUTO-HELD; NO re-upload cycle; release/refund is a manual
-Payments+Support decision; Support leans client, default resolution = cancel + full refund.
+**Dispute on proof reject** — see §7. Automatic: payout AUTO-HELD; a FLAG (`ticketable = payment`,
+reason text `Payment held — <reason>`) so Payments has money context; and THREE Support-anchored
+chat threads open — Support↔Payments (`type=internal`, the only one Payments is in), Support↔Client,
+Support↔Provider. NO re-upload cycle (any new-proof request is a human one in the Support↔Provider
+thread). Release/refund is a manual Payments+Support decision; Support leans client, default
+resolution = cancel + full refund.
 
 == 12. Admin: Moderation, Freeze, Audit, Configurations ==  [F11,F12]
 

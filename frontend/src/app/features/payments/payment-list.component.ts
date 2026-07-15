@@ -72,6 +72,11 @@ interface PaymentWithBooking extends Payment {
                     <span class="badge" [ngClass]="'badge-' + payment.status">
                       {{ payment.status }}
                     </span>
+                    <!-- design.md §11 [F09] -> §8 [F10]: show WHY money is held —
+                         Support's flag / dispute tickets on this payment. -->
+                    @for (t of flagTickets(payment); track t.id) {
+                      <div class="flag-note" [title]="t.description">&#9873; {{ t.subject }}</div>
+                    }
                   </td>
                   <td>{{ payment.payment_method || 'N/A' }}</td>
                   <td>
@@ -132,6 +137,13 @@ interface PaymentWithBooking extends Payment {
       display: block;
       font-size: 11px;
       color: var(--text-muted);
+    }
+    .flag-note {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--danger, #b91c1c);
+      max-width: 220px;
+      cursor: help;
     }
     .amount {
       color: var(--text);
@@ -231,6 +243,11 @@ export class PaymentListComponent implements OnInit {
         this.notify.error(err.error?.message || 'Failed to reject payment.');
       },
     });
+  }
+
+  // Support flag / dispute tickets attached to this payment (design.md §11 [F09]).
+  flagTickets(payment: PaymentWithBooking): { id: number; subject: string; description?: string }[] {
+    return (payment as { tickets?: { id: number; subject: string; description?: string }[] }).tickets ?? [];
   }
 
   refundPayment(payment: PaymentWithBooking): void {
