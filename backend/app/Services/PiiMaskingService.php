@@ -80,12 +80,18 @@ class PiiMaskingService
     }
 
     /**
-     * Conversation is "relaxed" when explicitly internal or once support joins.
-     * Columns are added by the shared packet — null-safe checked here.
+     * Conversation is "relaxed" when it is a staff-anchored thread (internal or a
+     * Support-anchored dispute thread) or once support joins a direct thread.
+     * Dispute threads (support_client/support_provider) are Support-run, so PII is
+     * not masked there (design.md §7/§10). Columns are null-safe checked here.
      */
     private function isRelaxed(Conversation $convo): bool
     {
-        return ($convo->type ?? null) === 'internal'
+        return in_array(($convo->type ?? null), [
+            Conversation::TYPE_INTERNAL,
+            Conversation::TYPE_SUPPORT_CLIENT,
+            Conversation::TYPE_SUPPORT_PROVIDER,
+        ], true)
             || ($convo->support_joined_at ?? null) !== null;
     }
 

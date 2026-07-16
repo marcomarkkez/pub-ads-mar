@@ -604,9 +604,12 @@ payments  [belongs to: booking]
   approved_by_payments, approved_by_user_id, timestamps
 
 conversations  [belongs to: space + client_user + provider_user]
-  id, space_id, client_user_id, provider_user_id, type (direct|support|internal…), support_joined_at,
-  unique(space_id, client_user_id), timestamps
-  -- target: polymorphic anchor + conversation_links history; internal threads = SEPARATE rows (type=internal), membership ACL
+  id, space_id, client_user_id, provider_user_id,
+  type (direct|internal|support_client|support_provider), support_joined_at,
+  unique(space_id, client_user_id, type), timestamps  -- composite so one space+client carries
+    the direct chat PLUS the dispute threads; migration 2026_07_16 widened the old unique
+  -- target: polymorphic anchor + conversation_links history; internal + dispute threads =
+    SEPARATE rows (type≠direct), membership ACL. PII masking RELAXED on every non-direct thread.
 
 messages  [belongs to: conversation + sender_user]
   id, conversation_id, sender_user_id, body, kind (user|system…), is_read, timestamps

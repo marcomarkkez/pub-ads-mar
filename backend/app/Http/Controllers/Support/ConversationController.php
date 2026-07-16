@@ -18,10 +18,11 @@ class ConversationController extends Controller
 {
     public function join(Request $request, Conversation $conversation): JsonResponse
     {
-        // Internal Support↔Payments threads don't need a "join" — they're already
-        // staff-only. This endpoint is for joining a client↔provider thread.
-        if (($conversation->type ?? null) === 'internal') {
-            return response()->json(['message' => 'Internal threads cannot be joined.'], 422);
+        // Only the direct client↔provider thread is "joined". Internal Support↔Payments
+        // and the Support-anchored dispute threads are already staff-run, so joining
+        // them is a no-op that would wrongly announce a join.
+        if (($conversation->type ?? Conversation::TYPE_DIRECT) !== Conversation::TYPE_DIRECT) {
+            return response()->json(['message' => 'Only direct conversations can be joined.'], 422);
         }
 
         // Idempotent: only announce + stamp the first time.

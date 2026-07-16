@@ -16,12 +16,33 @@ class MessageController extends Controller
 
     private function forbidsAccess(Conversation $conversation, $user): bool
     {
-        // Internal threads: only staff (admin/support/payments) may read/post.
-        if (($conversation->type ?? null) === 'internal') {
+        $type = $conversation->type ?? Conversation::TYPE_DIRECT;
+
+        // Internal Support↔Payments threads: only staff (admin/support/payments).
+        if ($type === Conversation::TYPE_INTERNAL) {
             return !in_array($user->role, self::STAFF_ROLES, true);
         }
 
-        // Client↔provider threads: the two participants always.
+        // Support-anchored dispute threads (design.md §7/§10/§11): Support + Admin,
+        // PLUS the single counterparty (the client for support_client, the provider
+        // for support_provider). Nobody else — Payments works via the internal thread.
+        if ($type === Conversation::TYPE_SUPPORT_CLIENT) {
+            if ($conversation->client_user_id === $user->id) {
+                return false;
+            }
+
+            return !in_array($user->role, ['support', 'admin'], true);
+        }
+
+        if ($type === Conversation::TYPE_SUPPORT_PROVIDER) {
+            if ($conversation->provider_user_id === $user->id) {
+                return false;
+            }
+
+            return !in_array($user->role, ['support', 'admin'], true);
+        }
+
+        // Direct client↔provider threads: the two participants always.
         if ($conversation->client_user_id === $user->id
             || $conversation->provider_user_id === $user->id) {
             return false;

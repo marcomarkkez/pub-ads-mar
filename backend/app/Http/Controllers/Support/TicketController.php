@@ -36,25 +36,36 @@ class TicketController extends Controller
         $ticket->load(['user', 'assignedTo', 'ticketable', 'messages.user']);
 
         // design.md §11 [F09]: surface the client↔provider conversation behind a
-        // payment/booking ticket so Support can open + join it from here.
+        // payment/booking ticket so Support can open + join it from here, plus the
+        // Support-anchored dispute threads (§7/§10) keyed by type.
         $data = $ticket->toArray();
-        $data['related_conversation_id'] = $this->relatedConversationId($ticket);
+        $threads = $this->relatedConversations($ticket);
+        $data['related_conversation_id'] = $threads[Conversation::TYPE_DIRECT] ?? null;
+        $data['dispute_conversations'] = [
+            'internal' => $threads[Conversation::TYPE_INTERNAL] ?? null,
+            'support_client' => $threads[Conversation::TYPE_SUPPORT_CLIENT] ?? null,
+            'support_provider' => $threads[Conversation::TYPE_SUPPORT_PROVIDER] ?? null,
+        ];
 
         return response()->json($data);
     }
 
-    private function relatedConversationId(Ticket $ticket): ?int
+    /**
+     * Map of thread type => conversation id for the booking behind this ticket.
+     */
+    private function relatedConversations(Ticket $ticket): array
     {
         $t = $ticket->ticketable;
         $booking = $t instanceof Payment ? $t->booking : ($t instanceof Booking ? $t : null);
 
         if (! $booking || ! $booking->space_id || ! $booking->client_user_id) {
-            return null;
+            return [];
         }
 
         return Conversation::where('space_id', $booking->space_id)
             ->where('client_user_id', $booking->client_user_id)
-            ->value('id');
+            ->pluck('id', 'type')
+            ->toArray();
     }
 
     public function update(Request $request, Ticket $ticket): JsonResponse

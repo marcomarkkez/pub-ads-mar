@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Conversation extends Model
 {
+    // Thread types (design.md §7/§10/§11).
+    public const TYPE_DIRECT = 'direct';              // client ↔ provider
+    public const TYPE_INTERNAL = 'internal';          // Support ↔ Payments (staff only)
+    public const TYPE_SUPPORT_CLIENT = 'support_client';     // Support ↔ Client
+    public const TYPE_SUPPORT_PROVIDER = 'support_provider'; // Support ↔ Provider
+
     protected $fillable = [
         'space_id',
         'client_user_id',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
 use App\Models\Ad;
+use App\Models\Conversation;
 use App\Models\Payment;
 use App\Models\Proof;
 use App\Models\Ticket;
@@ -50,7 +51,12 @@ class ProofFlagController extends Controller
         return response()->json($proof->fresh()->load(['ad', 'booking.space']));
     }
 
-    /** Client rejects the proof: hold the payout + open a Support/Payments ticket. */
+    /**
+     * Client rejects the proof (design.md §7/§10/§11): after the automatic proof
+     * window, the client's rejection HOLDS the payout, flags Payments, and hands the
+     * case to a 100%-human Support review — auto-opening three Support-anchored
+     * threads (internal Support↔Payments, Support↔Client, Support↔Provider).
+     */
     public function reject(Request $request, Proof $proof): JsonResponse
     {
         $this->ownedProof($request, $proof);
@@ -63,14 +69,15 @@ class ProofFlagController extends Controller
                     . 'rejected by client' . ($reason !== '' ? ': ' . $reason : '')),
             ]);
 
-            // Hold the payout until Support + Payments resolve it.
+            // Hold the payout until Support resolves it.
             $payment = $proof->booking?->payment;
             if ($payment && ! in_array($payment->status, ['released', 'refunded'], true)) {
                 $payment->update(['status' => 'held']);
             }
 
-            // Attach the ticket to the PAYMENT when there is one (so Payments sees
-            // the held money), otherwise to the Ad. Both staff roles see all tickets.
+            // Flag Payments with an informative subject: "Payment held — <reason>".
+            // Attach to the PAYMENT when there is one (so Payments sees the held
+            // money), otherwise to the Ad. Both staff roles see all tickets.
             [$ticketableType, $ticketableId] = $payment
                 ? [Payment::class, $payment->id]
                 : [Ad::class, $proof->ad_id];
@@ -79,15 +86,66 @@ class ProofFlagController extends Controller
                 'user_id' => $request->user()->id,
                 'ticketable_type' => $ticketableType,
                 'ticketable_id' => $ticketableId,
-                'subject' => 'Proof rejected by client — payout held',
+                'subject' => 'Payment held' . ($reason !== '' ? ' — ' . $reason : ''),
                 'description' => 'Client rejected proof #' . $proof->id
                     . ($reason !== '' ? '. Reason: ' . $reason : '.')
-                    . ' Payout is on hold pending Support/Payments review.',
+                    . ' Payout is on hold pending Support review.',
                 'priority' => 'high',
             ]);
+
+            $this->openDisputeThreads($request, $proof, $reason);
         });
 
         return response()->json($proof->fresh()->load(['ad', 'booking.space']));
+    }
+
+    /**
+     * Open the three Support-anchored dispute threads for this booking (idempotent):
+     *  - internal          Support ↔ Payments (staff only)
+     *  - support_client    Support ↔ Client
+     *  - support_provider  Support ↔ Provider
+     * Each is keyed by (space_id, client_user_id, type) and announced once.
+     */
+    private function openDisputeThreads(Request $request, Proof $proof, string $reason): void
+    {
+        $booking = $proof->booking;
+        $space = $booking?->space;
+
+        if (! $booking || ! $space) {
+            return;
+        }
+
+        $opener = 'Dispute opened: client rejected proof #' . $proof->id
+            . ($reason !== '' ? '. Reason: ' . $reason : '.')
+            . ' Payout is held pending Support review.';
+
+        $types = [
+            Conversation::TYPE_INTERNAL,
+            Conversation::TYPE_SUPPORT_CLIENT,
+            Conversation::TYPE_SUPPORT_PROVIDER,
+        ];
+
+        foreach ($types as $type) {
+            $conversation = Conversation::firstOrCreate(
+                [
+                    'space_id' => $space->id,
+                    'client_user_id' => $booking->client_user_id,
+                    'type' => $type,
+                ],
+                [
+                    'provider_user_id' => $space->user_id,
+                ]
+            );
+
+            // Announce once, only on the first open (idempotent re-rejections).
+            if ($conversation->wasRecentlyCreated) {
+                $conversation->messages()->create([
+                    'sender_user_id' => $request->user()->id,
+                    'body' => $opener,
+                    'kind' => 'system',
+                ]);
+            }
+        }
     }
 
     /** Back-compat: the old flag-mismatch action is now just a rejection. */
