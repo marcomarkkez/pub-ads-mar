@@ -1305,5 +1305,60 @@ Heavy use of read-only agent teams for analysis; all writes done sequentially by
   account-scoped collaborators, bookings/proofs enum migrations, B9 removal, audit log, etc.).
 - Nothing committed/pushed this session (doc-only).
 
+## Session 28 - 2026-07-06 → 2026-07-14
+
+### Summary
+Two arcs. (1) Brought the dockerized stack up in **GitHub Codespaces** for the first time and
+fixed the whole login-failure chain. (2) Adopted a **feature-by-feature MVP review** (F01–F17)
+driven from `design.md`, resolving specs and applying code one feature at a time. Work is on
+branch `mvp-build`; the Claude session's git push is blocked (403), so everything is delivered as
+prefixed `.patch` files the owner applies + pushes from their Codespace.
+
+### Codespaces bring-up (infra)
+- CORS env-driven + `*.app.github.dev` pattern; `environment.ts` auto-detects the Codespaces
+  backend URL; nginx resolves the backend per-request (no crash-loop); entrypoint clears stale
+  `bootstrap/cache/*.php` (the `Barryvdh\DomPDF` crash); documented in claude.md.
+- Root causes of the "Login failed" chain, in order: hardcoded localhost CORS/API URL →
+  frontend entrypoint exec-bit lost under bind mount → orphaned `publisher_*` containers holding
+  ports → backend crash-loop on a stale dompdf package-discovery cache → nginx crash-loop
+  (`host not found in upstream`) → port 8000 unpublished (needed `--force-recreate`) → empty
+  users table (needed `--seed`). Login now works: `admin@pubads.test` / `password`.
+
+### Feature review (single spec = design.md; index in .claude/todos/mvp-sprint.json → feature_review)
+- **Working method** recorded in claude.md: one feature at a time, MVP bias (functional > precise),
+  resolve simple forks now, only escalate genuine ambiguities/clashes; `[Fxx]` tags on design.md
+  headers share codes with the todos index.
+- **F04** — orphans move into a NEW *or* EXISTING adset (backend + UI); ad-origin INVARIANT: a
+  client never creates a space/ad from scratch (design.md §5 + §19 journey 4). The per-adset
+  "+ Ad Space" create form is documented as a bug (mints space-less ads); code fix still pending.
+- **F06** — provider Reject-with-optional-reason added to the booking UI.
+- **F07** — removed the proof re-upload loop (reconciled ~8 design.md spots). Client reject →
+  ONLY automatic: payout auto-HELD + a FLAG (`Payment held — <reason>`) + **THREE** Support-
+  anchored threads (Support↔Payments `internal`, Support↔Client `support_client`, Support↔Provider
+  `support_provider`). Proof deadline is the ONLY automatic phase; all resolution is human; new
+  proof requests are a human Support action (no auto window). Primary-proof uploaders =
+  provider / Installator / Supervisor. **Dispute CODE still pending (going with it next).**
+- **F08** — internal Support↔Payments threads client-invisible (MessageController ACL hardened +
+  test). Support reads/posts a client↔provider thread only AFTER joining; Payments never enters
+  client-facing threads (works via the internal thread); Admin via oversight.
+- **F09** — Support powers: `POST /support/conversations/{c}/join` (relaxes F08 masking) +
+  `flag-refund` / `flag-payout-hold` (Support flags, Payments decides) + ticket-detail Join/Flag
+  UI. Remaining: Support edit-any-non-money-object endpoints.
+- **F10** — Payments now sees WHY money is held: `Payment morphMany tickets`; payment-list shows a
+  flag-note per Support flag. Core money (approve/reject/refund/release/hold + idempotent wallet)
+  already existed.
+- Resolved the **F08↔F09↔F10 ACL clash** (Support-after-join read access; Payments internal-only).
+
+### Process learnings (claude.md)
+- Patch transport: `git add -A` twice swallowed the `.patch` file into a commit (code missing).
+  FIX: `*.patch` is git-ignored; apply then verify `git status` shows CODE files. And: finish a
+  feature fully before handing over ONE patch. Naming: `p<NN>-<Fxx>-<hash>-<slug>.patch` (unique).
+
+### Next (owner-directed)
+- **Option A: implement the dispute CODE** — `ProofFlagController` auto-opens the 3 threads + flag
+  text on reject; `MessageController`/ACL support `support_client` / `support_provider` types.
+- Then continue the review: F11 (admin oversight), F12 (config), F13 (notif/calendar), F14 (RBAC);
+  plus the deferred code gaps: F05 ("+ Ad Space" removal + per-ad creative upload), F03 3-pane.
+
 <!-- Add new sessions above this line -->
 
