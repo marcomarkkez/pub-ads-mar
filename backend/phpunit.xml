@@ -23,8 +23,13 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- Tests run on Postgres (same engine as the app) against a DEDICATED
+             database so RefreshDatabase never wipes dev data. force="true" pins
+             these two even though the backend container also sets DB_* env vars.
+             Host/port/user/password inherit from the container (DB_HOST=db …).
+             Create the DB once:  docker compose exec db createdb -U postgres pub_ads_mar_testing -->
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_DATABASE" value="pub_ads_mar_testing" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

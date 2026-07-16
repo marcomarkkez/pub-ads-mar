@@ -75,7 +75,9 @@ class MessageController extends Controller
 
         $masker = app(PiiMaskingService::class);
 
-        $messages = $conversation->messages()->with('sender')->oldest()->get()
+        // Order by id (insertion order): created_at can tie within the same second
+        // and reorder after the mark-as-read UPDATE — a chat must never reorder.
+        $messages = $conversation->messages()->with('sender')->oldest('id')->get()
             ->map(function ($message) use ($masker, $user, $conversation) {
                 $message->body = $masker->mask($message->body, $user, $conversation);
 

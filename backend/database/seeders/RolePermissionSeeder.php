@@ -57,7 +57,9 @@ class RolePermissionSeeder extends Seeder
 
             'support' => [
                 'tickets'       => ['create', 'read', 'update'],
-                'conversations' => ['read'],
+                // 'create' so Support can POST replies in the threads it joins /
+                // anchors (dispute threads); the messages route gates on it.
+                'conversations' => ['read', 'create'],
                 'users'         => ['read'],
                 'dashboard'     => ['read'], // [todo B8] support stats dashboard
             ],
@@ -67,6 +69,9 @@ class RolePermissionSeeder extends Seeder
                 'proofs'   => ['read', 'update'],
                 'bookings' => ['read'],
                 'invoices' => ['read'],
+                // Payments reads + posts ONLY in the internal Support↔Payments
+                // thread (controller ACL blocks it from client↔provider threads).
+                'conversations' => ['read', 'create'],
                 'dashboard' => ['read'], // [todo B8] payments stats dashboard
             ],
         ];

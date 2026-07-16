@@ -82,7 +82,7 @@ class DisputeThreadsTest extends TestCase
 
         Sanctum::actingAs($client);
 
-        $this->postJson("/api/proofs/{$proof->id}/reject", ['reason' => 'Ad was never displayed'])
+        $this->postJson("/api/client/proofs/{$proof->id}/reject", ['reason' => 'Ad was never displayed'])
             ->assertStatus(200);
 
         // Payout held.
@@ -116,8 +116,8 @@ class DisputeThreadsTest extends TestCase
 
         Sanctum::actingAs($client);
 
-        $this->postJson("/api/proofs/{$proof->id}/reject", ['reason' => 'first'])->assertStatus(200);
-        $this->postJson("/api/proofs/{$proof->id}/reject", ['reason' => 'second'])->assertStatus(200);
+        $this->postJson("/api/client/proofs/{$proof->id}/reject", ['reason' => 'first'])->assertStatus(200);
+        $this->postJson("/api/client/proofs/{$proof->id}/reject", ['reason' => 'second'])->assertStatus(200);
 
         $count = Conversation::where('space_id', $space->id)
             ->where('client_user_id', $client->id)
@@ -135,7 +135,7 @@ class DisputeThreadsTest extends TestCase
         ['client' => $client, 'provider' => $provider, 'space' => $space, 'proof' => $proof] = $this->scenario();
 
         Sanctum::actingAs($client);
-        $this->postJson("/api/proofs/{$proof->id}/reject", ['reason' => 'x'])->assertStatus(200);
+        $this->postJson("/api/client/proofs/{$proof->id}/reject", ['reason' => 'x'])->assertStatus(200);
 
         $supportClient = Conversation::where('space_id', $space->id)
             ->where('client_user_id', $client->id)
