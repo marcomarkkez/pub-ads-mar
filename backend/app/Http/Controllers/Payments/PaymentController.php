@@ -134,7 +134,11 @@ class PaymentController extends Controller
      */
     public function holdPayout(Payment $payment): JsonResponse
     {
-        $payment->update(['status' => 'held']);
+        // Don't drag a settled payment back into escrow — a released or refunded
+        // payment is terminal (mirrors accept/reject + Support's flagPayoutHold).
+        if (! in_array($payment->status, ['released', 'refunded'], true)) {
+            $payment->update(['status' => 'held']);
+        }
 
         return response()->json($payment->fresh()->load('approvedBy'));
     }

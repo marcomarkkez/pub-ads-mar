@@ -11,8 +11,40 @@ Feature codes: section/sub-section headers carry a `[Fxx]` tag matching the feat
 `.claude/todos/mvp-sprint.json` → `feature_review` (e.g. `[F06]` = booking action & per-ad
 go-live). Use these shared codes when referring to a feature. `[infra]`/`[dev]`/`[all]` mark
 cross-cutting sections that are not a single feature.
+Spec-Kanban: every spec header ALSO carries a one-line `kanban:` state tag (status/weight/
+impacts/deps/ids) so this doc doubles as a live board — **read §0 first** for the notation.
+
+== 0. Spec-Kanban (how to read this doc) ==  [dev]
+
+Every spec header carries a one-line `kanban:` tag right under it, so this doc IS the board — no
+second tool, no status duplicated elsewhere. It renders as tidy chips and parses cleanly for a
+future visual-kanban UI.
+
+Line grammar (stable — a renderer can rely on it):
+  kanban: `status:VALUE` · `weight:VALUE` · `impacts:LIST` · `deps:LIST` · `ids:LIST`
+  - one line, starts literally with `kanban:` (grep the board: `grep '^kanban:' design.md`).
+  - each field is a backticked `key:value` chip; chips are separated by ` · ` (middot).
+  - parser: take every backtick span matching `([a-z]+):([^`]*)`; a LIST is comma-separated with
+    no spaces; `-` means none.
+
+Fields:
+  - status — lifecycle; NOTHING is `done` until it clears the DOUBLE gate:
+      · `backlog` — specced, not started.
+      · `wip`     — being implemented (code in flight).
+      · `review`  — implemented AND under verification. `review` is a WEIGHTED state, not a rubber
+                    stamp: cleared ONLY by BOTH (a) automated tests green on Postgres AND (b) a
+                    human walkthrough of the flow. Missing either → it stays in review.
+      · `done`    — verified: tests green + human-confirmed. A regression sends it back to `wip`.
+  - weight — total effort incl. build + automated tests + human verification: `S | M | L | XL`.
+  - impacts — features/specs this ENABLES or breaks downstream (→).
+  - deps    — what must land first, upstream (←).
+  - ids     — granular task ids in `mvp-sprint.json → spec_backlog` (design ↔ todos trace).
+
+Prose vs kanban: the PROSE is the spec (what to build); the `kanban:` line is the live STATE of
+that work; `[Fxx]` still tags the feature. When they disagree, fix the lagging one.
 
 == 1. Overview & Roles ==  [F01]
+kanban: `status:done` · `weight:M` · `impacts:F02,F11,F14` · `deps:-` · `ids:AD-usercrud-01,AD-rbac-02`
 
 Web advertising-spaces marketplace: clients book provider ad spaces (billboards, screens,
 radio, transit, kiosks), pay per time span, and verify display via proof. Laravel 12 (API,
@@ -39,6 +71,7 @@ SYSTEM roles (`users.role` enum = `client|provider|admin|support|payments`):
 (Legacy `Manager\UserController` is the old 3-role MVP name for Admin — compat only.)
 
 == 2. Role × Object Power Matrix ==  [F01,F14]
+kanban: `status:review` · `weight:S` · `impacts:F09,F10,F11` · `deps:F01` · `ids:AD-rbac-02`
 
 Rows = object, cols = role. Legend: 🟢 own CRUD · 👁 inspect (read) · ✏ edit-any · $ money
 action · 🤫 silent observe · 📣 announced join · 📝 audit-logged · · = no access. Collaborator
@@ -74,6 +107,7 @@ Separation-of-powers (load-bearing; roles defined in §1):
 - Audit log is append-only/immutable; every staff (✏/$) action is 📝-logged.
 
 == 3. Accounts & Collaborators ==  [F02]
+kanban: `status:review` · `weight:L` · `impacts:F05,F07,F09` · `deps:F01` · `ids:AC-accounts-01,AC-collab-04,AC-grants-07`
 
 **Account object** (owner 2026-06-25): a first-class object. Every owner user — a client or a
 provider — has exactly ONE account; for MVP an account IS that single owner user (1 user = 1
@@ -114,6 +148,7 @@ Money/billing is visible only to the owner and each side's money role (client Ma
 provider Supervisor) — never to Publicists, Sales, or Installators.
 
 == 4. Core Objects & Lifecycles ==  [F04,F06,F07]
+kanban: `status:review` · `weight:M` · `impacts:F05,F07,F08,F10` · `deps:F03` · `ids:SB-enum-07,CA-crud-03`
 
 = Object hierarchy =
 - **Campaign** — top user-level unit; holds a budget and one or more adsets. Lists with
@@ -176,6 +211,7 @@ the price is the CHEAPEST valid decomposition: fit the largest cheaper blocks fi
 days = 1 month + 10 days if that beats 40 × daily), so a longer booking is never penalized.
 
 == 5. Catalog, Search & Booking ==  [F03,F04,F05,F06]
+kanban: `status:review` · `weight:L` · `impacts:F07,F10` · `deps:F03` · `ids:SB-search-01,CA-backlog-04,MS-specs-06`
 
 = Map stack =  [F03]
 Leaflet/OpenStreetMap is the map provider, with **what3words** layered on the location picker —
@@ -235,6 +271,7 @@ campaign. An inquiry chat becomes a confirmed booking thread only when BOTH prov
 AND client payment are complete; either alone leaves it an inquiry.
 
 == 6. Book-for-later, Pre-pay & Escrow (AFTER-MVP) ==  [F15]
+kanban: `status:backlog` · `weight:XL` · `impacts:F10` · `deps:F10` · `ids:PE-checkout-01,PE-prepay-04`
 
 When a requested window isn't yet free the client sees "Book it for later." Two per-space queues:
 - **PRE-PAY** — funds captured into escrow; the booking joins the provider's per-space waiting
@@ -251,6 +288,7 @@ When a requested window isn't yet free the client sees "Book it for later." Two 
   campaign covers all ads regardless of provider.)
 
 == 7. Proof of Display, Deadlines & Strikes ==  [F05,F07,F16]
+kanban: `status:wip` · `weight:L` · `impacts:F08,F09,F10` · `deps:F06` · `ids:PR-accept-03,PR-reject-04,ST-strikes-01`
 
 = Primary & secondary proofs =  [F07]
 The PROVIDER owns the PRIMARY proof of display — only the primary proof makes a booking
@@ -288,7 +326,9 @@ review proof content**; Payments only sees the resulting money state.
 - Releasing a held payout is a MANUAL, human decision by **Payments together with Support** after
   they inspect the case across those threads: either release to the provider (e.g. once a
   satisfactory proof is posted and the client accepts), or cancel the booking and refund the
-  client in full. Support leans toward the client and watches for fraud; Payments executes the
+  client in full. A release does NOT wire instantly — it enters the §8 payout **processing queue**
+  (a reversible grace window) before the money leaves, so Payments OR Support can still pull it
+  back to `held`. Support leans toward the client and watches for fraud; Payments executes the
   money movement. Nothing beyond the hold + flag + thread-opening is automatic.
 
 Proof photos are NOT auto geotag-checked against the space lat/long — the space belongs to the
@@ -303,6 +343,7 @@ freeze); count shows on the provider dashboard. Provider appeals via ticket; SUP
 Payments) can remove a strike from the counter (reversible, audited).
 
 == 8. Money ==  [F10]
+kanban: `status:wip` · `weight:L` · `impacts:F07,F09,F11` · `deps:F06` · `ids:PM-money-02,PM-payouttxn-05,PM-procqueue-05b`
 
 All money is **decimal MXN pesos** — `decimal(12,2)`, single currency, no centavos (owner
 2026-06-15: "forget cents"). Gateway callbacks settling in another currency (e.g. PayPal USD)
@@ -315,15 +356,17 @@ with a nightly reconciliation job. The gateway processing fee is paid GROSS by t
 added on top at checkout, never absorbed by the platform or netted from the payout.
 
 **Payment lifecycle.** `payments` belongs to a booking; status `pending|completed|failed|
-refunded|held|released`. The client's payment is HELD from booking until the CLIENT accepts the
+refunded|held|processing|released|settled` (the `processing`/`settled` states are the payout
+queue — see *Payout processing queue & gateway truth* below; DB-enum migration pending, doc leads
+code). The client's payment is HELD from booking until the CLIENT accepts the
 primary proof (Payments does NOT review proof content — §7/§11). Client-accept → releasable;
 client-reject → HELD with a dual Support↔Payments ticket. `payout-held` is a `payments.status`
 concept, NOT a booking state.
 
 **Escrow (AFTER-MVP — see §6).** Pre-pay funds → escrow (`wallet_entries.type=escrow_capture`),
 released on confirm/cancel (`escrow_release`); capture/release + booking state change in ONE
-row-locked txn. Payout state machine `held → released → settled` (single transition, holds
-re-checked in the locked txn).
+row-locked txn. Payout state machine `held → processing → released → settled` (see below; holds
+re-checked in the locked txn at each transition).
 
 **Wallet ledger.** `wallet_entries` is append-only, double-entry: `user_id`, signed `amount`
 (`decimal(12,2)` MXN), `type {refund|withdrawal|escrow_capture|escrow_release|adjustment}`,
@@ -348,12 +391,40 @@ are **PER-PROVIDER** even within one multi-provider campaign invoice — each pr
 their own schedule. A payout held by an open dispute stays held until human adjudication (not a
 timer), then pays in full if resolved in the provider's favor (or is refunded per outcome).
 
+**Payout processing queue & gateway truth.** [owner 2026-07-16] Releasing a payout is NOT an
+instant wire. When Payments releases it (and nothing holds it) the payout enters a **processing
+queue**: `payments.status = processing` for a configurable **grace window** (Admin System Config
+`payout_processing_grace`, default 1 h) before a queued job actually dispatches the money-out to
+the gateway. This buffer is a **local, fully reversible** window — during it Payments OR Support
+can still pull the payout back to `held` (or cancel → refund) with **no gateway call**, so a
+mistaken release is recoverable. The `processing` state is surfaced **only on the Payments and
+Support UIs** (the client/provider just see "payout pending"); it is never a booking state.
+
+Once the grace window elapses the payout is dispatched — **one idempotency key per payout** so a
+retry never double-pays — and the **gateway becomes the source of truth**. We learn the money
+actually moved from Mercado Pago via a signature-verified **webhook (IPN)** plus a status query,
+recording `gateway_status` + `gateway_settled_at`. Mercado Pago money-in payment states are
+`pending|in_process|approved|rejected|refunded|charged_back`; once the gateway reports the
+transfer/payment as `approved`/settled the payout is **TERMINAL** (`released`, then `settled` on
+reconciliation) and a local `holdPayout` is a **NO-OP** — undoing it now requires a gateway-side
+**REFUND**, never a local status flip. This is precisely why `holdPayout`, Support's
+`flagPayoutHold`, and proof accept/reject all guard against `released|refunded`: the platform must
+never claim a payment is "held" when the gateway has already sent or returned the funds. A nightly
+**reconciliation job** re-queries any `processing`/`released` payout whose webhook never arrived
+(gateway offline → retry with backoff) so local state can never silently diverge from Mercado
+Pago's. Full payout state machine: `held → processing → released → settled`; `processing → held`
+is the ONLY backward edge and ONLY within the grace window. (Gateway calls stay MOCKED until keys
+exist — the queue, grace window, reversible state machine and Payments/Support UI are MVP-scoped
+and real now; live dispatch + webhooks + reconciliation land with the gateway integration,
+AFTER-MVP.)
+
 **Invoices.** `invoices` belongs to campaign: `invoice_number` (unique), `total_amount`, status
 `draft|issued|paid|overdue|cancelled`. **ONE invoice per campaign** (one checkout covers all ads
 regardless of provider), with **per-ad line items** and **per-provider payouts**. An orphan ad
 (not in an adset) cannot go live and its payment cannot be processed.
 
 == 9. Ratings (AFTER-MVP) ==  [F17]
+kanban: `status:backlog` · `weight:M` · `impacts:-` · `deps:F07` · `ids:RT-table-01,RT-post-02`
 
 Provider star rating (1–5 + count) on each space detail = average of per-campaign ratings +
 optional comment; `GET /spaces/{s}` returns avg+count. **Eligibility:** only clients rate, only
@@ -363,6 +434,7 @@ transparent — no client edit/delete; abusive comments flagged for Support, rem
 MANUAL admin action, never auto-hidden.
 
 == 10. Chat & PII ==  [F08]
+kanban: `status:review` · `weight:M` · `impacts:F07,F09` · `deps:F06` · `ids:CH-mask-02,CH-internal-05`
 
 **Three chat surfaces:** (1) contextual client↔provider chat on every ad/adset/campaign; (2) a
 global Help-menu chat for every user on an account; (3) the support-ticket chat (auto-attaches
@@ -408,6 +480,7 @@ Support inspects the situation and, by human decision, asks the provider for a r
 is no automatic re-upload.
 
 == 11. Tickets & Support ==  [F09]
+kanban: `status:review` · `weight:L` · `impacts:F07,F10,F11` · `deps:F08` · `ids:TK-dual-03,TK-flagbridge-06,TK-join-07`
 
 **Ticket from any object.** A "Talk to support" button on any campaign/adset/ad/space opens a
 thread that auto-attaches object context (provider, dates, payment status, proof state).
@@ -423,7 +496,9 @@ authenticated user; Support has its own queue (`/support/tickets`, `…/reply`).
 **Support powers.** Support **edits any NON-money object** (`PUT /support/{spaces|ads|users|
 bookings|collaborators}/{id}` — audited) but has NO money authority: it only **FLAGS** a refund
 or payout-hold (`POST /support/payments/{p}/flag-refund`, `…/flag-payout-hold`) for Payments to
-decide+execute. Joins client↔provider chats via `POST /support/conversations/{c}/join` (announced;
+decide+execute — though EITHER Support or Payments may pull a payout back to `held` while it sits
+in the §8 processing grace window (no gateway call). Joins client↔provider chats via
+`POST /support/conversations/{c}/join` (announced;
 Admin silent). Strike accrual/removal is Support, not Payments. Support can CLOSE a ticket without
 user consent, but closing resolves only the ticket STATE — the conversation stays LIVE/re-openable
 (not deletion, not a gag). Support-initiated ad-hoc tickets are visible only to the provider involved.
@@ -436,6 +511,7 @@ thread). Release/refund is a manual Payments+Support decision; Support leans cli
 resolution = cancel + full refund.
 
 == 12. Admin: Moderation, Freeze, Audit, Configurations ==  [F11,F12]
+kanban: `status:backlog` · `weight:L` · `impacts:F08,F10,F13` · `deps:F09` · `ids:AD-oversight-03,AU-log-01,CF-config-01`
 
 Admin is the **eagle-eye** role: reads EVERYTHING (all chats, all Support threads, all internal
 Support↔Payments threads, the audit log, users, RBAC). Admin posts into any thread
@@ -468,7 +544,7 @@ audit row written in the SAME txn as the state change (async via outbox); `inser
 
 **System Configurations (Admin-only; defaults in parentheses):** proof deadline (5 d) ·
 strike window (90 d) + 3-strike threshold · pre-pay offer expiry ·
-calendar-staleness threshold (7 d) · payout-stop window (24 h) · cancellation refund policy
+calendar-staleness threshold (7 d) · payout-stop window (24 h) · payout processing grace (1 h — §8) · cancellation refund policy
 (100% default; reduced only if in-process — §8) · currency (MXN) + unit (decimal pesos) ·
 default timezone (Monterrey at launch — §14) · auto-approve/auto-release amount threshold ·
 rate-limit thresholds · audit-log retention per role.
@@ -490,6 +566,7 @@ submission, with a burst allowance for known-good accounts; throttled responses 
 retry-after. Thresholds are admin-configurable.
 
 == 13. Notifications & Calendar ==  [F13]
+kanban: `status:backlog` · `weight:L` · `impacts:F07,F10` · `deps:F12` · `ids:NT-dispatch-01,CL-avail-01`
 
 **Dispatcher (AFTER-MVP).** Emit domain events (`BookingApproved`, `ProofRejected`, …); queued
 listeners fan out via a channel/urgency lookup — no scattered `Notification::send`. API: internal
@@ -512,6 +589,7 @@ availabilities`, `DELETE /…/{av}`, `POST /…/sync-ical`, `POST /…/import-ic
   rather than vanishing, and the staleness alert prompts a fix.
 
 == 14. RBAC & Capabilities ==  [F01,F14]
+kanban: `status:review` · `weight:M` · `impacts:F02,F09,F11` · `deps:F01` · `ids:AC-grants-07,AC-namedcaps-11`
 
 **Two layers.** The global `role_permissions` matrix governs SYSTEM roles only; a SEPARATE
 per-ACCOUNT grant overlay governs collaborators, evaluated AFTER the global matrix and scoped so
@@ -549,6 +627,7 @@ deadline instant is identical for everyone; only rendering varies — never comp
 the requester's local clock.
 
 == 15. Data Schema ==  [infra]
+kanban: `status:review` · `weight:M` · `impacts:all` · `deps:-` · `ids:SB-overlap-06,AU-log-01`
 
 Authoritative table list. PostgreSQL 17 — db `pub_ads_mar`, user postgres (trust auth). All
 money is DECIMAL MXN pesos (`decimal(12,2)`) — no centavos. Timestamps stored in UTC.
@@ -657,6 +736,7 @@ SpacePhoto/SpaceAvailability. Space+Ad+Adset+User(client) ─> Booking ─> Paym
 TicketMessage. User ─< WalletEntry.
 
 == 16. Data Model & Integrity Invariants ==  [infra]
+kanban: `status:review` · `weight:S` · `impacts:F10` · `deps:F15` · `ids:SB-overlap-06`
 
 Integrity rules (terse; most are AFTER-MVP — build when their subsystem ships):
 - **Money [MVP]:** wallet = append-only entries, balance = `SUM(amount)` (decimal pesos), never a
@@ -676,6 +756,7 @@ Integrity rules (terse; most are AFTER-MVP — build when their subsystem ships)
   B9 `client_accepted/client_rejected`) until the deprecated Payments proof-review is removed.
 
 == 17. Backend Endpoint Map ==  [infra]
+kanban: `status:review` · `weight:S` · `impacts:all` · `deps:-` · `ids:-`
 
 Source of truth: `backend/routes/api.php`. Format: `METHOD path — purpose`. ⚠ = the LIVE code
 diverges from canon. All paths prefixed `/api`. Two parts: LIVE (built) and PLANNED (designed).
@@ -750,6 +831,7 @@ Compliance (arch/design/cases → backend):
   ticket internal-note hiding.
 
 == 18. System & Dev ==  [dev]
+kanban: `status:review` · `weight:S` · `impacts:all` · `deps:-` · `ids:XC-speccomment-02`
 
 Backend: Laravel 12 (API only), `backend/`. Frontend: Angular 18 SPA (SSR), `frontend/`. DB:
 PostgreSQL 17 (Docker host :5435 → container :5432; bare-metal PG17 on :5434, trust auth). Auth:
@@ -772,6 +854,7 @@ Implementation status: see §17 (LIVE vs PLANNED endpoint map) and §20 for the 
 not duplicated here.
 
 == 19. User Stories (Cases) ==  [all]
+kanban: `status:done` · `weight:S` · `impacts:-` · `deps:-` · `ids:-`
 
 > The verbose, story-level source of truth for what each role does. The canonical DESIGN
 > (modules, enums, policies) is in §1–18 — when a story and a spec ever disagree, the spec wins.
@@ -882,6 +965,7 @@ bump to 200 DPI. ² −14 LUFS aligns with common Mexican broadcast loudness; pr
      are a provider-side artifact; the client only ACCEPTS or REJECTS a proof, never uploads one.
 
 == 20. Roadmap, Revisions & Known Gaps ==  [all]
+kanban: `status:wip` · `weight:S` · `impacts:-` · `deps:-` · `ids:-`
 
 These owner decisions SUPERSEDE earlier text where they conflict (latest wins). The team builds
 toward ~90% compliance across the design, not 100% — some older text is intentionally stale.
