@@ -8,7 +8,9 @@
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 100;
+  // Above Leaflet map panes/controls (~500–1000) so the user menu isn't hidden
+  // behind the map on the Explore Spaces page.
+  z-index: 1100;
 }
 
 .logo {
@@ -72,7 +74,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 200;
+  z-index: 1101;
   overflow: hidden;
 }
 
@@ -107,5 +109,5 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 99;
+  z-index: 1099;
 }
