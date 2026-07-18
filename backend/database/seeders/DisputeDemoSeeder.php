@@ -101,7 +101,28 @@ class DisputeDemoSeeder extends Seeder
             ['provider_user_id' => $provider->id]
         );
 
-        $this->command?->info('DisputeDemoSeeder: held payment + flag + 3 dispute threads ready (booking #' . $booking->id . ').');
+        // Scenario B: a proof AWAITING the client's review, so Accept/Reject is
+        // testable live from the client's Bookings page (design.md §7 [F07]).
+        $bookingB = Booking::firstOrCreate(
+            ['client_user_id' => $client->id, 'space_id' => $space->id, 'ad_id' => $ad->id, 'start_date' => '2026-08-01'],
+            ['end_date' => '2026-08-31', 'total_price' => 400, 'status' => 'waiting_proof']
+        );
+        Payment::updateOrCreate(['booking_id' => $bookingB->id], ['amount' => 400, 'status' => 'held']);
+        Proof::updateOrCreate(
+            ['booking_id' => $bookingB->id, 'ad_id' => $ad->id],
+            [
+                'uploaded_by_user_id' => $provider->id,
+                'media_type' => 'image',
+                'file_path' => 'proofs/demo-pending.jpg',
+                'file_name' => 'demo-pending.jpg',
+                'status' => 'pending_review',
+                'notes' => 'Provider uploaded proof — awaiting client review (demo).',
+            ]
+        );
+
+        $this->command?->info('DisputeDemoSeeder: dispute booking #' . $booking->id
+            . ' (held + flag + 3 threads) and pending-proof booking #' . $bookingB->id
+            . ' (client can Accept/Reject) ready.');
     }
 
     private function user(string $email, string $name, string $role): User

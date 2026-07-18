@@ -15,7 +15,7 @@ class BookingController extends Controller
     public function index(Request $request): JsonResponse
     {
         $bookings = Booking::where('client_user_id', $request->user()->id)
-            ->with(['space.user', 'ad', 'adset', 'payment'])
+            ->with(['space.user', 'ad', 'adset', 'payment', 'proofs'])
             ->latest()
             ->get();
 

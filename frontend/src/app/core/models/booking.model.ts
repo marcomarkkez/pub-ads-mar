@@ -16,6 +16,7 @@ export interface Booking {
   client?: { id: number; name: string; email: string };
   payment?: Payment;
   proof?: Proof;
+  proofs?: Proof[];
 }
 
 export interface Payment {
@@ -34,11 +35,13 @@ export interface Proof {
   id: number;
   booking_id: number;
   uploaded_by_user_id: number;
+  media_type?: 'image' | 'video';
   file_path: string;
   file_name: string;
   file_url: string;
   notes: string | null;
-  status: 'pending_review' | 'approved' | 'rejected';
+  // B9: the CLIENT accepts/rejects. Legacy approved/rejected kept for old rows.
+  status: 'pending_review' | 'client_accepted' | 'client_rejected' | 'approved' | 'rejected';
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;

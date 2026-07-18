@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
-import { Booking } from '../../../core/models';
+import { Booking, Proof } from '../../../core/models';
 
 @Component({
   selector: 'app-booking-list',
@@ -98,6 +98,37 @@ import { Booking } from '../../../core/models';
                           }
                         }
                       </div>
+
+                      <!-- design.md §7 [F07]: the CLIENT reviews the provider's proof -->
+                      @if (proofOf(booking); as proof) {
+                        <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
+                          <span style="color:var(--text-muted);display:block;font-size:12px;margin-bottom:8px;">Proof of display</span>
+                          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+                            @if (proof.media_type === 'video') {
+                              <video [src]="proof.file_url" controls style="max-width:240px;max-height:180px;border-radius:6px;background:#000;"></video>
+                            } @else {
+                              <img [src]="proof.file_url" [alt]="proof.file_name" style="max-width:240px;max-height:180px;border-radius:6px;object-fit:cover;" />
+                            }
+                            <div style="flex:1;min-width:220px;">
+                              <span class="badge" [class]="'badge badge-' + proof.status">{{ proofLabel(proof.status) }}</span>
+                              @if (proof.notes) {
+                                <p style="font-size:12px;color:var(--text-muted);margin:8px 0 0;">{{ proof.notes }}</p>
+                              }
+                              @if (proof.status === 'pending_review') {
+                                <p style="font-size:12px;margin:8px 0;">Review the provider's proof and accept it (payout becomes releasable) or reject it (payout is held and Support reviews the case).</p>
+                                <div style="display:flex;gap:8px;">
+                                  <button class="btn btn-sm btn-success" [disabled]="actionLoading()" (click)="acceptProof(proof)">Accept</button>
+                                  <button class="btn btn-sm btn-danger" [disabled]="actionLoading()" (click)="rejectProof(proof)">Reject</button>
+                                </div>
+                              } @else if (proof.status === 'client_accepted') {
+                                <p style="font-size:12px;color:var(--success,#2e7d32);margin:8px 0 0;">You accepted this proof — Payments can now release the payout.</p>
+                              } @else if (proof.status === 'client_rejected') {
+                                <p style="font-size:12px;color:var(--danger,#b91c1c);margin:8px 0 0;">You rejected this proof — the payout is held and Support is reviewing the case.</p>
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      }
                     </td>
                   </tr>
                 }
@@ -128,6 +159,7 @@ export class BookingListComponent implements OnInit {
   lastPage = signal(1);
   pages = signal<number[]>([]);
   expandedId = signal<number | null>(null);
+  actionLoading = signal(false);
 
   constructor(
     private http: HttpClient,
@@ -154,5 +186,47 @@ export class BookingListComponent implements OnInit {
 
   toggleDetail(id: number): void {
     this.expandedId.set(this.expandedId() === id ? null : id);
+  }
+
+  /** The latest proof on a booking (backend loads `proofs`; fall back to `proof`). */
+  proofOf(booking: Booking): Proof | null {
+    const proofs = booking.proofs ?? (booking.proof ? [booking.proof] : []);
+    if (!proofs.length) return null;
+    return proofs.reduce((a, b) => (b.id > a.id ? b : a));
+  }
+
+  proofLabel(status: string): string {
+    switch (status) {
+      case 'pending_review': return 'Awaiting your review';
+      case 'client_accepted': return 'Accepted';
+      case 'client_rejected': return 'Rejected';
+      default: return status;
+    }
+  }
+
+  acceptProof(proof: Proof): void {
+    if (!confirm('Accept this proof of display? The payout becomes releasable.')) return;
+    this.proofAction(`proofs/${proof.id}/accept`, {}, 'Proof accepted.');
+  }
+
+  rejectProof(proof: Proof): void {
+    if (!confirm('Reject this proof? The payout will be held and Support will review the case.')) return;
+    const reason = prompt('Why are you rejecting this proof? (optional)') ?? '';
+    this.proofAction(`proofs/${proof.id}/reject`, { reason }, 'Proof rejected — Support will review.');
+  }
+
+  private proofAction(path: string, body: Record<string, unknown>, ok: string): void {
+    this.actionLoading.set(true);
+    this.http.post(`${this.api}/client/${path}`, body).subscribe({
+      next: () => {
+        this.actionLoading.set(false);
+        this.notify.success(ok);
+        this.loadPage(this.currentPage());
+      },
+      error: (err) => {
+        this.actionLoading.set(false);
+        this.notify.error(err.error?.message || 'Action failed.');
+      },
+    });
   }
 }
