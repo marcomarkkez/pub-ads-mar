@@ -26,7 +26,7 @@ export class SidebarComponent {
     switch (role) {
       case 'client':
         return [
-          { label: 'Dashboard', icon: '📊', route: '/dashboard' },
+          // design.md §1/§13: the client has NO dashboard — lands on the Spaces map.
           { label: 'Explore Spaces', icon: '🗺️', route: '/client/spaces' },
           { label: 'Campaigns', icon: '📢', route: '/client/campaigns' },
           { label: 'Bookings', icon: '📅', route: '/client/bookings' },
