@@ -55,11 +55,12 @@ SYSTEM roles (`users.role` enum = `client|provider|admin|support|payments`):
   campaign, reviews proof, chats with providers. No dashboard (lands on Map+Search).
 - **Provider** — owns spaces (+photos, availability, pricing); approves/rejects bookings,
   uploads the PRIMARY proof. Lands on a stats dashboard.
-- **Admin** — eagle-eye: sees EVERYTHING (all client↔provider chats, Support threads,
-  internal Support↔Payments threads), moderates listings (takedown/restore/freeze), edits
+- **Admin** — eagle-eye: sees EVERYTHING (every chat — client↔provider, Support-joined,
+  internal Support↔Payments, disputes), moderates listings (takedown/restore/freeze), edits
   any object, configures System Configurations, reads the immutable audit log, manages users
-  + the RBAC matrix. Reads/posts into any thread SILENTLY (🤫, no join announcement). The
-  only role above Support and Payments.
+  + the RBAC matrix. Reads every chat SILENTLY/incognito (🤫, read-only oversight — never
+  posts as a ghost; the one chat write-power is reopening a closed chat for investigation —
+  §10, UC-28). The only role above Support and Payments.
 - **Support** — investigates user-reported problems on any ad/adset/campaign/space;
   near-admin: edits every NON-money object, joins client↔provider chats ANNOUNCED (📣), can
   only FLAG a refund/payout-hold (never execute), adjudicates mismatches, removes strikes
@@ -84,13 +85,13 @@ columns split by ecosystem subrole (client: **publ**=publicist, **mgr**=manager 
 | Ad | 🟢 | publ:🟢 | 👁(theirs) | · | 👁✏📝 | 👁 | 👁🤫✏📝 |
 | Space (+photo/avail) | 👁 | 👁 | 🟢 | inst:· \| sales:👁 \| sup:🟢 | 👁✏📝 | 👁 | 👁🤫✏📝 |
 | Booking | 🟢 | publ:🟢 | 👁✏(theirs) | inst:· \| sales:👁 \| sup:✏ | 👁✏📝 | 👁 | 👁🤫✏📝 |
-| Proof | 🟢 review+flag | inst:create / publ+mgr:review+flag | 🟢 create (PRIMARY) | inst:create \| sales:· \| sup:review | 👁✏📝 (mismatch) | 👁 (no content review), $hold-on-reject | 👁🤫✏📝 |
-| Payment | 👁(own) | mgr:👁 | 👁(payout) | sup:👁 | 👁 flag$ | 🟢 $📝 | 👁🤫 $📝 |
+| Proof | 🟢 review+flag | publ+mgr:review+flag | 🟢 create (PRIMARY) | inst:create \| sales:· \| sup:create | 👁✏📝 (mismatch) | 👁 (no content review), $hold-on-reject | 👁🤫✏📝 |
+| Payment | 👁(own) | mgr:👁 | 👁(payout) | sup:· | 👁 flag$ | 🟢 $📝 | 👁🤫 $📝 |
 | Wallet / Refund | 👁(own) | mgr:👁 | · | · | flag only | $ execute | 👁🤫 $📝 |
 | Invoice | 👁(own) | mgr:👁 | 👁(own) | sup:👁 | 👁✏📝 | 👁 | 👁🤫✏📝 |
-| Conversation / Msg | 🟢(own) | publ:🟢 | 🟢(own) | publ:🟢 / sup:🟢 | 📣 join 📝 | 📣 join | 🤫 silent or 📣 📝 |
-| Ticket | 🟢 raise | publ+mgr | 🟢 raise | publ:🟢 / sup:🟢 | 🟢 handle 📝 | 🟢 handle | 👁🤫✏📝 |
-| Internal thread | · | · | · | · | 🟢 w/Payments | 🟢 w/Support | 👁🤫✏📝 |
+| Chat (Objetos & Flags) | 🟢 own | publ:🟢 \| mgr:🟢 | 🟢 own | inst:· \| sales:🟢 \| sup:🟢 | 📣 join+flag$ 📝 | 🤫 internal only | 🤫 read-all 📝 |
+<!-- [owner 2026-07-17] Payments chat-join is SILENT (🤫), not announced; Supervisor does NOT see Payments (sup:· on Payment); Supervisor CAN upload the primary proof (sup:create on Proof); Installator is provider-side only (removed from the client collab column). -->
+
 | User / account | · | · | · | · | 👁✏📝 (no $) | · | 🟢✏📝 |
 | Collaborator | 🟢(own) | · | 🟢(own) | · | 👁✏📝 (provider collab roles) | · | 👁🤫✏📝 |
 | RBAC permissions | · | · | · | · | 👁 collab-roles | · | 🟢 employees |
@@ -100,8 +101,13 @@ columns split by ecosystem subrole (client: **publ**=publicist, **mgr**=manager 
 Separation-of-powers (load-bearing; roles defined in §1):
 - A client-rejected proof AUTO-HOLDS the payment; an accepted proof makes it releasable for
   MANUAL Payments release. Strikes route Support→Admin, never Payments.
-- **Internal Support↔Payments threads** are membership-ACL'd; the client never sees them; Admin
-  observes (and may post).
+- **Chat (one primitive — §10):** every conversation, "ticket", internal money huddle, and dispute
+  is ONE `chat`; a "ticket" is just a chat with a **Support** participant. Nature is DERIVED from
+  participants+objects+flags (no `type` column). Chat **flags** = payment_held/refund/payout_hold/
+  cancel/mismatch; Support **RAISES** money flags, Payments **EXECUTES** the money (§8) — a flag never
+  grants access and the money authority is `payments.status`, never a flag (UC-22, UC-25).
+- **Internal Support↔Payments chats** are membership-ACL'd; the client never sees them; Admin
+  observes read-only/incognito (never posts).
 - **Auto-approve**: Admin System Config toggle + amount threshold (auto-release payments under $X),
   default OFF; larger payments still need manual Payments review.
 - Audit log is append-only/immutable; every staff (✏/$) action is 📝-logged.
@@ -117,7 +123,8 @@ is the account identity: exactly ONE account per email, no two accounts share an
 person wanting both a client and a provider account registers two different emails and
 switches manually — we do NOT enforce, link, or merge them.
 
-**Collaborators** are invited by email from an account-scoped Collaborators screen under the
+**Collaborators** (UC-19 owner manages; UC-20 collaborator acts in subrole scope) are invited by
+email from an account-scoped Collaborators screen under the
 Configurations tab. They are ACCOUNT-scoped (owner 2026-06-20, reaffirmed 2026-06-24/25): a
 collaborator points to **account_id** (never a campaign or space) and, per role, sees/acts
 across ALL of that account's campaigns/spaces. Enforced by a SEPARATE per-account RBAC grant
@@ -130,7 +137,7 @@ sets share NO names and a subrole on one side is unrelated to the other.
 
 CLIENT-side subroles:
 - **Publicist** — operational: create/edit campaigns, adsets, ads; review proofs; upload
-  SECONDARY proofs; chat with providers; open support tickets. CANNOT see money/billing.
+  SECONDARY proofs; chat with providers; open support chats. CANNOT see money/billing.
 - **Manager** — everything the owner can do INCLUDING money and billing (the ONLY client
   collaborator that sees money).
 
@@ -140,12 +147,14 @@ PROVIDER-side subroles (owner 2026-06-25, confirmed 2026-06-26):
 - **Sales** — provider-side equivalent of Support: answers client messages for information.
   Can ONLY reply to messages/chats — CANNOT remove people, add/edit/delete spaces, or touch
   money. Purely communicational.
-- **Supervisor** — can see and EDIT almost everything in the provider account INCLUDING
-  money/payouts, EXCEPT three owner-only powers: cannot remove people (manage collaborators),
-  cannot adjust account configurations, cannot DELETE spaces.
+- **Supervisor** — can see and EDIT almost everything in the provider account EXCEPT the
+  owner-only powers (cannot remove people / manage collaborators, adjust account configurations,
+  DELETE spaces) AND, [owner 2026-07-17], EXCEPT money/Payments — the Supervisor does NOT see
+  Payments for now (was "including money/payouts"; the owner narrowed it).
 
-Money/billing is visible only to the owner and each side's money role (client Manager /
-provider Supervisor) — never to Publicists, Sales, or Installators.
+Money/billing on the CLIENT side is visible to the owner and the client Manager. On the PROVIDER
+side money is owner-only for now [owner 2026-07-17: Supervisor no longer sees Payments]. Never to
+Publicists, Sales, or Installators.
 
 == 4. Core Objects & Lifecycles ==  [F04,F06,F07]
 kanban: `status:review` · `weight:M` · `impacts:F05,F07,F08,F10` · `deps:F03` · `ids:SB-enum-07,CA-crud-03`
@@ -221,7 +230,7 @@ what3words is OPTIONAL client-side sugar (autosuggest only), stores NO column; t
 location stays latitude/longitude/location_name. The whole map stack is swappable to Google
 Maps via `environment.mapProvider`.
 
-= Landing & nearest-first sidebar =  [F03]
+= Landing & nearest-first sidebar =  [F03]  (UC-1 search/multi-select; UC-2 organize backlog→adset; UC-3 upload creative)
 Client lands on a map centered on their geolocation (default Monterrey, NL). The right rail
 (3-pane layout: menu | map | detail sidebar) lists nearby spaces sorted near-to-far via the
 map provider's distance calc (or simple lat/long triangulation), each tagged with type
@@ -260,17 +269,17 @@ space's media-delivery specs. Any UI that lets a client type an ad name + pick a
 media type + upload a file to mint a brand-new, space-less ad is a bug — such an
 ad has no space and can never be booked.
 
-= Booking action & per-ad go-live =  [F06]
+= Booking action & per-ad go-live =  [F06]  (UC-15 provider approves/rejects; UC-13 provider lists space)
 Provider acts on a request with **Approve** or **Reject** only — NO counter-offers. The
 rejection reason is OPTIONAL (a given reason helps the client re-submit a corrected file). The
 request queue shows client, dates, total, and the attached media file. Confirmed bookings move
 to an installation queue (install date + the client's file), staffed by Installator-role
 collaborators. Go-live is PER-AD, not all-or-nothing: each ad is approved, goes live, and bills
 on its own approval independently — a slow/rejected provider never blocks the rest of the
-campaign. An inquiry chat becomes a confirmed booking thread only when BOTH provider approval
-AND client payment are complete; either alone leaves it an inquiry.
+campaign. An inquiry chat becomes a confirmed booking chat only when BOTH provider approval
+AND client payment are complete; either alone leaves it an inquiry (UC-8, UC-15).
 
-== 6. Book-for-later, Pre-pay & Escrow (AFTER-MVP) ==  [F15]
+== 6. Book-for-later, Pre-pay & Escrow (AFTER-MVP) ==  [F15]  (UC-5)
 kanban: `status:backlog` · `weight:XL` · `impacts:F10` · `deps:F10` · `ids:PE-checkout-01,PE-prepay-04`
 
 When a requested window isn't yet free the client sees "Book it for later." Two per-space queues:
@@ -290,7 +299,7 @@ When a requested window isn't yet free the client sees "Book it for later." Two 
 == 7. Proof of Display, Deadlines & Strikes ==  [F05,F07,F16]
 kanban: `status:wip` · `weight:L` · `impacts:F08,F09,F10` · `deps:F06` · `ids:PR-accept-03,PR-reject-04,ST-strikes-01`
 
-= Primary & secondary proofs =  [F07]
+= Primary & secondary proofs =  [F07]  (UC-16 provider/installator uploads primary)
 The PROVIDER owns the PRIMARY proof of display — only the primary proof makes a booking
 eligible for payout. Within the proof deadline the PRIMARY proof is uploaded by the provider
 owner OR the provider's Installator or Supervisor subrole — NOT Sales, and no client-side role
@@ -305,7 +314,7 @@ and day 4 (day-4 includes SMS). Missing the day-5 deadline auto-cancels the book
 client to wallet in full, and accrues a provider strike. The auto-cancel cron locks the booking
 and re-checks `proof IS NULL` inside the transaction.
 
-= Review, payout & client reject → auto-hold =  [F07]  [owner 2026-07-10: NO re-upload loop; 2026-07-14: dispute opens 3 Support threads]
+= Review, payout & client reject → auto-hold =  [F07]  [owner 2026-07-10: NO re-upload loop; 2026-07-14: dispute opens 3 Support chats]  (UC-6 accept, UC-7 reject/dispute)
 **Two phases.** PHASE 1 (the ONLY automatic opportunity): the provider must post the primary
 proof within the proof deadline (admin default 5 d, above). PHASE 2 (human analysis): once the
 client reviews the proof, humans take over — there is NO second automatic window before flagging.
@@ -316,20 +325,22 @@ review proof content**; Payments only sees the resulting money state.
 - If the client REJECTS (or a collaborator flags a mismatch / the deadline passes with no
   satisfactory proof), the ONLY automatic actions are: (1) the payout is AUTO-HELD; (2) a FLAG is
   raised carrying informative reason text — `Payment held — <reason>` (e.g. "unsatisfactory
-  proof") — attached to the payment so Payments has context; and (3) THREE Support-anchored chat
-  threads auto-open so humans can inspect the whole situation:
-    · **Support↔Payments** (internal, `type=internal`) — the money decision; the ONLY thread Payments is in.
-    · **Support↔Client** — Support investigates with the client (provider not present).
-    · **Support↔Provider** — Support asks for a real/corrected proof (client not present).
+  proof") — attached to the payment so Payments has context; and (3) THREE Support-anchored CHATS
+  auto-open (one chat primitive — §10; UC-7, UC-35) so humans can inspect the whole situation. Each
+  is an instance of the SAME primitive, anchored to the held payment+booking object with a
+  `payment_held` flag, differing ONLY by participant set:
+    · **Support↔Payments** (internal) — the money decision; the ONLY chat Payments is in.
+    · **Support↔Client** — Support investigates with the client (provider not a participant).
+    · **Support↔Provider** — Support asks for a real/corrected proof (client not a participant).
   There is NO automatic re-upload window or clock — any request for a new proof is a HUMAN one
-  Support makes in the Support↔Provider thread.
+  Support makes in the Support↔Provider chat.
 - Releasing a held payout is a MANUAL, human decision by **Payments together with Support** after
-  they inspect the case across those threads: either release to the provider (e.g. once a
+  they inspect the case across those chats: either release to the provider (e.g. once a
   satisfactory proof is posted and the client accepts), or cancel the booking and refund the
   client in full. A release does NOT wire instantly — it enters the §8 payout **processing queue**
   (a reversible grace window) before the money leaves, so Payments OR Support can still pull it
   back to `held`. Support leans toward the client and watches for fraud; Payments executes the
-  money movement. Nothing beyond the hold + flag + thread-opening is automatic.
+  money movement. Nothing beyond the hold + flag + chat-opening is automatic.
 
 Proof photos are NOT auto geotag-checked against the space lat/long — the space belongs to the
 provider, who knows where it is; a proof that doesn't match the booked ad is caught by the
@@ -339,8 +350,8 @@ client/collaborator mismatch-flag → Support/Payments path instead.
 Strikes accrue on missed proof deadline, provider cancel of a confirmed booking, or upheld
 mismatch; accrual is decoupled from notification delivery. NOT a Payments power — routes Support
 then Admin. 3 strikes in a trailing 90-day window flag the account for Admin review (possible
-freeze); count shows on the provider dashboard. Provider appeals via ticket; SUPPORT (not
-Payments) can remove a strike from the counter (reversible, audited).
+freeze); count shows on the provider dashboard. Provider appeals via a support chat; SUPPORT (not
+Payments) can remove a strike from the counter (reversible, audited) (UC-18 appeal, UC-24 reverse).
 
 == 8. Money ==  [F10]
 kanban: `status:wip` · `weight:L` · `impacts:F07,F09,F11` · `deps:F06` · `ids:PM-money-02,PM-payouttxn-05,PM-procqueue-05b`
@@ -359,8 +370,9 @@ added on top at checkout, never absorbed by the platform or netted from the payo
 refunded|held|processing|released|settled` (the `processing`/`settled` states are the payout
 queue — see *Payout processing queue & gateway truth* below; DB-enum migration pending, doc leads
 code). The client's payment is HELD from booking until the CLIENT accepts the
-primary proof (Payments does NOT review proof content — §7/§11). Client-accept → releasable;
-client-reject → HELD with a dual Support↔Payments ticket. `payout-held` is a `payments.status`
+primary proof (Payments does NOT review proof content — §7/§10). Client-accept → releasable;
+client-reject → HELD with a `payment_held` flag on the payment + three auto-opened Support chats
+(§7/§10; UC-7, UC-25, UC-27). `payout-held` is a `payments.status`
 concept, NOT a booking state.
 
 **Escrow (AFTER-MVP — see §6).** Pre-pay funds → escrow (`wallet_entries.type=escrow_capture`),
@@ -368,14 +380,14 @@ released on confirm/cancel (`escrow_release`); capture/release + booking state c
 row-locked txn. Payout state machine `held → processing → released → settled` (see below; holds
 re-checked in the locked txn at each transition).
 
-**Wallet ledger.** `wallet_entries` is append-only, double-entry: `user_id`, signed `amount`
+**Wallet ledger.**  (UC-11)  `wallet_entries` is append-only, double-entry: `user_id`, signed `amount`
 (`decimal(12,2)` MXN), `type {refund|withdrawal|escrow_capture|escrow_release|adjustment}`,
 `ref_type`, `ref_id`, `idempotency_key` (UNIQUE), `created_at`. Balance = `SUM(amount)`, never a
 writable column. Wallet states `{active|frozen}`; withdraw is blocked while any dispute/hold is
 open (`POST /client/wallet/withdraw`). Every refund/payout carries an idempotency key so a
 retried gateway call or re-fired cron cannot double-pay; enforce `SUM(refunds) ≤ captured`.
 
-**Refunds.** Payments executes ALL refunds (mocked); Support only FLAGS. [owner 2026-06-27]
+**Refunds.**  (UC-26 execute; UC-10 client cancel)  Payments executes ALL refunds (mocked); Support only FLAGS. [owner 2026-06-27]
 Cancellation refunds are **100% by default** UNLESS the booking was already IN PROCESS (install
 work started / teams dispatched), then reduced to cover work performed — stated in the Terms &
 Conditions accepted at checkout (supersedes the earlier 90/5/5 split). Free pre-approval cancel;
@@ -384,7 +396,8 @@ cancel. Clawback (refunded client later suspended for fraud): platform FREEZES t
 Payments; Payments cannot pull funds — the frozen balance waits for an Admin decision (claw back
 via negative ledger entry / keep frozen / release).
 
-**Payouts.** Happen ASAP but must be APPROVED by Payments first; Support flags only. Once
+**Payouts.**  (UC-17 provider receives; UC-25 Payments executes; UC-32 Admin payout-stop)  Happen
+ASAP but must be APPROVED by Payments first; Support flags only. Once
 approved and nothing holds it, **Admin** has a configurable window (default 24 h) to stop it;
 if Admin doesn't, funds release automatically to the provider's Mercado Pago / PayPal. Payouts
 are **PER-PROVIDER** even within one multi-provider campaign invoice — each provider is paid on
@@ -418,12 +431,12 @@ exist — the queue, grace window, reversible state machine and Payments/Support
 and real now; live dispatch + webhooks + reconciliation land with the gateway integration,
 AFTER-MVP.)
 
-**Invoices.** `invoices` belongs to campaign: `invoice_number` (unique), `total_amount`, status
+**Invoices.**  (UC-4 checkout & pay, one invoice per campaign)  `invoices` belongs to campaign: `invoice_number` (unique), `total_amount`, status
 `draft|issued|paid|overdue|cancelled`. **ONE invoice per campaign** (one checkout covers all ads
 regardless of provider), with **per-ad line items** and **per-provider payouts**. An orphan ad
 (not in an adset) cannot go live and its payment cannot be processed.
 
-== 9. Ratings (AFTER-MVP) ==  [F17]
+== 9. Ratings (AFTER-MVP) ==  [F17]  (UC-12)
 kanban: `status:backlog` · `weight:M` · `impacts:-` · `deps:F07` · `ids:RT-table-01,RT-post-02`
 
 Provider star rating (1–5 + count) on each space detail = average of per-campaign ratings +
@@ -433,92 +446,104 @@ after a campaign with that provider **ended OR ran live ≥30 days**, **one per 
 transparent — no client edit/delete; abusive comments flagged for Support, removed only by rare
 MANUAL admin action, never auto-hidden.
 
-== 10. Chat & PII ==  [F08]
-kanban: `status:review` · `weight:M` · `impacts:F07,F09` · `deps:F06` · `ids:CH-mask-02,CH-internal-05`
+== 10. Chats, Objetos & Flags ==  [F08,F09]
+kanban: `status:wip` · `weight:XL` · `impacts:F07,F11,F12` · `deps:F06` · `ids:CH-mask-02,CH-startchat-08,TK-flagbridge-06,TK-join-07`
 
-**Three chat surfaces:** (1) contextual client↔provider chat on every ad/adset/campaign; (2) a
-global Help-menu chat for every user on an account; (3) the support-ticket chat (auto-attaches
-object context: provider, dates, payment status, proof state).
+**One primitive.** Every conversation on the platform — a client asking a provider a question, a
+"talk to support" request, an internal Support↔Payments money huddle, a proof dispute — is ONE
+object: a **chat**. There is no separate "ticket" entity, table, area, or menu; a chat IS a
+"ticket" purely by having a **Support** participant. A chat's nature is NEVER stored in a
+`type`/`kind` column — it is **DERIVED** at read time from three things: its **participants**
+(which sides are present), its **attached objects**, and its **flags**. Why a chat was opened and
+every later transformation live in its persisted **message/event history** (`kind=system`
+messages), not in a column. [owner 2026-07-17: merged former §10 Chat + §11 Tickets.]
 
-**PII masking** is one server-side service, evaluated **per-message at render** against the
-viewer's role and the thread's join state — never store only-masked content if Admin/audit needs
-the raw. Masked in client↔provider chat: phone, email, full URL, off-space street address.
-Masking RELAXES when Support joins (announced by a system message) and NEVER applies on internal
-staff threads. When Support joins it can read/post and sees the FULL prior history unmasked
-(near-admin level). **Admin is the exception to the announcement rule:** Admin reads and posts into
-any thread SILENTLY/incognito — no system message announces entry.
+**Participants — a per-person membership table.** Access is by **MEMBERSHIP/role, never by a
+(mutable) flag**. `chat_participants` lists each person on a chat with their `side`
+(client|provider|support|payments|admin), `announced`, `joined_at`, `left_at`. A person may
+read/post a chat when they hold a participant row OR they belong to a participating ACCOUNT with a
+chat-capable subrole (so a collaborator added later still reaches their account's chats). Sides:
+- **Client side** — the client account + ANY of its collaborators (publicist/manager) — for now.
+- **Provider side** — the provider account + its **Sales** and **Supervisor** collaborators;
+  **NOT Installators** (their role is proof-upload only).
+- **Support side** — the Support role; any support agent can pick up a chat that has a Support
+  participant (the support "queue" is DERIVED, not a separate inbox). A Support join into a
+  client↔provider chat is **ANNOUNCED** (a system message) and **relaxes PII** for that chat (UC-21).
+- **Payments** — joins only money-relevant chats (a chat anchored to a payment): the internal and
+  dispute chats. Payments never enters a plain client↔provider chat.
+- **Admin** — **eagle-eye, read-only, incognito**: reads EVERY chat (including closed ones, full
+  unmasked history) via the oversight view; entry is never shown in the user UI and Admin does NOT
+  post as a ghost participant. Admin's only chat write-power is a moderation action (reopen a
+  closed chat for investigation). [reconciled 2026-07-17: the old "admin can post into any thread"
+  is narrowed to read-only per the ACL review — a silent ghost-poster is a hazard.]
 
-**Staff access to a client↔provider thread** [owner 2026-07-14]: the two participants always;
-SUPPORT only AFTER it has joined (announced) — before joining Support cannot read it; ADMIN via
-the read-only oversight endpoints (silent). PAYMENTS does NOT enter client↔provider threads at
-all — it works through the internal Support↔Payments thread, where Support relays the needed
-context. (So the masking-relax trigger for a client↔provider thread is a Support join, not a
-Payments one.)
+**Objects — zero..many polymorphic attachments.** A chat may attach ZERO or MANY objects, each of
+`ad | adset | campaign | space | payment | booking`. A chat opened *from* an object carries it from
+the start (with its context: provider, dates, payment status, proof state). A chat with NO object
+is a general question. The UI attaches an object via two dropdowns (object type → the object, e.g.
+Ads → "My Ad #1"). **Attaching is ownership-checked:** a client/provider may attach only THEIR OWN
+objects; Support/Admin may attach any. An object never grants chat access, and a chat never exposes
+an object its attacher could not already see (this is the guard against private-object leakage).
 
-**Street-address whitelist.** In a thread tied to a space's booking, that space's ONE stored
-street address (and close variants) is whitelisted and shown normally — the client needs it to
-install/photograph the ad — while every OTHER address-like string is still masked.
+**Flags — zero..many, with history.** A chat carries ZERO or MANY flags. A flag =
+`{ type, reason, active, created_by, superseded_at }`, `type ∈ {payment_held, refund, payout_hold,
+cancel, mismatch, …}`. Flags are the **volatile human annotations**; on any change the old flag is
+deactivated (`superseded_at` set), the new one created, and a **system message** records it ("flag
+payment_held → cancel by Ana"). History is persisted. A flag NEVER grants access. The authoritative
+**money STATE is NOT a flag** — it stays on `payments.status` (`held|processing|released|settled|…`),
+which is what gates automation; flags only annotate the WHY. Support RAISES money flags
+(refund/payout_hold/payment_held); **Payments EXECUTES** the money via the §8 routes (UC-22 flag, UC-25/UC-26 execute).
 
-**Polymorphic conversation + travel history.** A thread anchor (`type`, `subject_type`,
-`subject_id`) + a `conversation_links` history of contexts it has traveled (inquiry → booking →
-ticket), + `messages.kind` for system-transition messages. One conversation travels as one
-chronological thread. (Current table `conversations` is keyed on space+client+provider with
-`unique(space_id, client_user_id)` — to be reconciled to polymorphic anchors.)
+**States.** `open | in_progress | resolved | closed`. Support sets **in_progress** on pickup;
+**resolved** = Support did its part; **closed** = the OPENER confirmed it is solved (a Support
+force-close is an Admin-style override that writes a system event). The user-facing UI shows only
+**Abierto / Cerrado** (closed → Cerrado, everything else → Abierto). A closed chat is **NOT
+reopenable by users** — they open a NEW chat; only **Admin** reopens (investigation). A closed
+chat's flags and history are hidden from normal users, visible to Admin.
 
-**Internal Support↔Payments threads** are SEPARATE conversation rows (`type=internal`) with a
-membership-based ACL — never a visibility boolean on a shared client thread. The client never
-sees them. (Add a test asserting a client can never fetch an internal-thread message.) Admin can
-observe AND post into all internal threads. The account owner can see any conversation a
-collaborator has.
+**PII masking** is one server-side service, evaluated **per-message at render** against the viewer
+and the chat's participants. It applies ONLY to a chat that has BOTH a client side and a provider
+side with NO Support joined (a client↔provider chat): phone, email, full URL, and off-space street
+addresses are masked, while the booked space's OWN stored street address (and close variants) is
+whitelisted (the client needs it to install/photograph the ad). Masking **relaxes** the moment
+Support joins (announced) and **NEVER** applies on any staff-only chat (Support↔Client, ↔Provider,
+↔Payments, Admin). Raw bodies are always stored so Admin/audit can read originals.
 
-**Support-anchored dispute threads** [owner 2026-07-14]: on a proof-reject dispute (§7) Support
-opens a direct 1:1 thread with EACH party — `type=support_client` (Support↔Client) and
-`type=support_provider` (Support↔Provider), alongside the `type=internal` Support↔Payments
-thread. Each is membership-based: only Support (+Admin) and that ONE counterparty; the other
-counterparty and Payments never see it. These carry no PII masking (staff thread). This is how
-Support inspects the situation and, by human decision, asks the provider for a real proof — there
-is no automatic re-upload.
+**Single "Messages" surface.** Every role reaches all of this through ONE **Messages** area — there
+are NO "Support" tabs or menus at any level. "Contact support" is simply "open a chat" (objectless,
+or object-attached via the two dropdowns). Support's Messages shows the chats it may pick up (its
+derived queue); each side sees only its own chats. (UC-8 client↔provider inquiry; UC-9 contact support.)
 
-== 11. Tickets & Support ==  [F09]
-kanban: `status:review` · `weight:L` · `impacts:F07,F10,F11` · `deps:F08` · `ids:TK-dual-03,TK-flagbridge-06,TK-join-07`
+**Dispute (see §7).** When a client rejects proof, `payments.status = held` (stops automation) and
+**three chats** auto-open — each an instance of THIS primitive, each anchored to the held
+payment + booking object and carrying a `payment_held` flag: **Support↔Client**, **Support↔Provider**,
+**Support↔Payments** (the last auto-opened so Payments sees the held payment as an attached object
+and can proactively ask Support before releasing or holding longer — human safety, no automation).
+They differ only by participant set; the opposite party is simply not a participant. (UC-7, UC-35.)
 
-**Ticket from any object.** A "Talk to support" button on any campaign/adset/ad/space opens a
-thread that auto-attaches object context (provider, dates, payment status, proof state).
-`tickets` is polymorphic: reporter `user_id`, `ticketable_type`/`ticketable_id`, `subject`,
-`description`, status `open|in_progress|waiting_user|resolved|closed`, priority
-`low|medium|high|urgent`, `assigned_to_user_id`. Ticketable covers Ad|Adset|Campaign|Space —
-**plus `payment`** (the dual-ticket path below). `ticket_messages` carry `is_internal` staff-only
-notes. Reference-less tickets are also allowed.
+**Admin oversight** — Admin reads every chat via ONE read-only/incognito screen
+`GET /admin/oversight/chats` with filters; full spec stated once in §12 [dedup 2026-07-17]. (UC-28.)
 
-**Shared CRUD:** `GET,POST /tickets · GET /tickets/{t} · POST /tickets/{t}/reply` for any
-authenticated user; Support has its own queue (`/support/tickets`, `…/reply`).
+== 11. (merged into §10) ==  [F09]
+kanban: `status:wip` · `weight:S` · `impacts:F09` · `deps:F08` · `ids:-`
 
-**Support powers.** Support **edits any NON-money object** (`PUT /support/{spaces|ads|users|
-bookings|collaborators}/{id}` — audited) but has NO money authority: it only **FLAGS** a refund
-or payout-hold (`POST /support/payments/{p}/flag-refund`, `…/flag-payout-hold`) for Payments to
-decide+execute — though EITHER Support or Payments may pull a payout back to `held` while it sits
-in the §8 processing grace window (no gateway call). Joins client↔provider chats via
-`POST /support/conversations/{c}/join` (announced;
-Admin silent). Strike accrual/removal is Support, not Payments. Support can CLOSE a ticket without
-user consent, but closing resolves only the ticket STATE — the conversation stays LIVE/re-openable
-(not deletion, not a gag). Support-initiated ad-hoc tickets are visible only to the provider involved.
-
-**Dispute on proof reject** — see §7. Automatic: payout AUTO-HELD; a FLAG (`ticketable = payment`,
-reason text `Payment held — <reason>`) so Payments has money context; and THREE Support-anchored
-chat threads open — Support↔Payments (`type=internal`, the only one Payments is in), Support↔Client,
-Support↔Provider. NO re-upload cycle (any new-proof request is a human one in the Support↔Provider
-thread). Release/refund is a manual Payments+Support decision; Support leans client, default
-resolution = cancel + full refund.
+Tickets & Support are no longer a separate system: a "ticket" is just a **chat with a Support
+participant** — see §10 "Chats, Objetos & Flags". Support's non-chat powers live with their
+domains: edit-any-NON-money object (audited, UC-23) and strike accrual/removal → §7/§12 (UC-24);
+money **FLAGS** that Payments executes → §8 (UC-22 flag, UC-25/UC-26 execute). Support "resolves" a
+chat; the opener (or Admin) "closes" it.
 
 == 12. Admin: Moderation, Freeze, Audit, Configurations ==  [F11,F12]
 kanban: `status:backlog` · `weight:L` · `impacts:F08,F10,F13` · `deps:F09` · `ids:AD-oversight-03,AU-log-01,CF-config-01`
 
-Admin is the **eagle-eye** role: reads EVERYTHING (all chats, all Support threads, all internal
-Support↔Payments threads, the audit log, users, RBAC). Admin posts into any thread
-**silently/incognito** (the announcement rule applies only to Support). Admin has no
-money-execution role beyond the payout-stop window.
+Admin is the **eagle-eye** role: reads EVERYTHING (every chat — one primitive, §10 — plus the audit
+log, users, RBAC). Chat oversight is ONE screen `GET /admin/oversight/chats` with filters
+(nature / flag / object / status / participant) — **read-only/incognito**: Admin observes chats
+silently, never posts as a ghost, and its only chat write-power is reopening a closed chat for
+investigation (UC-28). It replaces the two former oversight views (conversations + tickets). Admin
+has no money-execution role beyond the payout-stop window.
 
-**Three levels of taking a listing/provider "off":**
+**Three levels of taking a listing/provider "off":**  (UC-29)
 - **Pause / unpublish** — provider's own action; hides their own listing; reversible by them.
 - **Takedown / restore** — admin moderation; forcibly hides/restores a listing; the provider
   CANNOT self-reverse. `POST /admin/spaces/{s}/takedown`, `POST /admin/spaces/{s}/restore`.
@@ -528,21 +553,21 @@ money-execution role beyond the payout-stop window.
   revokes active Sanctum tokens (do not wait for the 60-min RBAC cache).
 
 **Deletion guardrails (EVERY deletable object — users, campaigns, adsets, ads, spaces):** a hard
-delete is BLOCKED whenever the object has open support tickets, a booking in progress, or
+delete is BLOCKED whenever the object has open support chats, a booking in progress, or
 unsettled funds. A CAMPAIGN cannot be hard-deleted while any of its ads has an active/booked
-space or an open ticket; a USER cannot be deleted with active bookings or unsettled funds.
+space or an open support chat; a USER cannot be deleted with active bookings or unsettled funds.
 Instead deletion is a **"programmed for deletion"** state: the object is unpublished/closed to
 new activity, stops receiving new bookings/payments, and stays visible with the legend "this is
 programmed for deletion" until current bookings finish, then is removed.
 
-**Immutable audit log.** Append-only; one entry per action of ANY role with **actor, target,
+**Immutable audit log.**  (UC-31)  Append-only; one entry per action of ANY role with **actor, target,
 before/after, timestamp**; queryable as per-object history; Admin read-only. Internals (AFTER-MVP):
 DB-level immutability (INSERT-only grant + trigger raising on UPDATE/DELETE, optional hash-chain);
 audit row written in the SAME txn as the state change (async via outbox); `insert_data.py
 --erase-all-data` env-guarded and never truncates audit in a real env. API: `AuditLog::record()`
 + `GET /admin/audit` (`?target_type`, `?target_id`).
 
-**System Configurations (Admin-only; defaults in parentheses):** proof deadline (5 d) ·
+**System Configurations (Admin-only; defaults in parentheses):**  (UC-30) proof deadline (5 d) ·
 strike window (90 d) + 3-strike threshold · pre-pay offer expiry ·
 calendar-staleness threshold (7 d) · payout-stop window (24 h) · payout processing grace (1 h — §8) · cancellation refund policy
 (100% default; reduced only if in-process — §8) · currency (MXN) + unit (decimal pesos) ·
@@ -557,9 +582,9 @@ snapshotted onto the booking/ad at checkout so later provider edits don't retroa
 paid file. API: `GET,PUT /admin/configurations`.
 
 **Admin operational/eagle-eye dashboard.** Indicators — ads rejected by providers, proofs
-rejected (payment held), support tickets, payments stopped — plus queue depths, refund rate, strike rate,
-gateway health. Each indicator links to a list; each list item opens its full detail in
-eagle-eye mode (conversations opened SILENTLY).
+rejected (payment held), open chats with a Support participant, payments stopped — plus queue depths,
+refund rate, strike rate, gateway health. Each indicator links to a list; each list item opens its
+full detail in eagle-eye mode (chats opened SILENTLY).
 
 **Rate limits.** Per-IP and per-account caps on login, chat send, file upload, search, booking
 submission, with a burst allowance for known-good accounts; throttled responses include
@@ -574,11 +599,11 @@ dispatch + `GET /notifications`, `POST /notifications/{n}/read`. The full ~35-ev
 table is in §19.
 
 **Channels.** in-app / email / SMS-mock; most are simple in-app text at the top of the UI, some
-surface as a Support/Payments ticket. SMS is reserved for Payments alerts and cancellations only
+surface as a Support/Payments chat. SMS is reserved for Payments alerts and cancellations only
 (Twilio default, Vonage fallback; mocked until keys set). Strike alerts go to Provider + Support
 (and Admin on the 3rd) — never Payments.
 
-**Calendar (iCal sync + staleness).** The provider availability UI strongly recommends
+**Calendar (iCal sync + staleness).**  (UC-14)  The provider availability UI strongly recommends
 connecting a live calendar URL (.ical or public Google/Outlook) because it's easier to keep
 current; a "?" help button explains how to find the URL. API: `GET,POST /provider/spaces/{s}/
 availabilities`, `DELETE /…/{av}`, `POST /…/sync-ical`, `POST /…/import-ical`.
@@ -597,8 +622,8 @@ grants never leak across accounts.
 
 **Global matrix (`role_permissions`).** Which actions (create, read, update, delete) each role
 has on each resource/screen: users, campaigns, adsets, ads, spaces, space_photos,
-space_availabilities, bookings, payments, proofs, tickets, conversations, invoices,
-collaborators, dashboard.
+space_availabilities, bookings, payments, proofs, chats (retires the old tickets +
+conversations resources — alias both to `chats`), invoices, collaborators, dashboard.
 - `PermissionMiddleware` checks every route via `permission:resource,action`.
 - Permissions cached per-role for 60 min, auto-invalidated on admin edit.
 - Login and `/me` return the user's permissions for the frontend.
@@ -616,8 +641,9 @@ rule are in §3. Per-object scoping may be layered later (not MVP). API: `GET,PO
 /provider/collaborators` + `DELETE /…/{col}` (installator, sales, supervisor).
 
 **Named capabilities** (beyond CRUD): `refund.flag` vs `refund.execute`, `payout.hold` vs
-`payout.release`, `strike.accrue` vs `strike.reverse`, `internal_thread.read` vs `.post`.
-Support gets flag-only; Payments gets execute-only; Admin gets read on internal threads.
+`payout.release`, `strike.accrue` vs `strike.reverse`, `chat.flag` vs `chat.join` vs `chat.oversight`.
+Support gets flag-only + announced join; Payments gets execute-only; Admin gets read-only chat
+oversight (never posts).
 
 **Timezone** (owner 2026-06-25). All timestamps STORED in UTC. Deadline math (proof deadline,
 reminders, auto-cancel) is computed against the platform DEFAULT timezone — **America/Monterrey**
@@ -678,33 +704,54 @@ bookings  [belongs to: client_user + space + ad + adset]
   -- EXCLUDE USING gist (space_id WITH =, daterange(start,end) WITH &&) prevents overlapping CONFIRMED bookings
 
 payments  [belongs to: booking]
-  id, booking_id, amount, status (enum: pending|completed|failed|refunded|held|released),  -- payout-held lives here
+  id, booking_id, amount, status (enum: pending|completed|failed|refunded|held|processing|released|settled),  -- money state machine; payout-held lives here [synced to §8, owner 2026-07-17]
   payment_method (mocked), payment_platform (mercadopago|paypal), transaction_id,
   approved_by_payments, approved_by_user_id, timestamps
 
-conversations  [belongs to: space + client_user + provider_user]
-  id, space_id, client_user_id, provider_user_id,
-  type (direct|internal|support_client|support_provider), support_joined_at,
-  unique(space_id, client_user_id, type), timestamps  -- composite so one space+client carries
-    the direct chat PLUS the dispute threads; migration 2026_07_16 widened the old unique
-  -- target: polymorphic anchor + conversation_links history; internal + dispute threads =
-    SEPARATE rows (type≠direct), membership ACL. PII masking RELAXED on every non-direct thread.
+chats  [ONE communication primitive — §10; a "ticket" = a chat with a Support participant]
+  id, opened_by_user_id,
+  client_user_id (nullable), provider_user_id (nullable),   -- side anchors (MVP 1user=1account)
+  status (enum: open|in_progress|resolved|closed) default open,
+  support_joined_at (nullable — PII-relax + announced trigger for the client↔provider case),
+  resolved_at (nullable), closed_at (nullable), closed_by_user_id (nullable),
+  last_message_at (nullable — denormalized list ordering), timestamps
+  -- NO type/kind column: nature is DERIVED from participants+objects+flags (§10, §16).
+  -- NO unique(space_id, client_user_id, *): a space+client may carry MANY chats (closed chats
+  --   spawn new ones, disputes, general questions). space_id is DROPPED as a column — a space is
+  --   just one possible chat_object.
 
-messages  [belongs to: conversation + sender_user]
-  id, conversation_id, sender_user_id, body, kind (user|system…), is_read, timestamps
+chat_objects  [polymorphic N: belongs to chat; morphTo objectable]
+  id, chat_id (FK chats cascade), objectable_type, objectable_id,   -- Ad|Adset|Campaign|Space|Payment|Booking
+  attached_by_user_id, created_at
+  index(chat_id); index(objectable_type, objectable_id)
+  -- attach is OWNERSHIP-CHECKED (§16): a chat never exposes an object its attacher couldn't already see
+
+chat_flags  [N + history: belongs to chat]
+  id, chat_id (FK chats cascade),
+  type (enum: payment_held|refund|payout_hold|cancel|mismatch|other),
+  reason (text nullable), active (bool default true), created_by_user_id,
+  superseded_at (nullable — set when a newer flag deactivates this one), timestamps
+  index(chat_id, active)
+  -- flags ANNOTATE the WHY; the authoritative money STATE stays on payments.status, never a flag
+
+chat_participants  [PER-PERSON membership: belongs to chat + user]
+  id, chat_id (FK), user_id, side (enum: client|provider|support|payments|admin),
+  announced (bool default false — support join = true; admin silent = false/forensic),
+  joined_at, left_at (nullable), timestamps, unique(chat_id, user_id)
+  -- access is by MEMBERSHIP/role, never by a mutable flag (§16)
+
+messages  [belongs to: chat + sender_user]
+  id, chat_id, sender_user_id, body, kind (user|system…), is_read, timestamps
+  -- kind=system messages record origin + every transformation (flag change, support announced-join,
+  --   object attach/detach, resolve/close) — history IS the record of a chat's nature
 
 proofs  [belongs to: ad + booking + uploaded_by_user]
   id, ad_id, booking_id, uploaded_by_user_id, media_type (image|video), file_path, file_name, notes,
   status (enum: pending|uploaded|client_accepted|client_rejected),  -- CLIENT accepts/rejects, NOT Payments
   reviewed_by_user_id (= acting CLIENT), reviewed_at, deadline, timestamps
 
-tickets  [belongs to: user(reporter) + assigned_to_user; polymorphic ticketable]
-  id, user_id, ticketable_type, ticketable_id, subject, description,
-  status (enum: open|in_progress|waiting_user|resolved|closed), priority (enum: low|medium|high|urgent),
-  assigned_to_user_id, timestamps   -- ticketable covers Ad|Adset|Campaign|Space (PLANNED: add 'payment')
-
-ticket_messages  [belongs to: ticket + user]
-  id, ticket_id, user_id, body, is_internal (staff-only notes), timestamps
+-- tickets + ticket_messages: RETIRED (2026-07-17 merge). A "ticket" is now just a chat with a
+--   Support participant; ticketable → chat_objects; is_internal notes → staff-only chats + kind=system.
 
 collaborators  [belongs to: account + invited_by_user + user]   -- ACCOUNT-SCOPED
   id, account_id (FK → accounts), invited_by_user_id, user_id (nullable until registered), email,
@@ -732,8 +779,8 @@ PLANNED tables (designed, not built): `strikes`, `ratings`, `audit_logs`, `accou
 `notifications`. Relationships: User(client) ─< Campaign ─< Adset ─< Ad (adset_id nullable →
 orphan); Ad ─> Space + User(provider). Account ─< Collaborator. User(provider) ─< Space ─<
 SpacePhoto/SpaceAvailability. Space+Ad+Adset+User(client) ─> Booking ─> Payment. Ad+Booking+User
-─> Proof. Space+client+provider ─> Conversation ─< Message. User ─< Ticket >─ ticketable ─<
-TicketMessage. User ─< WalletEntry.
+─> Proof. Chat ─< Message; Chat ─< ChatObject (poly objectable = Ad|Adset|Campaign|Space|Payment|
+Booking); Chat ─< ChatFlag; Chat ─< ChatParticipant (per-person). User ─< WalletEntry.
 
 == 16. Data Model & Integrity Invariants ==  [infra]
 kanban: `status:review` · `weight:S` · `impacts:F10` · `deps:F15` · `ids:SB-overlap-06`
@@ -742,16 +789,23 @@ Integrity rules (terse; most are AFTER-MVP — build when their subsystem ships)
 - **Money [MVP]:** wallet = append-only entries, balance = `SUM(amount)` (decimal pesos), never a
   writable column; every refund/payout has a UNIQUE idempotency_key (no double-pay); `SUM(refunds) ≤ captured`.
 - **Money [AFTER-MVP]:** escrow capture/release + booking change in one row-locked txn; payout
-  `held→released→settled` single-transition; gateway webhooks signed/idempotent + nightly reconcile.
+  `held→processing→released→settled` (grace window, §8) [synced 2026-07-17]; gateway webhooks signed/idempotent + nightly reconcile.
 - **Concurrency:** MVP = lightweight app-level overlap check on booking create. AFTER-MVP = Postgres
   `EXCLUDE USING gist` + `SELECT … FOR UPDATE` on slot/payout/expiry; pre-pay confirm atomically
   cancels+refunds sibling offers; auto-cancel cron re-checks `proof IS NULL` in-txn.
 - **Snapshots [MVP]:** config snapshot onto booking at creation; "apply to in-flight" checkbox re-applies.
+- **Chat [MVP] (§10):** ONE `chats` primitive — nature is DERIVED from participants+objects+flags,
+  never a `type` column. Access is by MEMBERSHIP/role, NEVER by a (mutable) flag — a flag flip changes
+  no ACL cell. Staff-only chats (Support↔Client/Provider/Payments, Admin) NEVER mask PII; masking
+  applies only to a client↔provider chat with no Support joined. Object-attach is OWNERSHIP-CHECKED —
+  a chat never exposes an object its attacher could not already see (no private-object leak). Admin
+  chat oversight is READ-ONLY/incognito (never posts). Money authority is `payments.status`, never a
+  flag; Support RAISES money flags, Payments EXECUTES.
 - **RBAC:** global matrix for system roles; collaborators via per-account `account_grants` overlay
   (scoped, no cross-account leak). Provider freeze busts perm/session cache + revokes tokens. [account_grants = AFTER-MVP]
-- **AFTER-MVP:** `display_start` stored timestamp for proof crons; polymorphic conversations +
-  internal-thread membership ACL; DB-level audit immutability (INSERT-only + trigger); strikes
-  decoupled from notifications + reversible.
+- **AFTER-MVP:** `display_start` stored timestamp for proof crons; per-person `chat_participants`
+  as the sole membership source (retire the side-anchor columns); DB-level audit immutability
+  (INSERT-only + trigger); strikes decoupled from notifications + reversible.
 - **NOTE:** `proofs.status` is currently a SUPERSET (legacy `pending_review/approved/rejected` +
   B9 `client_accepted/client_rejected`) until the deprecated Payments proof-review is removed.
 
@@ -774,7 +828,7 @@ Client (role:client, prefix /client):
   GET /invoices · GET /invoices/{i} · GET /invoices/{i}/pdf
   POST /campaigns/{c}/backlog · GET /campaigns/{c}/orphans · POST /campaigns/{c}/adsets/move
   POST /proofs/{proof}/accept — client accepts proof → payout releasable (B9, LIVE)
-  POST /proofs/{proof}/reject — client rejects → payout HELD + ticket on payment (B9, LIVE; flag-mismatch aliases this)
+  POST /proofs/{proof}/reject — client rejects → payout HELD + payment_held flag + 3 Support chats (B9, LIVE; flag-mismatch aliases this)
   GET /wallet — balance + entries ⚠ no withdraw
 
 Provider (role:provider, prefix /provider):
@@ -789,21 +843,33 @@ Admin (role:admin, prefix /admin):
   GET /dashboard
   POST,GET /users · GET,PUT,DELETE /users/{u} — CRM ⚠ DELETE no guardrail
   GET /permissions · GET,PUT /permissions/{role} · PATCH /permissions/{role}/{resource} — RBAC matrix
-  GET /oversight/conversations · GET /…/{c}/messages · GET /oversight/tickets · GET /…/{t} — eagle-eye (read-only)
+  GET /oversight/chats · GET /oversight/chats/{chat} — eagle-eye chat oversight (read-only, incognito;
+    filters ?nature ?flag ?object_type ?object_id ?status ?participant). RETIRES /oversight/{conversations,tickets}
   GET,PUT /configurations — tunable key/values
 
 Support (role:support, prefix /support):
-  GET /dashboard · GET /tickets · GET,PUT /tickets/{t} · POST /tickets/{t}/reply
-  ⚠ tickets-only — edit-any-non-money, conversation-join, flag→Payments bridge are Planned
+  GET /dashboard — Support acts on chats via the shared /chats map (join/flag/resolve/close, below)
+  ⚠ RETIRED: /tickets, /tickets/{t}, /tickets/{t}/reply → folded into /chats (a ticket = chat w/ Support)
+  ⚠ edit-any-non-money (PUT /support/{resource}/{id}) + flag→Payments bridge are Planned (below)
 
 Payments (role:payments, prefix /payments):
   GET /dashboard · GET /payments · GET /payments/{p} · POST /…/approve · POST /…/reject
   POST /…/refund · POST /…/payout/release · POST /…/payout/hold — money moves (idempotent, → wallet)
   GET /proofs · POST /proofs/{proof}/approve · POST /…/reject — ⚠ VIOLATES B9, REMOVE (Payments must not review proof content)
 
-Shared (any authenticated):
-  GET,POST /conversations · GET,POST /conversations/{c}/messages — chat (PII-masked at render)
-  GET,POST /tickets · GET /tickets/{t} · POST /tickets/{t}/reply — ticketable ad|adset|campaign|space ⚠ add 'payment'
+Shared — Chats (any authenticated; ONE primitive — §10; nature + ACL DERIVED from participants+objects):
+  GET,POST /chats — list caller's chats (derived queue) / open a chat (objectless or object-attached)
+  GET /chats/{chat} — chat + participants + objects + active flags + messages (PII-masked at render)
+  POST /chats/{chat}/messages — post (raw stored, masked at render); same derived ACL
+  POST /chats/{chat}/objects · DELETE /…/objects/{obj} — attach/detach an object (OWNERSHIP-checked; system msg)
+  POST /chats/{chat}/flags — add/change a flag {type,reason} (Support flags; Payments executes money via §8)
+  POST /chats/{chat}/join — Support joins a client↔provider chat (announced + PII relax; role:support)
+  POST /chats/{chat}/resolve · /close · /reopen — resolve(support) / close(opener) / reopen(admin ONLY)
+  ⚠ RETIRED → /chats: GET,POST /conversations(+/messages); GET,POST /tickets(+/reply);
+    GET,PUT /support/tickets/{t}(+/reply); POST /support/conversations/{c}/join;
+    POST /support/payments/{p}/flag-refund|flag-payout-hold; the dual-ticket auto-open.
+    (The §8 Payments money routes /payments/{p}/refund|payout/release|payout/hold are UNCHANGED —
+     money execution is not a chat concern.)
 
 --- PLANNED endpoints (designed, not built) ---
 Account-scoped collaborators (BOTH sides — replace the campaign-nested client routes):
@@ -815,8 +881,11 @@ Ratings: POST /client/campaigns/{c}/rating · GET /spaces/{s} (avg+count)
 Wallet: POST /client/wallet/withdraw
 Audit: AuditLog::record() internal + GET /admin/audit (?target_type,?target_id)
 Moderation: POST /admin/spaces/{s}/takedown · /restore · POST /admin/providers/{u}/freeze · /unfreeze
-Support powers: PUT /support/{spaces|ads|users|bookings|collaborators}/{id} · POST /support/payments/{p}/flag-refund · /flag-payout-hold · POST /support/conversations/{c}/join
-Dual ticket: on client proof reject, auto-open ONE ticket (ticketable=payment) for BOTH Support+Payments
+Support powers: PUT /support/{spaces|ads|users|bookings|collaborators}/{id} (edit-any-non-money, audited).
+  Money FLAGS + join now go through the unified /chats map above (POST /chats/{c}/flags, /chats/{c}/join) —
+  the old /support/payments/{p}/flag-* and /support/conversations/{c}/join are RETIRED.
+Dispute (RETIRES "dual ticket"): on client proof reject, auto-open THREE chats (Support↔Client / ↔Provider /
+  ↔Payments), each attached to the held payment+booking with a `payment_held` flag (§7/§10; UC-7).
 Notifications: dispatcher + GET /notifications · POST /notifications/{n}/read
 Proof-deadline engine + strikes: cron (day3/4 reminders, day5 auto-cancel+refund+strike); strikes table + provider-dashboard counter
 
@@ -828,7 +897,7 @@ Compliance (arch/design/cases → backend):
 - DOC feature → NO endpoint: everything under "PLANNED" above.
 - COMPLIANT: auth; client/provider/admin CRUD + ownership guards; RBAC matrix; eagle-eye reads;
   money = decimal MXN pesos with idempotent refund/payout → wallet; PII masking at render;
-  ticket internal-note hiding.
+  staff-only chat PII-relax (former ticket internal-note hiding).
 
 == 18. System & Dev ==  [dev]
 kanban: `status:review` · `weight:S` · `impacts:all` · `deps:-` · `ids:XC-speccomment-02`
@@ -863,7 +932,68 @@ kanban: `status:done` · `weight:S` · `impacts:-` · `deps:-` · `ids:-`
 Scenario prose for each role is folded into §1–14 specs and the journeys below; only the
 non-redundant UX details unique to stories are kept here.
 
-= CLIENT UX notes (not already in specs) =
+== 19.0 Use-Case Index ==
+Every user story / case / journey carries a stable **UC-N** code (backend functions/classes tag the
+UC they satisfy — e.g. `design.md UC-7`; chat/dispute/payment UCs are keyed in
+`scratchpad/uc-index.md`). `UC-N — title — primary spec §`:
+
+CLIENT
+- UC-1 — Client searches & multi-selects spaces on the map — §5
+- UC-2 — Client organizes campaign / adset / ads from the backlog — §4, §5
+- UC-3 — Client uploads spec-validated creative — §4, §5
+- UC-4 — Client checks out & pays (ONE invoice per campaign) — §8
+- UC-5 — Client books-for-later / pre-pays into escrow (AFTER-MVP) — §6
+- UC-6 — Client reviews & ACCEPTS proof → payout releasable — §7
+- UC-7 — Client REJECTS proof / flags mismatch → dispute (3 chats + hold) — §7, §10
+- UC-8 — Client chats with a provider (inquiry) — §10
+- UC-9 — Client contacts support (opens an objectless/attached chat) — §10
+- UC-10 — Client cancels a booking (refund per policy) — §8
+- UC-11 — Client views wallet & withdraws — §8
+- UC-12 — Client rates a provider (AFTER-MVP) — §9
+
+PROVIDER
+- UC-13 — Provider lists a space & declares specs — §4, §5
+- UC-14 — Provider manages availability calendar (iCal sync) — §13
+- UC-15 — Provider approves / rejects a booking request — §5
+- UC-16 — Provider / Installator uploads the PRIMARY proof — §7
+- UC-17 — Provider receives a payout — §8
+- UC-18 — Provider views strike counter / appeals a strike — §7
+
+ACCOUNTS & COLLABORATORS
+- UC-19 — Owner invites & manages collaborators — §3, §14
+- UC-20 — Collaborator acts within subrole scope — §3
+
+SUPPORT
+- UC-21 — Support joins a client↔provider chat (announced, PII relax) — §10
+- UC-22 — Support investigates a dispute & RAISES a money flag — §7, §10
+- UC-23 — Support edits a non-money object (audited) — §12
+- UC-24 — Support reverses a strike (audited) — §7
+
+PAYMENTS
+- UC-25 — Payments approves/executes payment & payout (processing queue) — §8
+- UC-26 — Payments executes a refund — §8
+- UC-27 — Payments huddles with Support in the internal chat — §10
+
+ADMIN
+- UC-28 — Admin chat oversight (read-only, incognito) — §10, §12
+- UC-29 — Admin moderation: takedown / restore / freeze — §12
+- UC-30 — Admin configures System Configurations + RBAC matrix — §12, §14
+- UC-31 — Admin reviews the immutable audit log — §12
+- UC-32 — Admin payout-stop window & clawback decision — §8
+
+END-TO-END JOURNEYS (composite — see below)
+- UC-33 — Journey: first-time client, single billboard (UC-1..4, UC-6) — §19
+- UC-34 — Journey: first-time provider (UC-13..17) — §19
+- UC-35 — Journey: disputed proof (UC-7, UC-22, UC-25, UC-27) — §7, §10
+- UC-36 — Journey: ad creative & installation actor boundaries — §5, §7
+- UC-37 — Admin deletion guardrails / "programmed for deletion" (no hard-delete with open chat / active booking / unsettled funds) — §12
+- UC-38 — Notifications & alert-schema dispatch (domain events → channel/urgency fan-out) — §13
+- UC-39 — Provider self-pause / unpublish a space (reversible; no new bookings while paused) — §12
+- UC-40 — Proof-deadline cron: day-3/4 reminders → day-5 auto-cancel + full refund + strike — §7
+<!-- [owner 2026-07-17] UC-37..40 added from the design audit; their specs live in §12/§13/§7. "Dispute opened" is an ALERT emitted by UC-7's auto-open to Support/Payments, not a separate manual action. -->
+
+
+= CLIENT UX notes (not already in specs) =  (UC-1, UC-2, UC-3, UC-4)
 - Multi-select spaces → "Add to a new/existing campaign" + a 10-second "Go to my new campaign"
   toast; selected spaces sit in the backlog until placed in an adset.
 - "Send all selected to a new adset"; the campaign view's Orphan-spaces list has a one-click
@@ -874,14 +1004,14 @@ non-redundant UX details unique to stories are kept here.
 - Refund policy, terms & conditions, and privacy policy are linked in the footer and on the
   checkout screen before paying.
 
-= PROVIDER UX notes =
+= PROVIDER UX notes =  (UC-13, UC-14, UC-15, UC-16, UC-17, UC-18)
 - Media specs auto-populate from a per-type template (provider can tighten) plus free-text rules.
 - Confirmed bookings move to an installation queue (install date + client file), viewable by
   Installator collaborators.
 - Revenue dashboard: upcoming / held / paid / refunded + trailing-90-day strike counter.
 
 (SUPPORT / PAYMENTS / ADMIN story details are fully covered by §2 powers, §7 proof/strikes,
-§8 money, §11 tickets, §12 admin — not restated here.)
+§8 money, §10 chats, §12 admin — UC-21..UC-32; not restated here.)
 
 = NOTIFICATION & ALERT SCHEMA =
 Columns: Event | Trigger | Recipients (roles) | Channel | Urgency | Message template (≤140).
@@ -896,7 +1026,7 @@ Columns: Event | Trigger | Recipients (roles) | Channel | Urgency | Message temp
 | Day-4 proof reminder | Display +4d, no proof | Provider | in-app+email+SMS | high | "Last day to upload proof for {ad}. Tomorrow it auto-cancels + strike." |
 | Proof uploaded | Provider uploads | Client(+collabs) | in-app+email | low | "Proof uploaded for {ad}. Review under Campaigns." |
 | Proof accepted | CLIENT accepts (not Payments) | Client, Provider, Payments | in-app+email | low | "Proof accepted for {ad}. Payment now releasable." |
-| Proof rejected | CLIENT rejects / collab flags | Provider, Client, Support+Payments (ticket, payout held) | in-app+email | high | "Proof on {ad} rejected: {reason}. Payment held; Payments+Support will review the case." |
+| Proof rejected | CLIENT rejects / collab flags | Provider, Client, Support+Payments (3 chats, payout held) | in-app+email | high | "Proof on {ad} rejected: {reason}. Payment held; Payments+Support will review the case." |
 | Secondary mismatch flagged | Client/collab flags | Provider, Payments, Support | in-app+email | high | "Mismatch flag on {ad}. Payout held pending review." |
 | Cancel by client pre-approval | Client cancels before approval | Provider | in-app+email | low | "Booking on {space} cancelled before approval. No charge." |
 | Cancel by client post-approval | Client cancels after approval, pre-display | Provider, Payments, Support | in-app+email | high | "Booking on {space} cancelled. Refund per policy." |
@@ -911,7 +1041,7 @@ Columns: Event | Trigger | Recipients (roles) | Channel | Urgency | Message temp
 | Payout released | Proof accepted, no holds | Provider | in-app+email | low | "Payout of {amount} MXN released for {ad}." |
 | Strike accrued | Missed proof / provider cancel / upheld mismatch | Provider, Support | in-app+email | high | "Strike accrued: {reason}. {n}/3 in 90 days." |
 | 3-strike admin alert | 3 strikes in 90 days | Support, Admin | in-app+email | critical | "Provider {name} hit 3 strikes. Review for freeze." |
-| Support joined chat | Support enters thread | Client, Provider | in-app | low | "Support joined this thread. PII masking relaxed." |
+| Support joined chat | Support enters chat | Client, Provider | in-app | low | "Support joined this chat. PII masking relaxed." |
 | PII attempted | Pattern match phone/email/URL | Sender | in-app | low | "We masked your message — sharing contact info isn't allowed before Support joins." |
 | Collaborator invited | Client adds collaborator email | Invited collaborator | email | low | "You've been invited to collaborate on {account}. Accept to view its campaigns and proofs." |
 | Listing taken down | Admin moderates | Provider | in-app+email | high | "Your listing {space} was taken down: {reason}." |
@@ -921,7 +1051,7 @@ Columns: Event | Trigger | Recipients (roles) | Channel | Urgency | Message temp
 | Pre-pay offer placed | Client pre-pays a slot | Provider, Client | in-app+email | low | "Pre-pay offer on {space} for {dates}. {total} MXN in escrow." |
 | Pre-pay offer expired | Slot didn't open in window | Client | in-app+email | med | "Pre-pay offer on {space} expired. {amount} MXN returned to wallet." |
 | Calendar setup stale | Calendar older than threshold (7d) | Provider | in-app | low | "Calendar for {space} is {n} days old. Refresh it or connect a live URL." |
-| Collaborator opened a ticket | Collaborator opens ticket/chat | Client(owner), Support | in-app+email | med | "{collaborator} opened a support ticket on {campaign}." |
+| Collaborator opened a chat | Collaborator opens a support chat | Client(owner), Support | in-app+email | med | "{collaborator} opened a support chat on {campaign}." |
 | Mismatch flag filed (ack) | Client/collab flags mismatch | Flagger | in-app | low | "Your mismatch flag on {ad} was filed. Payout held; Support will review." |
 
 = MEDIA-DELIVERY SPECS BY SPACE TYPE =
@@ -940,16 +1070,19 @@ Columns: Space type | Provider declares (physical) | Client must deliver (file).
 bump to 200 DPI. ² −14 LUFS aligns with common Mexican broadcast loudness; provider can override.
 
 = Representative end-to-end journeys =
-1. First-time client, single billboard: map → detail → new campaign → adset → upload validated
-   PDF → checkout → wait approval → live → proof received → accept → done.
-2. First-time provider: sign up → list space + declare specs → set calendar via URL → first
-   booking → approve → install → upload proof day 2 → payout released.
-3. Disputed proof that travels: inquiry chat → booking thread on approval → client rejects proof
-   for blur → payment auto-held + ONE ticket auto-routed to Support&Payments (masking relaxes when
-   Support joins) → Payments+Support review the case together and decide (release to provider, or
-   cancel + full refund) — NO automatic re-upload; all one chronological thread with
-   system-transition messages.
-4. Ad creative & installation — WHO does WHAT (actor boundaries; INVARIANT, added to stop the
+UC-33 — First-time client, single billboard (composes UC-1..UC-4, UC-6): map → detail → new
+   campaign → adset → upload validated PDF → checkout → wait approval → live → proof received →
+   accept → done.
+UC-34 — First-time provider (composes UC-13..UC-17): sign up → list space + declare specs → set
+   calendar via URL → first booking → approve → install → upload proof day 2 → payout released.
+UC-35 — Disputed proof that travels (composes UC-7, UC-22, UC-25, UC-27): inquiry chat → the same
+   chat becomes a confirmed booking chat on approval → client rejects proof for blur → payment
+   auto-held (`payments.status=held`) + a `payment_held` flag + THREE chats auto-open (Support↔Client
+   / ↔Provider / ↔Payments), each anchored to the held payment+booking (masking relaxes when Support
+   joins a client↔provider chat) → Payments+Support review the case across those chats and decide
+   (release to provider, or cancel + full refund) — NO automatic re-upload; each chat is one
+   chronological history with kind=system transition messages.
+UC-36 — Ad creative & installation — WHO does WHAT (actor boundaries; INVARIANT, added to stop the
    recurring "client creates a space/ad" drift):
    - PROVIDER creates the space (billboard, photo/video panel, radio station) with its own
      photos + media-delivery specs. A CLIENT never creates a space, never uploads a space photo,
@@ -977,8 +1110,11 @@ Revised decisions (override above where older):
 - PROOF/PAYMENTS (B9): the CLIENT accepts/rejects the primary proof — acceptance releases payout,
   rejection HOLDS it; Payments doesn't judge content up front (only a read-only view when a
   payment is on hold). Remove Payments proof approve/reject of content.
-- CONVERSATIONS: a separate object that can have one attached object; Admin+Support eagle-eye;
-  only SUPPORT entry is announced, Admin is silent.
+- CHATS (§10, supersedes the earlier one-object "conversations" note): ONE primitive — a "ticket" is
+  just a chat with a Support participant. A chat carries ZERO..MANY attached objects + flags; its
+  nature is DERIVED from participants+objects+flags (no `type` column). Admin+Support eagle-eye; only
+  SUPPORT entry is announced (relaxes PII), Admin is silent/read-only. The dispute opens THREE chats
+  (not a "dual ticket").
 - PROVIDER BOOKING ACTION: Approve (and send to an installator) OR Reject (reason optional). Not
   bare Confirm/Cancel.
 

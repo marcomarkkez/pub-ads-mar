@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Conversation;
-use App\Models\Space;
+use App\Models\Chat;
+use App\Models\ChatParticipant;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,79 +11,55 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * design.md §10 [F08]: internal Support↔Payments threads use a membership-based
- * ACL — a client can NEVER fetch an internal-thread message. This asserts it.
+ * UC-27 · design.md §10/§16 — internal Support↔Payments chats (both anchors null)
+ * use a membership/role-derived ACL: a client can NEVER fetch or post; support and
+ * payments can.
  */
 class InternalThreadAclTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_client_cannot_fetch_internal_thread_messages(): void
+    private function internalChat(User $opener): Chat
     {
-        $this->seed(RolePermissionSeeder::class);
-
-        $client = User::factory()->create(['role' => 'client']);
-        $provider = User::factory()->create(['role' => 'provider']);
-
-        $space = Space::create([
-            'user_id' => $provider->id,
-            'name' => 'Test Space',
-            'latitude' => 25.6597,
-            'longitude' => -100.4023,
+        $chat = Chat::create([
+            'opened_by_user_id' => $opener->id,
+            'client_user_id' => null,
+            'provider_user_id' => null,
+            'status' => Chat::STATUS_OPEN,
         ]);
+        $chat->participants()->create(['user_id' => $opener->id, 'side' => ChatParticipant::SIDE_PAYMENTS]);
+        $chat->messages()->create(['sender_user_id' => $opener->id, 'body' => 'internal staff-only note', 'kind' => 'user']);
 
-        // An internal thread — even though the client is on the client_user_id
-        // column, the internal type must block them.
-        $internal = Conversation::create([
-            'space_id' => $space->id,
-            'client_user_id' => $client->id,
-            'provider_user_id' => $provider->id,
-            'type' => 'internal',
-        ]);
-        $internal->messages()->create([
-            'sender_user_id' => $provider->id,
-            'body' => 'internal staff-only note',
-        ]);
-
-        Sanctum::actingAs($client);
-
-        $this->getJson("/api/conversations/{$internal->id}/messages")
-            ->assertStatus(403);
-
-        $this->postJson("/api/conversations/{$internal->id}/messages", ['body' => 'hi'])
-            ->assertStatus(403);
+        return $chat;
     }
 
-    public function test_payments_staff_can_fetch_internal_thread_messages(): void
+    public function test_client_cannot_fetch_or_post_internal_chat(): void
     {
         $this->seed(RolePermissionSeeder::class);
-
         $client = User::factory()->create(['role' => 'client']);
-        $provider = User::factory()->create(['role' => 'provider']);
         $payments = User::factory()->create(['role' => 'payments']);
 
-        $space = Space::create([
-            'user_id' => $provider->id,
-            'name' => 'Test Space',
-            'latitude' => 25.6597,
-            'longitude' => -100.4023,
-        ]);
+        $chat = $this->internalChat($payments);
 
-        $internal = Conversation::create([
-            'space_id' => $space->id,
-            'client_user_id' => $client->id,
-            'provider_user_id' => $provider->id,
-            'type' => 'internal',
-        ]);
-        $internal->messages()->create([
-            'sender_user_id' => $provider->id,
-            'body' => 'internal staff-only note',
-        ]);
+        Sanctum::actingAs($client);
+        $this->getJson("/api/chats/{$chat->id}")->assertStatus(403);
+        $this->postJson("/api/chats/{$chat->id}/messages", ['body' => 'hi'])->assertStatus(403);
+    }
+
+    public function test_payments_and_support_can_fetch_internal_chat(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        $payments = User::factory()->create(['role' => 'payments']);
+        $support = User::factory()->create(['role' => 'support']);
+
+        $chat = $this->internalChat($payments);
 
         Sanctum::actingAs($payments);
-
-        $this->getJson("/api/conversations/{$internal->id}/messages")
+        $this->getJson("/api/chats/{$chat->id}")
             ->assertStatus(200)
             ->assertJsonPath('data.messages.0.body', 'internal staff-only note');
+
+        Sanctum::actingAs($support);
+        $this->getJson("/api/chats/{$chat->id}")->assertStatus(200);
     }
 }

@@ -5,10 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * UC-8/UC-9 · design.md §10 — a message on a chat. kind=system records origin and
+ * every transformation (flag change, support join, object attach/detach, resolve/close).
+ */
 class Message extends Model
 {
     protected $fillable = [
-        'conversation_id',
+        'chat_id',
         'sender_user_id',
         'body',
         'kind',
@@ -22,9 +26,9 @@ class Message extends Model
         ];
     }
 
-    public function conversation(): BelongsTo
+    public function chat(): BelongsTo
     {
-        return $this->belongsTo(Conversation::class);
+        return $this->belongsTo(Chat::class);
     }
 
     public function sender(): BelongsTo

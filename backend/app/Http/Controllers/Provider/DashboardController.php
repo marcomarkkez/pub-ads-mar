@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
-use App\Models\Conversation;
+use App\Models\Chat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,7 +36,8 @@ class DashboardController extends Controller
         $revenueHeld = (float) $payQuery(['held']);
         $revenueRefunded = (float) $payQuery(['refunded']);
 
-        $unreadMessages = Conversation::where('provider_user_id', $user->id)
+        // UC-8 · design.md §10 — unread across the provider's chats.
+        $unreadMessages = Chat::where('provider_user_id', $user->id)
             ->withCount(['messages as unread_count' => function ($q) use ($user) {
                 $q->where('sender_user_id', '!=', $user->id)->where('is_read', false);
             }])

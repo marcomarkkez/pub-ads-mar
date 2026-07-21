@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Conversation;
-use App\Models\Space;
+use App\Models\Chat;
+use App\Models\ChatParticipant;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,95 +11,91 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * design.md §11 [F09] + §10 [F08]: when Support JOINS a client↔provider chat it
- * is announced (system message) and PII masking RELAXES for the thread.
+ * UC-21 · design.md §10 — when Support JOINS a client↔provider chat it is announced
+ * (system message + announced participant) and PII masking RELAXES for the chat.
+ * Support cannot read the chat until it joins.
  */
 class SupportJoinConversationTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeThread(): array
+    private function makeChat(): array
     {
         $client = User::factory()->create(['role' => 'client']);
         $provider = User::factory()->create(['role' => 'provider']);
         $support = User::factory()->create(['role' => 'support']);
 
-        $space = Space::create([
-            'user_id' => $provider->id,
-            'name' => 'Test Space',
-            'latitude' => 25.6597,
-            'longitude' => -100.4023,
-        ]);
-
-        $convo = Conversation::create([
-            'space_id' => $space->id,
+        $chat = Chat::create([
+            'opened_by_user_id' => $client->id,
             'client_user_id' => $client->id,
             'provider_user_id' => $provider->id,
+            'status' => Chat::STATUS_OPEN,
         ]);
-        $convo->messages()->create([
-            'sender_user_id' => $provider->id,
-            'body' => 'Call me at 555-123-4567',
-        ]);
+        $chat->participants()->create(['user_id' => $client->id, 'side' => ChatParticipant::SIDE_CLIENT]);
+        $chat->participants()->create(['user_id' => $provider->id, 'side' => ChatParticipant::SIDE_PROVIDER]);
+        $chat->messages()->create(['sender_user_id' => $provider->id, 'body' => 'Call me at 555-123-4567', 'kind' => 'user']);
 
-        return compact('client', 'provider', 'support', 'convo');
+        return compact('client', 'provider', 'support', 'chat');
     }
 
     public function test_support_join_announces_and_relaxes_masking(): void
     {
         $this->seed(RolePermissionSeeder::class);
-        ['client' => $client, 'support' => $support, 'convo' => $convo] = $this->makeThread();
+        ['client' => $client, 'support' => $support, 'chat' => $chat] = $this->makeChat();
 
-        // Before join: the client sees the phone masked.
         Sanctum::actingAs($client);
-        $this->getJson("/api/conversations/{$convo->id}/messages")
+        $this->getJson("/api/chats/{$chat->id}")
             ->assertStatus(200)
             ->assertJsonPath('data.messages.0.body', 'Call me at [phone removed]');
 
-        // Support joins.
         Sanctum::actingAs($support);
-        $this->postJson("/api/support/conversations/{$convo->id}/join")
-            ->assertStatus(200);
+        $this->postJson("/api/chats/{$chat->id}/join")->assertStatus(200);
 
-        $convo->refresh();
-        $this->assertNotNull($convo->support_joined_at);
-        // Announcement system message posted.
-        $this->assertTrue($convo->messages()->where('body', 'Support has joined this conversation.')->exists());
+        $chat->refresh();
+        $this->assertNotNull($chat->support_joined_at);
+        $this->assertTrue($chat->messages()->where('body', 'Support has joined this conversation.')->exists());
+        $this->assertTrue($chat->participants()->where('user_id', $support->id)->where('announced', true)->exists());
 
-        // After join: masking relaxes — the client now sees the raw phone.
         Sanctum::actingAs($client);
-        $this->getJson("/api/conversations/{$convo->id}/messages")
+        $this->getJson("/api/chats/{$chat->id}")
             ->assertStatus(200)
             ->assertJsonPath('data.messages.0.body', 'Call me at 555-123-4567');
     }
 
-    public function test_support_reads_thread_only_after_joining(): void
+    public function test_support_reads_chat_only_after_joining(): void
     {
         $this->seed(RolePermissionSeeder::class);
-        ['support' => $support, 'convo' => $convo] = $this->makeThread();
+        ['support' => $support, 'chat' => $chat] = $this->makeChat();
 
         Sanctum::actingAs($support);
+        $this->getJson("/api/chats/{$chat->id}")->assertStatus(403);
 
-        // Before joining, Support cannot read the client↔provider thread.
-        $this->getJson("/api/conversations/{$convo->id}/messages")->assertStatus(403);
-
-        // Join, then it can read.
-        $this->postJson("/api/support/conversations/{$convo->id}/join")->assertStatus(200);
-        $this->getJson("/api/conversations/{$convo->id}/messages")->assertStatus(200);
+        $this->postJson("/api/chats/{$chat->id}/join")->assertStatus(200);
+        $this->getJson("/api/chats/{$chat->id}")->assertStatus(200);
     }
 
     public function test_support_join_is_idempotent(): void
     {
         $this->seed(RolePermissionSeeder::class);
-        ['support' => $support, 'convo' => $convo] = $this->makeThread();
+        ['support' => $support, 'chat' => $chat] = $this->makeChat();
 
         Sanctum::actingAs($support);
-        $this->postJson("/api/support/conversations/{$convo->id}/join")->assertStatus(200);
-        $this->postJson("/api/support/conversations/{$convo->id}/join")->assertStatus(200);
+        $this->postJson("/api/chats/{$chat->id}/join")->assertStatus(200);
+        $this->postJson("/api/chats/{$chat->id}/join")->assertStatus(200);
 
-        // Only ONE announcement despite two joins.
-        $this->assertEquals(
-            1,
-            $convo->messages()->where('body', 'Support has joined this conversation.')->count()
-        );
+        $this->assertEquals(1, $chat->messages()->where('body', 'Support has joined this conversation.')->count());
+    }
+
+    public function test_join_rejects_non_client_provider_chats(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        $support = User::factory()->create(['role' => 'support']);
+        $payments = User::factory()->create(['role' => 'payments']);
+
+        // An internal chat (both anchors null) cannot be joined.
+        $internal = Chat::create(['opened_by_user_id' => $payments->id, 'status' => Chat::STATUS_OPEN]);
+
+        Sanctum::actingAs($support);
+        $this->postJson("/api/chats/{$internal->id}/join")->assertStatus(422);
     }
 }

@@ -72,9 +72,9 @@ interface PaymentWithBooking extends Payment {
                     <span class="badge" [ngClass]="'badge-' + payment.status">
                       {{ payment.status }}
                     </span>
-                    <!-- design.md §11 [F09] -> §8 [F10]: show WHY money is held —
-                         Support's flag / dispute tickets on this payment. -->
-                    @for (t of flagTickets(payment); track t.id) {
+                    <!-- design.md §10 [F09] -> §8 [F10]: show WHY money is held —
+                         active flags on the dispute chats attached to this payment. -->
+                    @for (t of flagNotes(payment); track t.id) {
                       <div class="flag-note" [title]="t.description">&#9873; {{ t.subject }}</div>
                     }
                   </td>
@@ -245,9 +245,19 @@ export class PaymentListComponent implements OnInit {
     });
   }
 
-  // Support flag / dispute tickets attached to this payment (design.md §11 [F09]).
-  flagTickets(payment: PaymentWithBooking): { id: number; subject: string; description?: string }[] {
-    return (payment as { tickets?: { id: number; subject: string; description?: string }[] }).tickets ?? [];
+  // design.md §10 [F09] -> §8 [F10]: WHY the money is held. Disputes are now the ONE chat
+  // primitive; each dispute chat carries an active flag (payment_held/refund/…) attached to
+  // this payment. Derive flag notes from the payment's related chats' active flags.
+  flagNotes(payment: PaymentWithBooking): { id: number; subject: string; description?: string }[] {
+    const chats = (payment as { chats?: { flags?: { id: number; type: string; reason?: string | null; active?: boolean }[] }[] }).chats ?? [];
+    const notes: { id: number; subject: string; description?: string }[] = [];
+    for (const c of chats) {
+      for (const f of c.flags ?? []) {
+        if (f.active === false) continue;
+        notes.push({ id: f.id, subject: f.type, description: f.reason ?? undefined });
+      }
+    }
+    return notes;
   }
 
   refundPayment(payment: PaymentWithBooking): void {

@@ -2,43 +2,34 @@
 
 namespace App\Services;
 
-use App\Models\Conversation;
+use App\Models\Booking;
+use App\Models\Chat;
+use App\Models\Space;
 use App\Models\User;
 
 /**
- * Render-time PII masking (C06 / packet P6).
+ * UC-8/UC-21 · design.md §10 [F08] — render-time PII masking.
  *
- * Non-destructive: messages.body is persisted RAW by MessageController::store.
- * This service masks phone / email / URL / street-address occurrences only when
- * a message is serialized for a NON-privileged viewer (see index()).
- *
- * Privileged viewers (admin / support / payments) — and conversations that are
- * flagged internal or have had support join — receive the raw body untouched so
- * staff can read originals for moderation, disputes and payouts.
- *
- * Stateless and dependency-free: instantiate inline or via app(...).
+ * Non-destructive: messages.body is persisted RAW by the chat controllers. This
+ * service masks phone / email / URL / street-address occurrences only when a
+ * message is serialized for a NON-privileged viewer of a client↔provider chat with
+ * NO Support joined. Masking NEVER applies on any staff-only chat (Support↔Client /
+ * ↔Provider / ↔Payments / Admin) and RELAXES the moment Support joins (announced).
  */
 class PiiMaskingService
 {
-    /**
-     * Roles that always see the raw, unmasked message body.
-     */
+    /** Roles that always see the raw, unmasked message body. */
     private const PRIVILEGED_ROLES = ['admin', 'support', 'payments'];
 
-    /**
-     * Return the body masked for the given viewer, or raw when privileged /
-     * the conversation is relaxed (internal type or support has joined).
-     */
-    public function mask(string $body, User $viewer, Conversation $convo): string
+    public function mask(string $body, User $viewer, Chat $chat): string
     {
-        if ($this->isPrivileged($viewer) || $this->isRelaxed($convo)) {
+        if ($this->isPrivileged($viewer) || $this->isRelaxed($chat)) {
             return $body;
         }
 
         // Whitelist the booked space's own stored address: protect exact-match
-        // occurrences with a placeholder before masking other addresses, then
-        // restore them afterwards.
-        $whitelist = $this->spaceAddress($convo);
+        // occurrences with a placeholder before masking other addresses, then restore.
+        $whitelist = $this->spaceAddress($chat);
         $token = "\0SPACE_ADDR\0";
         $hasWhitelist = $whitelist !== null && $whitelist !== '' && str_contains($body, $whitelist);
 
@@ -56,8 +47,7 @@ class PiiMaskingService
         $body = preg_replace('/https?:\/\/[^\s]+/', '[link removed]', $body);
         $body = preg_replace('/www\.[^\s]+/', '[link removed]', $body);
 
-        // Strip street addresses (number + street name + common suffix), e.g.
-        // "123 Main St", "45 Avenida Juarez Avenue", "10 Calle 5 Blvd".
+        // Strip street addresses (number + street name + common suffix)
         $body = preg_replace(
             '/\b\d{1,5}\s+(?:[A-Za-z0-9.\'\-]+\s+){0,4}'
             . '(?:St(?:reet)?|Ave(?:nue)?|Avenida|Blvd|Boulevard|Rd|Road|Dr(?:ive)?|'
@@ -80,28 +70,27 @@ class PiiMaskingService
     }
 
     /**
-     * Conversation is "relaxed" when it is a staff-anchored thread (internal or a
-     * Support-anchored dispute thread) or once support joins a direct thread.
-     * Dispute threads (support_client/support_provider) are Support-run, so PII is
-     * not masked there (design.md §7/§10). Columns are null-safe checked here.
+     * UC-21 · design.md §10/§16 — a chat is "relaxed" (no masking) when it is a
+     * staff-only chat (derived nature != client↔provider) OR once Support joins the
+     * client↔provider chat (announced). Derived from participants/anchors, NOT a flag.
      */
-    private function isRelaxed(Conversation $convo): bool
+    private function isRelaxed(Chat $chat): bool
     {
-        return in_array(($convo->type ?? null), [
-            Conversation::TYPE_INTERNAL,
-            Conversation::TYPE_SUPPORT_CLIENT,
-            Conversation::TYPE_SUPPORT_PROVIDER,
-        ], true)
-            || ($convo->support_joined_at ?? null) !== null;
+        if ($chat->isStaffOnly()) {
+            return true;
+        }
+
+        return $chat->support_joined_at !== null;
     }
 
     /**
-     * The booked space's stored address to whitelist. Prefers an `address`
-     * column (per spec) and falls back to `location_text` in the current schema.
+     * The booked space's stored address to whitelist. A space is now a chat_object
+     * (the old space_id anchor is retired), so read it from an attached Space, or the
+     * space of an attached Booking.
      */
-    private function spaceAddress(Conversation $convo): ?string
+    private function spaceAddress(Chat $chat): ?string
     {
-        $space = $convo->space ?? null;
+        $space = $this->attachedSpace($chat);
 
         if ($space === null) {
             return null;
@@ -110,5 +99,24 @@ class PiiMaskingService
         $address = $space->address ?? $space->location_text ?? null;
 
         return $address !== null ? trim((string) $address) : null;
+    }
+
+    private function attachedSpace(Chat $chat): ?Space
+    {
+        $chat->loadMissing('objects.objectable');
+
+        foreach ($chat->objects as $object) {
+            $model = $object->objectable;
+
+            if ($model instanceof Space) {
+                return $model;
+            }
+
+            if ($model instanceof Booking && $model->space) {
+                return $model->space;
+            }
+        }
+
+        return null;
     }
 }

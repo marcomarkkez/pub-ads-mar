@@ -4,23 +4,26 @@ namespace Database\Seeders;
 
 use App\Models\Ad;
 use App\Models\Booking;
-use App\Models\Conversation;
+use App\Models\Chat;
+use App\Models\ChatFlag;
+use App\Models\ChatParticipant;
 use App\Models\Payment;
 use App\Models\Proof;
 use App\Models\Space;
-use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Seeds a READY-MADE dispute so a human can walk the flow across roles without
- * building data by hand (design.md §7/§10/§11 [F07-F10]): a held payment, a
- * client-rejected proof, the "Payment held" flag on the payment, and the three
- * Support-anchored threads (internal / support_client / support_provider).
+ * UC-7/UC-8/UC-9/UC-35 · design.md §7/§10 — a ready-made set of chats so a human can
+ * walk the unified Chats/Objetos/Flags flow across roles. Produces:
+ *  - a client↔provider chat (PII-masking demo);
+ *  - an objectless client↔support chat (contact support, UC-9);
+ *  - a held-payment DISPUTE: payments.status=held + 3 chats (Support↔Client / ↔Provider
+ *    / ↔Payments) each attaching payment+booking with an active payment_held flag;
+ *  - one resolved chat and one closed chat (Abierto/Cerrado + admin-reopen + hidden history).
  *
- * Idempotent: safe to re-run (docker compose exec backend php artisan db:seed
- * --class=DisputeDemoSeeder). Reuses the demo logins when present.
+ * Idempotent: guarded so a re-run does not pile up.
  */
 class DisputeDemoSeeder extends Seeder
 {
@@ -42,15 +45,11 @@ class DisputeDemoSeeder extends Seeder
         );
 
         $booking = Booking::firstOrCreate(
-            ['client_user_id' => $client->id, 'space_id' => $space->id, 'ad_id' => $ad->id],
-            ['start_date' => '2026-07-01', 'end_date' => '2026-07-31', 'total_price' => 500, 'status' => 'waiting_proof']
+            ['client_user_id' => $client->id, 'space_id' => $space->id, 'ad_id' => $ad->id, 'start_date' => '2026-07-01'],
+            ['end_date' => '2026-07-31', 'total_price' => 500, 'status' => 'waiting_proof']
         );
 
-        // Held payment + client-rejected proof (the dispute end-state).
-        $payment = Payment::updateOrCreate(
-            ['booking_id' => $booking->id],
-            ['amount' => 500, 'status' => 'held']
-        );
+        $payment = Payment::updateOrCreate(['booking_id' => $booking->id], ['amount' => 500, 'status' => 'held']);
 
         Proof::updateOrCreate(
             ['booking_id' => $booking->id, 'ad_id' => $ad->id],
@@ -64,65 +63,106 @@ class DisputeDemoSeeder extends Seeder
             ]
         );
 
-        // The "Payment held" flag Payments watches.
-        Ticket::firstOrCreate(
-            ['ticketable_type' => Payment::class, 'ticketable_id' => $payment->id, 'subject' => 'Payment held — demo dispute'],
-            [
-                'user_id' => $client->id,
-                'description' => 'Client rejected the proof. Payout is on hold pending Support review. (demo)',
-                'priority' => 'high',
-                'status' => 'open',
-            ]
-        );
+        // 1) A plain client↔provider chat (masking demo), with the space attached.
+        $this->ensureChat('demo-direct', [
+            'opened_by_user_id' => $client->id,
+            'client_user_id' => $client->id,
+            'provider_user_id' => $provider->id,
+        ], function (Chat $chat) use ($client, $provider, $space) {
+            $chat->participants()->create(['user_id' => $client->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
+            $chat->participants()->create(['user_id' => $provider->id, 'side' => ChatParticipant::SIDE_PROVIDER, 'joined_at' => now()]);
+            $this->attach($chat, $space, $client->id);
+            $this->message($chat, $client->id, 'Hola, ¿está disponible en julio? Mi cel es 555-123-4567.', 'user');
+        });
 
-        // The three Support-anchored threads, each announced once.
-        foreach ([
-            Conversation::TYPE_INTERNAL,
-            Conversation::TYPE_SUPPORT_CLIENT,
-            Conversation::TYPE_SUPPORT_PROVIDER,
-        ] as $type) {
-            $convo = Conversation::firstOrCreate(
-                ['space_id' => $space->id, 'client_user_id' => $client->id, 'type' => $type],
-                ['provider_user_id' => $provider->id]
-            );
+        // 2) An objectless client↔support chat (contact support, UC-9).
+        $this->ensureChat('demo-support', [
+            'opened_by_user_id' => $client->id,
+            'client_user_id' => $client->id,
+            'provider_user_id' => null,
+        ], function (Chat $chat) use ($client) {
+            $chat->participants()->create(['user_id' => $client->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
+            $this->message($chat, $client->id, '¿Cómo cambio mi método de pago?', 'user');
+        });
 
-            if ($convo->wasRecentlyCreated) {
-                $convo->messages()->create([
-                    'sender_user_id' => $client->id,
-                    'body' => 'Dispute opened (demo): client rejected the proof. Payout held pending Support review.',
-                    'kind' => 'system',
+        // 3) The held-payment dispute — 3 chats, each with payment_held flag + objects.
+        $sets = [
+            ['client' => null, 'provider' => null, 'side' => null, 'key' => 'demo-dispute-internal'],
+            ['client' => $client->id, 'provider' => null, 'side' => ChatParticipant::SIDE_CLIENT, 'key' => 'demo-dispute-client'],
+            ['client' => null, 'provider' => $provider->id, 'side' => ChatParticipant::SIDE_PROVIDER, 'key' => 'demo-dispute-provider'],
+        ];
+        foreach ($sets as $set) {
+            $this->ensureChat($set['key'], [
+                'opened_by_user_id' => $client->id,
+                'client_user_id' => $set['client'],
+                'provider_user_id' => $set['provider'],
+            ], function (Chat $chat) use ($set, $client, $provider, $payment, $booking) {
+                if ($set['side'] === ChatParticipant::SIDE_CLIENT) {
+                    $chat->participants()->create(['user_id' => $client->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
+                } elseif ($set['side'] === ChatParticipant::SIDE_PROVIDER) {
+                    $chat->participants()->create(['user_id' => $provider->id, 'side' => ChatParticipant::SIDE_PROVIDER, 'joined_at' => now()]);
+                }
+                $this->attach($chat, $payment, $client->id);
+                $this->attach($chat, $booking, $client->id);
+                $chat->flags()->create([
+                    'type' => ChatFlag::TYPE_PAYMENT_HELD,
+                    'reason' => 'Client rejected the proof (demo).',
+                    'active' => true,
+                    'created_by_user_id' => $client->id,
                 ]);
-            }
+                $this->message($chat, $client->id, 'Dispute opened (demo): client rejected the proof. Payout held pending Support review.', 'system');
+            });
         }
 
-        // A plain direct thread too, so the queue shows the client↔provider chat.
-        Conversation::firstOrCreate(
-            ['space_id' => $space->id, 'client_user_id' => $client->id, 'type' => Conversation::TYPE_DIRECT],
-            ['provider_user_id' => $provider->id]
-        );
+        // 4) A resolved chat and a closed chat (Abierto/Cerrado UI + admin-reopen).
+        $this->ensureChat('demo-resolved', [
+            'opened_by_user_id' => $client->id, 'client_user_id' => $client->id, 'provider_user_id' => null,
+            'status' => Chat::STATUS_RESOLVED, 'resolved_at' => now(),
+        ], function (Chat $chat) use ($client) {
+            $chat->participants()->create(['user_id' => $client->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
+            $this->message($chat, $client->id, 'Gracias, quedó resuelto (demo).', 'system');
+        });
 
-        // Scenario B: a proof AWAITING the client's review, so Accept/Reject is
-        // testable live from the client's Bookings page (design.md §7 [F07]).
-        $bookingB = Booking::firstOrCreate(
-            ['client_user_id' => $client->id, 'space_id' => $space->id, 'ad_id' => $ad->id, 'start_date' => '2026-08-01'],
-            ['end_date' => '2026-08-31', 'total_price' => 400, 'status' => 'waiting_proof']
-        );
-        Payment::updateOrCreate(['booking_id' => $bookingB->id], ['amount' => 400, 'status' => 'held']);
-        Proof::updateOrCreate(
-            ['booking_id' => $bookingB->id, 'ad_id' => $ad->id],
-            [
-                'uploaded_by_user_id' => $provider->id,
-                'media_type' => 'image',
-                'file_path' => 'proofs/demo-pending.jpg',
-                'file_name' => 'demo-pending.jpg',
-                'status' => 'pending_review',
-                'notes' => 'Provider uploaded proof — awaiting client review (demo).',
-            ]
-        );
+        $this->ensureChat('demo-closed', [
+            'opened_by_user_id' => $client->id, 'client_user_id' => $client->id, 'provider_user_id' => null,
+            'status' => Chat::STATUS_CLOSED, 'closed_at' => now(), 'closed_by_user_id' => $client->id,
+        ], function (Chat $chat) use ($client) {
+            $chat->participants()->create(['user_id' => $client->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
+            $this->message($chat, $client->id, 'Cerrado por el cliente (demo).', 'system');
+        });
 
-        $this->command?->info('DisputeDemoSeeder: dispute booking #' . $booking->id
-            . ' (held + flag + 3 threads) and pending-proof booking #' . $bookingB->id
-            . ' (client can Accept/Reject) ready.');
+        $this->command?->info('DisputeDemoSeeder: direct + support + 3 dispute chats (held+flag) + resolved + closed ready.');
+    }
+
+    /** Idempotent chat creation keyed by a stable marker in the opener system message. */
+    private function ensureChat(string $key, array $attributes, callable $build): void
+    {
+        $marker = 'seed-key:' . $key;
+
+        $exists = Chat::whereHas('messages', fn ($q) => $q->where('body', $marker))->exists();
+        if ($exists) {
+            return;
+        }
+
+        $chat = Chat::create(array_merge(['status' => Chat::STATUS_OPEN, 'last_message_at' => now()], $attributes));
+        // Hidden marker message so re-runs are idempotent without a dedicated column.
+        $chat->messages()->create(['sender_user_id' => $attributes['opened_by_user_id'], 'body' => $marker, 'kind' => 'system']);
+        $build($chat);
+    }
+
+    private function attach(Chat $chat, $object, int $userId): void
+    {
+        $chat->objects()->create([
+            'objectable_type' => $object->getMorphClass(),
+            'objectable_id' => $object->getKey(),
+            'attached_by_user_id' => $userId,
+        ]);
+    }
+
+    private function message(Chat $chat, int $senderId, string $body, string $kind): void
+    {
+        $chat->messages()->create(['sender_user_id' => $senderId, 'body' => $body, 'kind' => $kind]);
+        $chat->update(['last_message_at' => now()]);
     }
 
     private function user(string $email, string $name, string $role): User

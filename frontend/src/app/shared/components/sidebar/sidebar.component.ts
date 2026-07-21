@@ -21,6 +21,7 @@ export class SidebarComponent {
   role = this.auth.userRole;
   menuOpen = false;
 
+  // design.md §10 — ONE "Messages" area for ALL roles; no separate Support/Tickets menu.
   navItems = computed<NavItem[]>(() => {
     const role = this.role();
     switch (role) {
@@ -32,8 +33,7 @@ export class SidebarComponent {
           { label: 'Bookings', icon: '📅', route: '/client/bookings' },
           { label: 'Invoices', icon: '📄', route: '/client/invoices' },
           { label: 'Wallet', icon: '👛', route: '/client/wallet' },
-          { label: 'Messages', icon: '💬', route: '/conversations' },
-          { label: 'Support', icon: '🎫', route: '/tickets' },
+          { label: 'Messages', icon: '💬', route: '/messages' },
         ];
       case 'provider':
         return [
@@ -41,27 +41,27 @@ export class SidebarComponent {
           { label: 'My Spaces', icon: '📍', route: '/provider/spaces' },
           { label: 'Bookings', icon: '📅', route: '/provider/bookings' },
           { label: 'Proofs', icon: '📸', route: '/provider/proofs' },
-          { label: 'Messages', icon: '💬', route: '/conversations' },
-          { label: 'Support', icon: '🎫', route: '/tickets' },
+          { label: 'Messages', icon: '💬', route: '/messages' },
         ];
       case 'admin':
         return [
           { label: 'Dashboard', icon: '📊', route: '/dashboard' },
           { label: 'Users', icon: '👥', route: '/admin/users' },
           { label: 'Permissions', icon: '🔐', route: '/admin/permissions' },
-          { label: 'Oversight', icon: '👁️', route: '/admin/oversight' },
+          // design.md §12 — admin's Messages surface is the read-only oversight screen.
+          { label: 'Messages', icon: '💬', route: '/admin/oversight' },
           { label: 'Configurations', icon: '⚙️', route: '/admin/config' },
         ];
       case 'support':
         return [
           { label: 'Dashboard', icon: '📊', route: '/dashboard' },
-          { label: 'Tickets', icon: '🎫', route: '/support/tickets' },
+          { label: 'Messages', icon: '💬', route: '/messages' },
         ];
       case 'payments':
         return [
           { label: 'Dashboard', icon: '📊', route: '/dashboard' },
           { label: 'Payments', icon: '💳', route: '/payments/review' },
-          { label: 'Proofs', icon: '📸', route: '/payments/proofs' },
+          { label: 'Messages', icon: '💬', route: '/messages' },
         ];
       default:
         return [];

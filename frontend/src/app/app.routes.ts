@@ -68,32 +68,22 @@ export const routes: Routes = [
         ],
       },
 
-      // Support routes
-      {
-        path: 'support',
-        canActivate: [roleGuard('support')],
-        children: [
-          { path: 'tickets', loadComponent: () => import('./features/support/ticket-list.component').then(m => m.SupportTicketListComponent) },
-          { path: 'tickets/:id', loadComponent: () => import('./features/support/ticket-detail.component').then(m => m.SupportTicketDetailComponent) },
-        ],
-      },
+      // Support has NO dedicated routes — Support acts on chats via the shared /messages
+      // surface (design.md §10/§17); the old /support/tickets area is retired.
 
-      // Payments routes
+      // Payments routes — proof-review REMOVED (design.md B9: Payments must not review proof content)
       {
         path: 'payments',
         canActivate: [roleGuard('payments')],
         children: [
           { path: 'review', loadComponent: () => import('./features/payments/payment-list.component').then(m => m.PaymentListComponent) },
-          { path: 'proofs', loadComponent: () => import('./features/payments/proof-review-list.component').then(m => m.ProofReviewListComponent) },
         ],
       },
 
-      // Shared routes (any authenticated user)
-      { path: 'conversations', loadComponent: () => import('./features/shared/conversations/conversation-list.component').then(m => m.ConversationListComponent) },
-      { path: 'conversations/:id', loadComponent: () => import('./features/shared/conversations/conversation-detail.component').then(m => m.ConversationDetailComponent) },
-      { path: 'tickets', loadComponent: () => import('./features/shared/tickets/ticket-list.component').then(m => m.TicketListComponent) },
-      { path: 'tickets/new', loadComponent: () => import('./features/shared/tickets/ticket-form.component').then(m => m.TicketFormComponent) },
-      { path: 'tickets/:id', loadComponent: () => import('./features/shared/tickets/ticket-detail.component').then(m => m.TicketDetailComponent) },
+      // Shared Messages — the ONE chat surface for ALL roles (design.md §10/§17; UC-8, UC-9)
+      { path: 'messages', loadComponent: () => import('./features/shared/messages/chat-list.component').then(m => m.ChatListComponent) },
+      { path: 'messages/new', loadComponent: () => import('./features/shared/messages/chat-new.component').then(m => m.ChatNewComponent) },
+      { path: 'messages/:id', loadComponent: () => import('./features/shared/messages/chat-detail.component').then(m => m.ChatDetailComponent) },
     ],
   },
 

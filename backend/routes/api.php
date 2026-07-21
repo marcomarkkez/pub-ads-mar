@@ -26,13 +26,10 @@ use App\Http\Controllers\Provider\ProofController;
 use App\Http\Controllers\Provider\SpaceAvailabilityController;
 use App\Http\Controllers\Provider\SpaceController;
 use App\Http\Controllers\Provider\SpacePhotoController;
-use App\Http\Controllers\Shared\ConversationController;
-use App\Http\Controllers\Shared\MessageController;
-use App\Http\Controllers\Shared\TicketController;
-use App\Http\Controllers\Support\ConversationController as SupportConversationController;
-use App\Http\Controllers\Support\PaymentController as SupportPaymentController;
+use App\Http\Controllers\Shared\ChatController;
+use App\Http\Controllers\Shared\ChatFlagController;
+use App\Http\Controllers\Shared\ChatObjectController;
 use App\Http\Controllers\Support\DashboardController as SupportDashboardController;
-use App\Http\Controllers\Support\TicketController as SupportTicketController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -153,11 +150,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('permissions/{role}', [PermissionController::class, 'update']);
         Route::patch('permissions/{role}/{resource}', [PermissionController::class, 'updateResource']);
 
-        // Eagle-eye oversight (C11) — read-only across conversations + tickets
-        Route::get('oversight/conversations', [OversightController::class, 'conversations'])->middleware('permission:conversations,read');
-        Route::get('oversight/conversations/{conversation}/messages', [OversightController::class, 'conversationMessages'])->middleware('permission:conversations,read');
-        Route::get('oversight/tickets', [OversightController::class, 'tickets'])->middleware('permission:tickets,read');
-        Route::get('oversight/tickets/{ticket}', [OversightController::class, 'ticket'])->middleware('permission:tickets,read');
+        // UC-28 · design.md §10/§12/§17 — ONE eagle-eye chat oversight (read-only,
+        // incognito). Replaces the retired /oversight/{conversations,tickets} views.
+        Route::get('oversight/chats', [OversightController::class, 'chats'])->middleware('permission:chats,read');
+        Route::get('oversight/chats/{chat}', [OversightController::class, 'chat'])->middleware('permission:chats,read');
+
+        // UC-28 · Admin's only chat write-power: reopen a closed chat for investigation.
+        Route::post('chats/{chat}/reopen', [ChatController::class, 'reopen']);
 
         // System configurations (C12)
         Route::get('configurations', [ConfigurationController::class, 'index'])->middleware('permission:configurations,read');
@@ -169,18 +168,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // [todo B8] Support stats dashboard (role-gated only — see note in admin block).
         Route::get('dashboard', [SupportDashboardController::class, 'index']);
 
-        Route::get('tickets', [SupportTicketController::class, 'index'])->middleware('permission:tickets,read');
-        Route::get('tickets/{ticket}', [SupportTicketController::class, 'show'])->middleware('permission:tickets,read');
-        Route::put('tickets/{ticket}', [SupportTicketController::class, 'update'])->middleware('permission:tickets,update');
-        Route::post('tickets/{ticket}/reply', [SupportTicketController::class, 'reply'])->middleware('permission:tickets,create');
-
-        // Join a client↔provider chat (announced; relaxes PII masking). Role-gated
-        // only — no permission mw, to avoid an RBAC reseed on the running DB.
-        Route::post('conversations/{conversation}/join', [SupportConversationController::class, 'join']);
-
-        // Support FLAGS money actions for Payments to decide+execute (no money authority).
-        Route::post('payments/{payment}/flag-refund', [SupportPaymentController::class, 'flagRefund']);
-        Route::post('payments/{payment}/flag-payout-hold', [SupportPaymentController::class, 'flagPayoutHold']);
+        // design.md §10/§17: Support acts on chats via the shared /chats map
+        // (join/flag/resolve/close). The old /tickets, /conversations/{c}/join and
+        // /payments/{p}/flag-* routes are RETIRED into the ONE chat primitive.
     });
 
     // ── Payments routes ─────────────────────────────────────
@@ -203,14 +193,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('proofs/{proof}/reject', [ProofReviewController::class, 'reject'])->middleware('permission:proofs,update');
     });
 
-    // ── Shared routes (any authenticated user) ──────────────
-    Route::get('conversations', [ConversationController::class, 'index'])->middleware('permission:conversations,read');
-    Route::post('conversations', [ConversationController::class, 'store'])->middleware('permission:conversations,create');
-    Route::get('conversations/{conversation}/messages', [MessageController::class, 'index'])->middleware('permission:conversations,read');
-    Route::post('conversations/{conversation}/messages', [MessageController::class, 'store'])->middleware('permission:conversations,create');
-
-    Route::get('tickets', [TicketController::class, 'index'])->middleware('permission:tickets,read');
-    Route::post('tickets', [TicketController::class, 'store'])->middleware('permission:tickets,create');
-    Route::get('tickets/{ticket}', [TicketController::class, 'show'])->middleware('permission:tickets,read');
-    Route::post('tickets/{ticket}/reply', [TicketController::class, 'reply'])->middleware('permission:tickets,create');
+    // ── Shared routes — Chats (any authenticated user) ──────────────
+    // design.md §10/§17 — the ONE communication primitive. Nature + ACL DERIVED from
+    // participants+objects (never a `type` column, never a flag). Admin never posts
+    // here (read-only/incognito via /admin/oversight/chats — R1); admin holds only
+    // chats.read, so the create-gated mutations 403 for admin at the middleware.
+    Route::get('chats', [ChatController::class, 'index'])->middleware('permission:chats,read');                       // UC-8/UC-9/UC-27
+    Route::post('chats', [ChatController::class, 'store'])->middleware('permission:chats,create');                    // UC-8/UC-9
+    Route::get('chats/{chat}', [ChatController::class, 'show'])->middleware('permission:chats,read');                 // UC-8/UC-9
+    Route::post('chats/{chat}/messages', [ChatController::class, 'postMessage'])->middleware('permission:chats,create'); // UC-8/UC-9
+    Route::post('chats/{chat}/objects', [ChatObjectController::class, 'attach'])->middleware('permission:chats,create'); // UC-8 (R2)
+    Route::delete('chats/{chat}/objects/{object}', [ChatObjectController::class, 'detach'])->middleware('permission:chats,create');
+    Route::post('chats/{chat}/flags', [ChatFlagController::class, 'store'])->middleware('permission:chats,create');   // UC-22
+    Route::post('chats/{chat}/join', [ChatController::class, 'join'])->middleware('role:support');                    // UC-21
+    Route::post('chats/{chat}/resolve', [ChatController::class, 'resolve'])->middleware('permission:chats,create');   // UC-22/UC-23
+    Route::post('chats/{chat}/close', [ChatController::class, 'close'])->middleware('permission:chats,create');       // UC-8/UC-9
+    // (reopen is admin-only — defined in the /admin block above.)
 });

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Campaign extends Model
 {
@@ -47,8 +48,9 @@ class Campaign extends Model
         return $this->hasMany(Invoice::class);
     }
 
-    public function tickets()
+    // UC-8 · design.md §10 — chats this campaign is attached to (replaces retired tickets).
+    public function chatObjects(): MorphMany
     {
-        return $this->morphMany(Ticket::class, 'ticketable');
+        return $this->morphMany(ChatObject::class, 'objectable');
     }
 }

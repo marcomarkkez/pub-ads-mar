@@ -76,9 +76,10 @@ interface StatCard { label: string; value: string; sub?: string; }
             </a>
           }
           @case ('support') {
-            <a routerLink="/support/tickets" class="action-card">
-              <span class="action-icon">🎫</span>
-              <span class="action-label">Support Tickets</span>
+            <!-- design.md §10 — Support works chats via the shared Messages surface -->
+            <a routerLink="/messages" class="action-card">
+              <span class="action-icon">💬</span>
+              <span class="action-label">Messages</span>
             </a>
           }
           @case ('payments') {
@@ -229,7 +230,7 @@ export class DashboardComponent implements OnInit {
           { label: 'Users', value: `${d.users_total ?? 0}` },
           { label: 'Active spaces', value: `${d.active_spaces ?? 0}`, sub: `${d.total_spaces ?? 0} total` },
           { label: 'Active campaigns', value: `${d.active_campaigns ?? 0}`, sub: `${d.total_campaigns ?? 0} total` },
-          { label: 'Open tickets', value: `${d.open_tickets ?? 0}` },
+          { label: 'Open support chats', value: `${d.open_support_chats ?? d.open_tickets ?? 0}` },
           { label: 'Payments held', value: `${d.payments_held?.count ?? 0}`, sub: this.money(d.payments_held?.amount) },
           { label: 'Revenue paid', value: `${d.revenue_paid?.count ?? 0}`, sub: this.money(d.revenue_paid?.amount) },
         ];

@@ -2,7 +2,7 @@ export * from './user.model';
 export * from './campaign.model';
 export * from './space.model';
 export * from './booking.model';
-export * from './conversation.model';
+export * from './chat.model';
 
 export interface PaginatedResponse<T> {
   data: T[];

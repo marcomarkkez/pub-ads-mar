@@ -210,6 +210,8 @@ The `pg_hba.conf` for PG 17 (`C:\Program Files\PostgreSQL\17\data\pg_hba.conf`) 
 
 ## Learnings / Common Mistakes
 
+- **Timestamp every DECISION change.** Whenever the owner sets or changes a decision, record it inline with a dated marker `[owner YYYY-MM-DD]` in design.md (and history.md / todos) and commit it, so `latest-decision-wins` can be resolved by DATE and the git history shows WHEN each call was made. The owner asked for this explicitly (2026-07-17): persist design decisions first (committed) so they're reviewable in git before the code lands. Same rule in AGENTS.md.
+
 - **Windows `NUL` vs bash `/dev/null`:** On Windows with bash shell, never redirect to `NUL` — bash treats it as a literal filename and creates a `nul` file. Always use `/dev/null` instead.
 - **Skill files go in `.agents/skills/`**, not the project root. If `.skill` files appear in the root, move them to `.agents/skills/`.
 - **Don't create files in the project root** unless they're documented in design.md. Keep the root clean.

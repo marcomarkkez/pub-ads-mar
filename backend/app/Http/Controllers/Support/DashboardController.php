@@ -3,30 +3,34 @@
 namespace App\Http\Controllers\Support;
 
 use App\Http\Controllers\Controller;
-use App\Models\Ticket;
+use App\Models\Chat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * [todo B8] Support stats dashboard.
- * Owner decision 2026-06-20: Support dashboard shows tickets solved vs waiting to review.
+ * UC-28-adjacent · design.md §10 — Support stats dashboard. A "ticket" is now a
+ * chat with a Support participant, so the queue is DERIVED: staff-facing chats
+ * (nature != client↔provider) plus client↔provider chats Support has joined.
  */
 class DashboardController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        // Support's queue: staff-facing chats (either side anchor null) + joined chats.
+        $queue = Chat::query()->where(function ($q) {
+            $q->whereNull('client_user_id')
+                ->orWhereNull('provider_user_id')
+                ->orWhereNotNull('support_joined_at');
+        });
+
+        $countBy = fn (array $statuses) => (clone $queue)->whereIn('status', $statuses)->count();
+
         return response()->json([
-            // waiting to review = open or in-progress (still needs Support action)
-            'waiting_review' => Ticket::whereIn('status', ['open', 'in_progress'])->count(),
-            'open'           => Ticket::where('status', 'open')->count(),
-            'in_progress'    => Ticket::where('status', 'in_progress')->count(),
-            'waiting_user'   => Ticket::where('status', 'waiting_user')->count(),
-            // solved = resolved or closed
-            'solved'         => Ticket::whereIn('status', ['resolved', 'closed'])->count(),
-            // unassigned & still actionable — needs someone to pick it up
-            'unassigned'     => Ticket::whereNull('assigned_to_user_id')
-                ->whereIn('status', ['open', 'in_progress'])->count(),
-            'total'          => Ticket::count(),
+            'waiting_review' => $countBy([Chat::STATUS_OPEN, Chat::STATUS_IN_PROGRESS]),
+            'open'           => $countBy([Chat::STATUS_OPEN]),
+            'in_progress'    => $countBy([Chat::STATUS_IN_PROGRESS]),
+            'solved'         => $countBy([Chat::STATUS_RESOLVED, Chat::STATUS_CLOSED]),
+            'total'          => (clone $queue)->count(),
         ]);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Space extends Model
 {
@@ -64,8 +65,10 @@ class Space extends Model
         return $this->hasMany(Ad::class);
     }
 
-    public function conversations(): HasMany
+    // UC-8 · design.md §10 — chats this space is attached to (space is now just one
+    // possible chat_object; the old space_id anchor on conversations is retired).
+    public function chatObjects(): MorphMany
     {
-        return $this->hasMany(Conversation::class);
+        return $this->morphMany(ChatObject::class, 'objectable');
     }
 }

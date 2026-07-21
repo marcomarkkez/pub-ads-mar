@@ -9,8 +9,8 @@ use App\Models\Ad;
 use App\Models\Space;
 use App\Models\SpaceAvailability;
 use App\Models\Booking;
-use App\Models\Conversation;
-use App\Models\Message;
+use App\Models\Chat;
+use App\Models\ChatParticipant;
 use App\Models\Invoice;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -352,80 +352,42 @@ class DatabaseSeeder extends Seeder
             'due_at' => '2026-04-05',
         ]);
 
-        // ── Conversations + Messages ───────────────────────────────────
-        $conv1 = Conversation::create([
-            'space_id' => $space1->id,
-            'client_user_id' => $client1->id,
-            'provider_user_id' => $provider1->id,
+        // ── Chats + Messages (design.md §10 — ONE primitive; space = a chat_object) ──
+        $this->seedChat($client1, $provider1, $space1, [
+            [$client1->id, 'Hola Roberto, me interesa el espectacular de Vasconcelos para marzo. ¿Está disponible del 15 al 30?', true],
+            [$provider1->id, 'Hola Carlos, sí está disponible esas fechas. El precio es $2,500 MXN por día. ¿Deseas apartar?', true],
+            [$client1->id, 'Perfecto, vamos a proceder con la reserva. ¿Qué formatos de imagen aceptan?', true],
+            [$provider1->id, 'Aceptamos JPG y PNG en alta resolución, mínimo 300 DPI. Dimensiones del espectacular: 12x4 metros.', false],
         ]);
 
-        Message::create([
-            'conversation_id' => $conv1->id,
-            'sender_user_id' => $client1->id,
-            'body' => 'Hola Roberto, me interesa el espectacular de Vasconcelos para marzo. ¿Está disponible del 15 al 30?',
-            'is_read' => true,
-        ]);
-        Message::create([
-            'conversation_id' => $conv1->id,
-            'sender_user_id' => $provider1->id,
-            'body' => 'Hola Carlos, sí está disponible esas fechas. El precio es $2,500 MXN por día. ¿Deseas apartar?',
-            'is_read' => true,
-        ]);
-        Message::create([
-            'conversation_id' => $conv1->id,
-            'sender_user_id' => $client1->id,
-            'body' => 'Perfecto, vamos a proceder con la reserva. ¿Qué formatos de imagen aceptan?',
-            'is_read' => true,
-        ]);
-        Message::create([
-            'conversation_id' => $conv1->id,
-            'sender_user_id' => $provider1->id,
-            'body' => 'Aceptamos JPG y PNG en alta resolución, mínimo 300 DPI. Dimensiones del espectacular: 12x4 metros.',
-            'is_read' => false,
+        $this->seedChat($client1, $provider1, $space2, [
+            [$client1->id, 'Buenos días, quisiera cotizar la pantalla digital de Valle Oriente para una campaña de video.', true],
+            [$provider1->id, 'Claro, la pantalla tiene disponibilidad para abril. El video debe ser MP4, máximo 30 segundos y resolución 1920x1080.', false],
         ]);
 
-        $conv2 = Conversation::create([
-            'space_id' => $space2->id,
-            'client_user_id' => $client1->id,
-            'provider_user_id' => $provider1->id,
+        $this->seedChat($client2, $provider2, $space5, [
+            [$client2->id, 'Hola Fernanda, vi el espectacular en Constitución y me parece ideal para nuestra campaña de abril.', true],
+            [$provider2->id, 'Hola Sofía, ese espectacular tiene mucha visibilidad. El precio mensual es $70,000 MXN. ¿Te mando el contrato?', true],
+            [$client2->id, 'Sí, por favor envíame los detalles al correo.', false],
         ]);
+    }
 
-        Message::create([
-            'conversation_id' => $conv2->id,
-            'sender_user_id' => $client1->id,
-            'body' => 'Buenos días, quisiera cotizar la pantalla digital de Valle Oriente para una campaña de video.',
-            'is_read' => true,
+    /** design.md §10 — a client↔provider chat with the space attached and messages. */
+    private function seedChat(User $client, User $provider, Space $space, array $messages): void
+    {
+        $chat = Chat::create([
+            'opened_by_user_id' => $client->id,
+            'client_user_id' => $client->id,
+            'provider_user_id' => $provider->id,
+            'status' => Chat::STATUS_OPEN,
+            'last_message_at' => now(),
         ]);
-        Message::create([
-            'conversation_id' => $conv2->id,
-            'sender_user_id' => $provider1->id,
-            'body' => 'Claro, la pantalla tiene disponibilidad para abril. El video debe ser MP4, máximo 30 segundos y resolución 1920x1080.',
-            'is_read' => false,
-        ]);
+        $chat->participants()->create(['user_id' => $client->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
+        $chat->participants()->create(['user_id' => $provider->id, 'side' => ChatParticipant::SIDE_PROVIDER, 'joined_at' => now()]);
+        $chat->objects()->create(['objectable_type' => $space->getMorphClass(), 'objectable_id' => $space->id, 'attached_by_user_id' => $client->id]);
 
-        $conv3 = Conversation::create([
-            'space_id' => $space5->id,
-            'client_user_id' => $client2->id,
-            'provider_user_id' => $provider2->id,
-        ]);
-
-        Message::create([
-            'conversation_id' => $conv3->id,
-            'sender_user_id' => $client2->id,
-            'body' => 'Hola Fernanda, vi el espectacular en Constitución y me parece ideal para nuestra campaña de abril.',
-            'is_read' => true,
-        ]);
-        Message::create([
-            'conversation_id' => $conv3->id,
-            'sender_user_id' => $provider2->id,
-            'body' => 'Hola Sofía, ese espectacular tiene mucha visibilidad. El precio mensual es $70,000 MXN. ¿Te mando el contrato?',
-            'is_read' => true,
-        ]);
-        Message::create([
-            'conversation_id' => $conv3->id,
-            'sender_user_id' => $client2->id,
-            'body' => 'Sí, por favor envíame los detalles al correo.',
-            'is_read' => false,
-        ]);
+        foreach ($messages as [$senderId, $body, $isRead]) {
+            $chat->messages()->create(['sender_user_id' => $senderId, 'body' => $body, 'is_read' => $isRead, 'kind' => 'user']);
+        }
     }
 }

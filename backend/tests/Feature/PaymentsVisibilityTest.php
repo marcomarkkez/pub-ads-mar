@@ -11,39 +11,35 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * design.md §8/§11 [F10<-F09]: Payments sees WHY money is held — the Support flag
- * / dispute tickets ride along on the payment. Money ops stay idempotent.
+ * UC-27 · design.md §8/§10 — Payments sees WHY money is held: the dispute chats (with
+ * their active payment_held flag) ride along on the payment as chat_objects. Money ops
+ * stay idempotent.
  */
 class PaymentsVisibilityTest extends TestCase
 {
     use RefreshDatabase;
     use BuildsBookingScenario;
 
-    private function openDisputeAsClient(array $s): void
-    {
-        Sanctum::actingAs($s['client']);
-        $this->postJson("/api/client/proofs/{$s['proof']->id}/reject", ['reason' => 'not shown'])
-            ->assertStatus(200);
-    }
-
-    public function test_payments_index_and_show_load_the_flag_tickets(): void
+    public function test_payments_index_and_show_load_the_dispute_chats(): void
     {
         $s = $this->bookingScenario();
-        $this->openDisputeAsClient($s);
+        Sanctum::actingAs($s['client']);
+        $this->postJson("/api/client/proofs/{$s['proof']->id}/reject", ['reason' => 'not shown'])->assertStatus(200);
         $payment = $s['payment'];
 
         $payments = User::factory()->create(['role' => 'payments']);
         Sanctum::actingAs($payments);
 
         $index = $this->getJson('/api/payments/payments')->assertStatus(200);
-        $tickets = collect($index->json('data'))
-            ->firstWhere('id', $payment->id)['tickets'] ?? [];
-        $this->assertNotEmpty($tickets);
-        $this->assertStringStartsWith('Payment held', $tickets[0]['subject']);
+        $row = collect($index->json('data'))->firstWhere('id', $payment->id);
+        $this->assertNotEmpty($row['chat_objects']);
 
-        $this->getJson("/api/payments/payments/{$payment->id}")
-            ->assertStatus(200)
-            ->assertJsonPath('tickets.0.subject', 'Payment held — not shown');
+        // At least one attached chat carries an active payment_held flag.
+        $show = $this->getJson("/api/payments/payments/{$payment->id}")->assertStatus(200)->json();
+        $flags = collect($show['chat_objects'])
+            ->flatMap(fn ($o) => $o['chat']['active_flags'] ?? [])
+            ->pluck('type');
+        $this->assertTrue($flags->contains('payment_held'));
     }
 
     public function test_refund_is_idempotent(): void
@@ -57,15 +53,8 @@ class PaymentsVisibilityTest extends TestCase
         $this->postJson("/api/payments/payments/{$payment->id}/refund")->assertStatus(200);
 
         $this->assertSame('refunded', $payment->fresh()->status);
-        $this->assertSame(
-            1,
-            WalletEntry::where('idempotency_key', "refund:payment:{$payment->id}")->count()
-        );
-        // Credited the booking's client exactly once.
-        $this->assertSame(
-            1,
-            WalletEntry::where('user_id', $client->id)->where('type', 'refund')->count()
-        );
+        $this->assertSame(1, WalletEntry::where('idempotency_key', "refund:payment:{$payment->id}")->count());
+        $this->assertSame(1, WalletEntry::where('user_id', $client->id)->where('type', 'refund')->count());
     }
 
     public function test_hold_payout_parks_status_held(): void

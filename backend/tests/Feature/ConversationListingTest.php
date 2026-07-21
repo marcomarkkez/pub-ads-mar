@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Conversation;
+use App\Models\Chat;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -10,66 +10,77 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * design.md §7/§10 [F07/F08]: GET /conversations lists each party's OWN direct
- * thread plus their OWN Support-anchored dispute thread — never the other side's
- * dispute thread nor the internal Support↔Payments thread.
+ * UC-8/UC-9/UC-27 · design.md §10 — GET /chats lists each side's OWN chats (derived
+ * membership), never the other side's dispute chat nor the internal Support↔Payments
+ * chat. Support sees its derived queue; a client opens a chat, staff do not (via this route).
  */
 class ConversationListingTest extends TestCase
 {
     use RefreshDatabase;
     use BuildsBookingScenario;
 
-    /** A direct thread + a full dispute (opens the three support threads). */
     private function withDispute(array $s): void
     {
-        Conversation::create([
-            'space_id' => $s['space']->id,
+        // A plain client↔provider chat + the full dispute (3 support chats).
+        $chat = Chat::create([
+            'opened_by_user_id' => $s['client']->id,
             'client_user_id' => $s['client']->id,
             'provider_user_id' => $s['provider']->id,
-            'type' => Conversation::TYPE_DIRECT,
+            'status' => Chat::STATUS_OPEN,
         ]);
+        $chat->participants()->create(['user_id' => $s['client']->id, 'side' => 'client']);
+        $chat->participants()->create(['user_id' => $s['provider']->id, 'side' => 'provider']);
 
         Sanctum::actingAs($s['client']);
-        $this->postJson("/api/client/proofs/{$s['proof']->id}/reject", ['reason' => 'x'])
-            ->assertStatus(200);
+        $this->postJson("/api/client/proofs/{$s['proof']->id}/reject", ['reason' => 'x'])->assertStatus(200);
     }
 
-    public function test_client_sees_only_direct_and_support_client(): void
+    private function naturesFor(User $user): array
+    {
+        Sanctum::actingAs($user);
+
+        return collect($this->getJson('/api/chats')->assertStatus(200)->json())
+            ->map(fn ($chat) => $chat['nature'])
+            ->sort()->values()->all();
+    }
+
+    public function test_client_sees_only_client_provider_and_support_client(): void
     {
         $s = $this->bookingScenario();
         $this->withDispute($s);
 
-        Sanctum::actingAs($s['client']);
-        $types = collect($this->getJson('/api/conversations')->assertStatus(200)->json())
-            ->pluck('type')->sort()->values()->all();
-
-        $this->assertSame(['direct', 'support_client'], $types);
+        $this->assertSame(['client_provider', 'support_client'], $this->naturesFor($s['client']));
     }
 
-    public function test_provider_sees_only_direct_and_support_provider(): void
+    public function test_provider_sees_only_client_provider_and_support_provider(): void
     {
         $s = $this->bookingScenario();
         $this->withDispute($s);
 
-        Sanctum::actingAs($s['provider']);
-        $types = collect($this->getJson('/api/conversations')->assertStatus(200)->json())
-            ->pluck('type')->sort()->values()->all();
-
-        $this->assertSame(['direct', 'support_provider'], $types);
+        $this->assertSame(['client_provider', 'support_provider'], $this->naturesFor($s['provider']));
     }
 
-    public function test_only_a_client_can_start_a_conversation(): void
+    public function test_support_sees_the_staff_facing_queue(): void
+    {
+        $s = $this->bookingScenario();
+        $this->withDispute($s);
+
+        $support = User::factory()->create(['role' => 'support']);
+        // Support's queue = the 3 dispute chats (staff-facing), not the client↔provider chat.
+        $this->assertSame(['internal', 'support_client', 'support_provider'], $this->naturesFor($support));
+    }
+
+    public function test_only_client_or_provider_can_open_a_chat(): void
     {
         $s = $this->bookingScenario();
         $support = User::factory()->create(['role' => 'support']);
 
-        // Valid payload so we hit the role check, not validation.
         Sanctum::actingAs($support);
-        $this->postJson('/api/conversations', ['space_id' => $s['space']->id])
+        $this->postJson('/api/chats', ['object_type' => 'space', 'object_id' => $s['space']->id])
             ->assertStatus(403);
 
         Sanctum::actingAs($s['client']);
-        $this->postJson('/api/conversations', ['space_id' => $s['space']->id])
+        $this->postJson('/api/chats', ['object_type' => 'space', 'object_id' => $s['space']->id])
             ->assertStatus(201);
     }
 }

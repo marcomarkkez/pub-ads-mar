@@ -12,6 +12,7 @@ class RolePermissionSeeder extends Seeder
         RolePermission::truncate();
 
         $permissions = [
+            // design.md §10/§17 — ONE `chats` resource (tickets + conversations retired).
             'client' => [
                 'campaigns'     => ['create', 'read', 'update', 'delete'],
                 'adsets'        => ['create', 'read', 'update', 'delete'],
@@ -19,8 +20,7 @@ class RolePermissionSeeder extends Seeder
                 'bookings'      => ['create', 'read', 'update'],
                 'spaces'        => ['read'],
                 'proofs'        => ['read'],
-                'conversations' => ['create', 'read'],
-                'tickets'       => ['create', 'read'],
+                'chats'         => ['create', 'read', 'update'],
                 'collaborators' => ['create', 'read', 'delete'],
                 'invoices'      => ['read'],
             ],
@@ -32,8 +32,7 @@ class RolePermissionSeeder extends Seeder
                 'bookings'              => ['read', 'update'],
                 'dashboard'             => ['read'],
                 'proofs'                => ['create', 'read'],
-                'conversations'         => ['create', 'read'],
-                'tickets'               => ['create', 'read'],
+                'chats'                 => ['create', 'read', 'update'],
             ],
 
             'admin' => [
@@ -47,8 +46,9 @@ class RolePermissionSeeder extends Seeder
                 'bookings'              => ['read'],
                 'payments'              => ['read'],
                 'proofs'                => ['read'],
-                'tickets'               => ['read'],
-                'conversations'         => ['read'],
+                // Admin is READ-ONLY/incognito on chats (never posts — R1). Only
+                // chats.read → the create-gated mutations 403 for admin at the mw.
+                'chats'                 => ['read'],
                 'invoices'              => ['read'],
                 'collaborators'         => ['read'],
                 'dashboard'             => ['read'],
@@ -56,12 +56,11 @@ class RolePermissionSeeder extends Seeder
             ],
 
             'support' => [
-                'tickets'       => ['create', 'read', 'update'],
-                // 'create' so Support can POST replies in the threads it joins /
-                // anchors (dispute threads); the messages route gates on it.
-                'conversations' => ['read', 'create'],
-                'users'         => ['read'],
-                'dashboard'     => ['read'], // [todo B8] support stats dashboard
+                'users'     => ['read'],
+                // create+read: Support posts/joins/flags/resolves via the /chats map
+                // (no chats.update — lifecycle actions are gated on chats.create).
+                'chats'     => ['create', 'read'],
+                'dashboard' => ['read'], // [todo B8] support stats dashboard
             ],
 
             'payments' => [
@@ -69,9 +68,9 @@ class RolePermissionSeeder extends Seeder
                 'proofs'   => ['read', 'update'],
                 'bookings' => ['read'],
                 'invoices' => ['read'],
-                // Payments reads + posts ONLY in the internal Support↔Payments
-                // thread (controller ACL blocks it from client↔provider threads).
-                'conversations' => ['read', 'create'],
+                // Payments reads + posts ONLY in the internal Support↔Payments chat
+                // (controller ACL blocks it from client↔provider chats).
+                'chats'    => ['create', 'read'],
                 'dashboard' => ['read'], // [todo B8] payments stats dashboard
             ],
         ];

@@ -2,6 +2,21 @@
 
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
+## Positive reinforcements (do MORE of this)
+
+Patterns the owner explicitly praised and wants repeated — a "do more of this" list.
+
+- **Collapse parallel views/entities into ONE filtered structure.** When two screens or
+  tables differ only by the *entity* they carry (e.g. Admin oversight had a
+  `/oversight/conversations` view AND a `/oversight/tickets` view) and those entities are
+  really the same concept, propose UNIFYING them into a single model with filters (by type,
+  flag, object, status, participant) instead of maintaining parallel code paths. The owner
+  flagged this instinct as repeat-worthy (2026-07-17). Generalizes to: prefer one primitive +
+  attributes over N near-duplicate primitives; fewer tables/endpoints/screens, more filters.
+- **Timestamp every decision change** (owner, 2026-07-17). When a decision is set or changed,
+  stamp it `[owner YYYY-MM-DD]` in design.md and commit the design change FIRST (before the code),
+  so the decision history is reviewable in git and `latest-decision-wins` resolves by date.
+
 ## Quick Reference
 
 ```bash

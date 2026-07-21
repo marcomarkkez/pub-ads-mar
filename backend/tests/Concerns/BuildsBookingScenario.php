@@ -4,6 +4,7 @@ namespace Tests\Concerns;
 
 use App\Models\Ad;
 use App\Models\Booking;
+use App\Models\Chat;
 use App\Models\Payment;
 use App\Models\Proof;
 use App\Models\Space;
@@ -66,5 +67,23 @@ trait BuildsBookingScenario
         ]);
 
         return compact('client', 'provider', 'space', 'ad', 'booking', 'payment', 'proof');
+    }
+
+    /**
+     * The three dispute chats opened by a client proof-reject, keyed by nature.
+     * Identified by their attached payment + side anchors (no `type` column).
+     */
+    protected function disputeChats(array $s): array
+    {
+        $base = fn () => Chat::query()->whereHas('objects', function ($q) use ($s) {
+            $q->where('objectable_type', $s['payment']->getMorphClass())
+                ->where('objectable_id', $s['payment']->id);
+        });
+
+        return [
+            'internal' => $base()->whereNull('client_user_id')->whereNull('provider_user_id')->firstOrFail(),
+            'support_client' => $base()->where('client_user_id', $s['client']->id)->whereNull('provider_user_id')->firstOrFail(),
+            'support_provider' => $base()->whereNull('client_user_id')->where('provider_user_id', $s['provider']->id)->firstOrFail(),
+        ];
     }
 }

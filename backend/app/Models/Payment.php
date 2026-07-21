@@ -38,12 +38,12 @@ class Payment extends Model
     }
 
     /**
-     * Tickets attached to this payment — incl. Support's flag-refund /
-     * flag-payout-hold and the dual proof-reject ticket (design.md §11 [F09]).
-     * This is how Payments sees WHY money is held and what Support requested.
+     * UC-7/UC-27 · design.md §10 — chats this payment is attached to (dispute /
+     * internal Support↔Payments chats). This is how Payments sees WHY money is held
+     * and what Support requested — the retired `tickets` morphMany is now chat_objects.
      */
-    public function tickets(): MorphMany
+    public function chatObjects(): MorphMany
     {
-        return $this->morphMany(Ticket::class, 'ticketable');
+        return $this->morphMany(ChatObject::class, 'objectable');
     }
 }

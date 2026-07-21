@@ -6,12 +6,10 @@ use App\Models\Ad;
 use App\Models\Adset;
 use App\Models\Booking;
 use App\Models\Campaign;
-use App\Models\Conversation;
-use App\Models\Message;
+use App\Models\Chat;
+use App\Models\ChatParticipant;
 use App\Models\Proof;
 use App\Models\Space;
-use App\Models\Ticket;
-use App\Models\TicketMessage;
 use App\Models\User;
 use App\Models\WalletEntry;
 use Illuminate\Database\Seeder;
@@ -118,8 +116,10 @@ class MvpDemoSeeder extends Seeder
             ]);
 
             if ($payStatus === 'refunded') {
+                // wallet_entries stores signed DECIMAL pesos (`amount`); the old
+                // `amount_centavos` column was renamed by 2026_06_23_000001.
                 WalletEntry::create([
-                    'user_id' => $client->id, 'amount_centavos' => (int) round($price * 100 * 0.9),
+                    'user_id' => $client->id, 'amount' => round($price * 0.9, 2),
                     'type' => 'refund', 'ref_type' => 'booking', 'ref_id' => $booking->id,
                     'idempotency_key' => 'seed-refund-booking-' . $booking->id,
                 ]);
@@ -142,60 +142,58 @@ class MvpDemoSeeder extends Seeder
             }
         }
 
-        // ── Support tickets WITH objects attached + threaded messages ─────────
+        // ── Chats: a "ticket" is just a chat with a Support participant (design.md §10) ──
         $firstAd = Ad::where('campaign_id', $camp1->id)->first();
         $firstSpaceP2 = $p2Spaces->first();
 
-        // 1) Client raises a ticket on an AD, support replies.
-        $t1 = Ticket::create([
-            'user_id' => $client1->id, 'ticketable_type' => Ad::class, 'ticketable_id' => $firstAd->id,
-            'subject' => 'El anuncio no se ve en el espectacular',
-            'description' => 'Pasé por la ubicación y mi anuncio no aparecía ayer por la tarde.',
-            'status' => 'in_progress', 'priority' => 'high', 'assigned_to_user_id' => $support?->id,
-        ]);
-        TicketMessage::create(['ticket_id' => $t1->id, 'user_id' => $client1->id, 'body' => 'Adjunto el anuncio afectado. ¿Pueden revisar con el proveedor?', 'is_internal' => false]);
-        TicketMessage::create(['ticket_id' => $t1->id, 'user_id' => $support?->id, 'body' => 'Hola, soporte se une a la conversación. Estamos validando con el proveedor la instalación.', 'is_internal' => false]);
-
-        // 2) Client2 raises a ticket on a SPACE.
-        $t2 = Ticket::create([
-            'user_id' => $client2->id, 'ticketable_type' => Space::class, 'ticketable_id' => $firstSpaceP2?->id,
-            'subject' => 'Duda sobre disponibilidad del espacio',
-            'description' => '¿Este espacio estará libre la primera semana de agosto?',
-            'status' => 'open', 'priority' => 'medium',
-        ]);
-        TicketMessage::create(['ticket_id' => $t2->id, 'user_id' => $client2->id, 'body' => '¿Me confirman disponibilidad para agosto?', 'is_internal' => false]);
-
-        // 3) Payments-originated ticket on an AD with an INTERNAL Support<->Payments thread.
-        $proofBooking = $bookingsForProof[1] ?? $bookingsForProof[0] ?? null;
-        if ($proofBooking && $payments) {
-            $t3 = Ticket::create([
-                'user_id' => $payments->id, 'ticketable_type' => Ad::class, 'ticketable_id' => $proofBooking->ad_id,
-                'subject' => 'Revisión de pago retenido por prueba',
-                'description' => 'El pago de esta reserva está retenido a la espera de validar la prueba de exhibición.',
-                'status' => 'in_progress', 'priority' => 'high', 'assigned_to_user_id' => $support?->id,
-            ]);
-            TicketMessage::create(['ticket_id' => $t3->id, 'user_id' => $payments->id, 'body' => '[interno] Soporte, ¿pueden confirmar si la prueba corresponde al anuncio antes de liberar el pago?', 'is_internal' => true]);
-            TicketMessage::create(['ticket_id' => $t3->id, 'user_id' => $support?->id, 'body' => '[interno] Confirmado, la prueba coincide. Pueden proceder con el pago.', 'is_internal' => true]);
+        // 1) Client↔support chat with an AD attached (UC-9 contact support).
+        $c1 = Chat::create(['opened_by_user_id' => $client1->id, 'client_user_id' => $client1->id, 'status' => Chat::STATUS_IN_PROGRESS, 'last_message_at' => now()]);
+        $c1->participants()->create(['user_id' => $client1->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
+        if ($firstAd) {
+            $c1->objects()->create(['objectable_type' => $firstAd->getMorphClass(), 'objectable_id' => $firstAd->id, 'attached_by_user_id' => $client1->id]);
+        }
+        $c1->messages()->create(['sender_user_id' => $client1->id, 'body' => 'Adjunto el anuncio afectado. ¿Pueden revisar con el proveedor?', 'kind' => 'user']);
+        if ($support) {
+            $c1->participants()->create(['user_id' => $support->id, 'side' => ChatParticipant::SIDE_SUPPORT, 'announced' => true, 'joined_at' => now()]);
+            $c1->messages()->create(['sender_user_id' => $support->id, 'body' => 'Hola, soporte se une. Estamos validando con el proveedor la instalación.', 'kind' => 'user']);
         }
 
-        // 4) Reference-less general ticket (no object attached).
-        $t4 = Ticket::create([
-            'user_id' => $client1->id, 'ticketable_type' => null, 'ticketable_id' => null,
-            'subject' => '¿Cómo cambio mi método de pago?',
-            'description' => 'No encuentro dónde actualizar mi tarjeta.',
-            'status' => 'open', 'priority' => 'low',
-        ]);
-        TicketMessage::create(['ticket_id' => $t4->id, 'user_id' => $client1->id, 'body' => 'Necesito ayuda para cambiar mi método de pago.', 'is_internal' => false]);
-
-        // ── Extra conversations attached to spaces (provider2) ────────────────
+        // 2) Client2↔support chat with a SPACE attached.
+        $c2 = Chat::create(['opened_by_user_id' => $client2->id, 'client_user_id' => $client2->id, 'status' => Chat::STATUS_OPEN, 'last_message_at' => now()]);
+        $c2->participants()->create(['user_id' => $client2->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
         if ($firstSpaceP2) {
-            $conv = Conversation::create([
-                'space_id' => $firstSpaceP2->id, 'client_user_id' => $client1->id, 'provider_user_id' => $provider2->id,
-            ]);
-            Message::create(['conversation_id' => $conv->id, 'sender_user_id' => $client1->id, 'body' => 'Hola, me interesa este espacio para una campaña de verano.', 'is_read' => true]);
-            Message::create(['conversation_id' => $conv->id, 'sender_user_id' => $provider2->id, 'body' => 'Con gusto, tiene disponibilidad en julio. ¿Qué fechas necesita?', 'is_read' => false]);
+            $c2->objects()->create(['objectable_type' => $firstSpaceP2->getMorphClass(), 'objectable_id' => $firstSpaceP2->id, 'attached_by_user_id' => $client2->id]);
+        }
+        $c2->messages()->create(['sender_user_id' => $client2->id, 'body' => '¿Me confirman disponibilidad para agosto?', 'kind' => 'user']);
+
+        // 3) Internal Support↔Payments chat (both anchors null → nature internal).
+        $proofBooking = $bookingsForProof[1] ?? $bookingsForProof[0] ?? null;
+        if ($proofBooking && $payments && $support) {
+            $c3 = Chat::create(['opened_by_user_id' => $payments->id, 'status' => Chat::STATUS_IN_PROGRESS, 'last_message_at' => now()]);
+            $c3->participants()->create(['user_id' => $payments->id, 'side' => ChatParticipant::SIDE_PAYMENTS, 'joined_at' => now()]);
+            $c3->participants()->create(['user_id' => $support->id, 'side' => ChatParticipant::SIDE_SUPPORT, 'joined_at' => now()]);
+            if ($proofBooking->payment) {
+                $c3->objects()->create(['objectable_type' => $proofBooking->payment->getMorphClass(), 'objectable_id' => $proofBooking->payment->id, 'attached_by_user_id' => $payments->id]);
+            }
+            $c3->messages()->create(['sender_user_id' => $payments->id, 'body' => 'Soporte, ¿confirman que la prueba corresponde antes de liberar el pago?', 'kind' => 'user']);
+            $c3->messages()->create(['sender_user_id' => $support->id, 'body' => 'Confirmado, la prueba coincide. Pueden proceder.', 'kind' => 'user']);
         }
 
-        $this->command->info('MvpDemoSeeder: bookings, proofs, payments, 4 tickets (+threads), conversations seeded.');
+        // 4) Objectless general support chat (contact support, UC-9).
+        $c4 = Chat::create(['opened_by_user_id' => $client1->id, 'client_user_id' => $client1->id, 'status' => Chat::STATUS_OPEN, 'last_message_at' => now()]);
+        $c4->participants()->create(['user_id' => $client1->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
+        $c4->messages()->create(['sender_user_id' => $client1->id, 'body' => 'Necesito ayuda para cambiar mi método de pago.', 'kind' => 'user']);
+
+        // ── Extra client↔provider chat attached to a space (provider2) ────────
+        if ($firstSpaceP2) {
+            $c5 = Chat::create(['opened_by_user_id' => $client1->id, 'client_user_id' => $client1->id, 'provider_user_id' => $provider2->id, 'status' => Chat::STATUS_OPEN, 'last_message_at' => now()]);
+            $c5->participants()->create(['user_id' => $client1->id, 'side' => ChatParticipant::SIDE_CLIENT, 'joined_at' => now()]);
+            $c5->participants()->create(['user_id' => $provider2->id, 'side' => ChatParticipant::SIDE_PROVIDER, 'joined_at' => now()]);
+            $c5->objects()->create(['objectable_type' => $firstSpaceP2->getMorphClass(), 'objectable_id' => $firstSpaceP2->id, 'attached_by_user_id' => $client1->id]);
+            $c5->messages()->create(['sender_user_id' => $client1->id, 'body' => 'Hola, me interesa este espacio para una campaña de verano.', 'is_read' => true, 'kind' => 'user']);
+            $c5->messages()->create(['sender_user_id' => $provider2->id, 'body' => 'Con gusto, tiene disponibilidad en julio. ¿Qué fechas necesita?', 'is_read' => false, 'kind' => 'user']);
+        }
+
+        $this->command->info('MvpDemoSeeder: bookings, proofs, payments, and 5 chats (support/internal/direct) seeded.');
     }
 }

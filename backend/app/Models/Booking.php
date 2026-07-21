@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Booking extends Model
 {
@@ -60,5 +61,11 @@ class Booking extends Model
     public function proofs(): HasMany
     {
         return $this->hasMany(Proof::class);
+    }
+
+    // UC-7 · design.md §10 — chats this booking is attached to (dispute chats).
+    public function chatObjects(): MorphMany
+    {
+        return $this->morphMany(ChatObject::class, 'objectable');
     }
 }

@@ -5,7 +5,7 @@ export interface CollaboratorRoleOption {
 
 export const COLLABORATOR_ROLES: CollaboratorRoleOption[] = [
   { value: 'installator', label: 'Installator (proof upload only)' },
-  { value: 'publicist', label: 'Publicist (campaigns + tickets)' },
+  { value: 'publicist', label: 'Publicist (campaigns + chats)' },
   { value: 'manager', label: 'Manager (full access)' },
 ];
 

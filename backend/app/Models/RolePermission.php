@@ -34,8 +34,8 @@ class RolePermission extends Model
         'bookings',
         'payments',
         'proofs',
-        'tickets',
-        'conversations',
+        // design.md §10 — ONE `chats` resource; `tickets` + `conversations` retired.
+        'chats',
         'invoices',
         'collaborators',
         'configurations',
