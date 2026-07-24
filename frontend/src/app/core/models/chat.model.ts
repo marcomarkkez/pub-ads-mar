@@ -81,6 +81,8 @@ export interface Chat {
   updated_at: string;
   participants?: ChatParticipant[];
   objects?: ChatObject[];
+  // The server serializes the active-flags relation as `active_flags`; `flags` kept for compat.
+  active_flags?: ChatFlag[];
   flags?: ChatFlag[];
   messages?: ChatMessage[];
   latest_message?: ChatMessage;
@@ -92,9 +94,26 @@ export function displayChatStatus(status: ChatStatus | string | undefined): 'Abi
   return status === 'closed' ? 'Cerrado' : 'Abierto';
 }
 
-/** Active (non-superseded) flags for a chat. */
-export function activeFlags(chat: Pick<Chat, 'flags'>): ChatFlag[] {
-  return (chat.flags ?? []).filter(f => f.active);
+/** Active (non-superseded) flags for a chat. Server sends them under `active_flags`. */
+export function activeFlags(chat: Pick<Chat, 'flags'> & { active_flags?: ChatFlag[] }): ChatFlag[] {
+  return (chat.active_flags ?? chat.flags ?? []).filter(f => f.active);
+}
+
+/**
+ * design.md §10 — user-facing chat title DERIVED from nature. A client/provider chat
+ * with support reads "Chat con soporte" (never the internal nature enum or "Chat #id").
+ */
+export function chatTitle(chat: Chat): string {
+  if (chat.subject) return chat.subject;
+  switch (chat.nature) {
+    case 'support_client':
+    case 'support_provider':
+      return 'Chat con soporte';
+    case 'internal':
+      return 'Soporte ↔ Pagos';
+  }
+  const o = chat.objects?.[0];
+  return o ? (o.label || `${o.object_type} #${o.object_id}`) : `Chat #${chat.id}`;
 }
 
 // ---------------------------------------------------------------------------

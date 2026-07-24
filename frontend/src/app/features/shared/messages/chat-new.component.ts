@@ -16,8 +16,11 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
   imports: [CommonModule, FormsModule, RouterLink, ObjectPickerComponent],
   template: `
     <div class="page-header">
-      <h1><a routerLink="/messages" class="back-link">&larr;</a> Abrir un chat</h1>
+      <h1><a routerLink="/messages" class="back-link">&larr;</a> Chat con soporte</h1>
     </div>
+
+    <p class="lead">Inicias un chat con el equipo de soporte. Puedes adjuntar un objeto
+      (anuncio, espacio, reserva…) para darles contexto.</p>
 
     @if (error()) {
       <div class="alert alert-error">{{ error() }}</div>
@@ -25,12 +28,6 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
 
     <div class="card">
       <form (ngSubmit)="onSubmit()">
-        <div class="form-group">
-          <label for="subject">Asunto (opcional)</label>
-          <input id="subject" type="text" name="subject" [(ngModel)]="subject"
-                 placeholder="Motivo del chat…" />
-        </div>
-
         <div class="form-group">
           <label>Adjuntar un objeto (opcional)</label>
           <p class="hint">Elige el tipo de objeto y luego el objeto específico (p. ej. Ads → “Mi Ad #1”).</p>
@@ -49,7 +46,7 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
         <div class="form-actions">
           <a routerLink="/messages" class="btn">Cancelar</a>
           <button type="submit" class="btn btn-primary submit-btn" [disabled]="submitting()">
-            @if (submitting()) { <span class="spinner"></span> Enviando… } @else { Abrir chat }
+            @if (submitting()) { <span class="spinner"></span> Enviando… } @else { Enviar a soporte }
           </button>
         </div>
       </form>
@@ -57,6 +54,7 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
   `,
   styles: [`
     .back-link { text-decoration: none; color: var(--primary); margin-right: 8px; }
+    .lead { color: var(--text-muted); margin: -8px 0 16px; font-size: 14px; }
     .hint { font-size: 12px; color: var(--text-muted); margin: 4px 0 8px; }
     .form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
     .submit-btn { width: auto; }
@@ -69,7 +67,6 @@ export class ChatNewComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private notify = inject(NotificationService);
 
-  subject = '';
   message = '';
   picked = signal<PickedObject | null>(null);
   locked = signal(false);
@@ -81,8 +78,6 @@ export class ChatNewComponent implements OnInit {
     const qp = this.route.snapshot.queryParamMap;
     const type = qp.get('object_type') as ChatObjectType | null;
     const id = qp.get('object_id');
-    const subject = qp.get('subject');
-    if (subject) this.subject = subject;
     if (type && id) {
       this.picked.set({ object_type: type, object_id: Number(id), label: `${type} #${id}` });
       this.locked.set(true);
@@ -103,8 +98,8 @@ export class ChatNewComponent implements OnInit {
     this.error.set('');
 
     const obj = this.picked();
-    const payload: Record<string, unknown> = { message: this.message.trim() };
-    if (this.subject.trim()) payload['subject'] = this.subject.trim();
+    // The API expects `body` for the opening message (design.md §17).
+    const payload: Record<string, unknown> = { body: this.message.trim() };
     if (obj) {
       payload['object_type'] = obj.object_type;
       payload['object_id'] = obj.object_id;

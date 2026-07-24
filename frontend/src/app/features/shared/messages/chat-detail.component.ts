@@ -8,7 +8,7 @@ import { NotificationService } from '../../../core/services/notification.service
 import { AuthService } from '../../../core/services/auth.service';
 import {
   Chat, ChatMessage, ChatFlag, ChatObject, ChatFlagType,
-  activeFlags, displayChatStatus,
+  activeFlags, displayChatStatus, chatTitle,
 } from '../../../core/models';
 import { ObjectPickerComponent, PickedObject } from './object-picker.component';
 
@@ -242,11 +242,15 @@ export class ChatDetailComponent implements OnInit, AfterViewChecked {
   load(): void {
     this.loading.set(true);
     this.error.set('');
-    this.http.get<Chat | { data: Chat }>(`${this.api}/chats/${this.chatId}`).subscribe({
+    // GET /chats/{id} returns { data: { chat, messages, closed? } } — the chat (with its
+    // participants/objects/active_flags) and messages are SIBLINGS, not nested in one another.
+    this.http.get<{ data: { chat: Chat; messages: ChatMessage[]; closed?: boolean } }>(
+      `${this.api}/chats/${this.chatId}`
+    ).subscribe({
       next: (res) => {
-        const chat = this.unwrap(res);
-        this.chat.set(chat);
-        this.messages.set(chat.messages ?? []);
+        const payload = res.data;
+        this.chat.set(payload.chat);
+        this.messages.set(payload.messages ?? []);
         this.loading.set(false);
         this.shouldScroll = true;
       },
@@ -269,10 +273,7 @@ export class ChatDetailComponent implements OnInit, AfterViewChecked {
   }
   title(): string {
     const c = this.chat();
-    if (!c) return 'Chat';
-    if (c.subject) return c.subject;
-    const o = c.objects?.[0];
-    return o ? (o.label || `${o.object_type} #${o.object_id}`) : `Chat #${c.id}`;
+    return c ? chatTitle(c) : 'Chat';
   }
 
   // ---- messages ----

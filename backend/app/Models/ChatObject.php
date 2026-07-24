@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Str;
 
 /**
  * UC-8 · design.md §10/§15 — a polymorphic object attached to a chat
@@ -19,6 +20,31 @@ class ChatObject extends Model
         'objectable_id',
         'attached_by_user_id',
     ];
+
+    // UC-8 · design.md §17 — the API contract exposes the SHORT type alias + a human
+    // label, not the raw polymorphic columns (which carry the FQCN + numeric id).
+    protected $appends = ['object_type', 'object_id', 'label'];
+
+    /** "App\Models\Space" → "space" (matches ChatObjectAuthorizer's short keys). */
+    public function getObjectTypeAttribute(): string
+    {
+        return Str::snake(class_basename((string) $this->objectable_type));
+    }
+
+    public function getObjectIdAttribute(): int
+    {
+        return (int) $this->objectable_id;
+    }
+
+    /** Human label: prefer the object's own name/title, else "<Type> #<id>". */
+    public function getLabelAttribute(): string
+    {
+        $obj = $this->objectable;
+        $name = $obj->name ?? $obj->title ?? null;
+        $type = Str::headline($this->object_type);
+
+        return $name ? "{$type}: {$name}" : "{$type} #{$this->objectable_id}";
+    }
 
     public function chat(): BelongsTo
     {

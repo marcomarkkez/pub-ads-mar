@@ -6,7 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { Chat, activeFlags, displayChatStatus } from '../../../core/models';
+import { Chat, activeFlags, displayChatStatus, chatTitle } from '../../../core/models';
 
 // UC-8/UC-9 · design.md §10/§17 — the single Messages surface for ALL roles.
 // GET /chats returns the caller's chats (Support's list is its DERIVED queue).
@@ -20,6 +20,10 @@ import { Chat, activeFlags, displayChatStatus } from '../../../core/models';
       <a routerLink="/messages/new" class="btn btn-primary new-btn">Open a chat</a>
     </div>
 
+    <!-- 'Naturaleza' is a STAFF/oversight classification (design.md §10/§12): it exists for
+         ACL branching + the admin eagle-eye filter, NOT as a user-facing control here. Each
+         role's list already contains ONLY the chats assigned to it, so the sole list filter
+         is Estado. Nature filtering lives in the admin's /admin/oversight/chats view. -->
     <div class="filter-bar card">
       <div class="filter-group">
         <label for="statusFilter">Estado</label>
@@ -27,17 +31,6 @@ import { Chat, activeFlags, displayChatStatus } from '../../../core/models';
           <option value="">Todos</option>
           <option value="Abierto">Abierto</option>
           <option value="Cerrado">Cerrado</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="natureFilter">Naturaleza</label>
-        <select id="natureFilter" [ngModel]="natureFilter()" (ngModelChange)="natureFilter.set($event)">
-          <option value="">Todas</option>
-          <option value="client_provider">Cliente ↔ Proveedor</option>
-          <option value="support_client">Soporte ↔ Cliente</option>
-          <option value="support_provider">Soporte ↔ Proveedor</option>
-          <option value="internal">Interno</option>
-          <option value="general">General</option>
         </select>
       </div>
     </div>
@@ -81,9 +74,9 @@ import { Chat, activeFlags, displayChatStatus } from '../../../core/models';
                 }
               </div>
             }
-            @if (chat.latest_message) {
+            @if (preview(chat); as pv) {
               <div class="chat-preview">
-                {{ chat.latest_message.body.slice(0, 90) }}{{ chat.latest_message.body.length > 90 ? '…' : '' }}
+                {{ pv.slice(0, 90) }}{{ pv.length > 90 ? '…' : '' }}
               </div>
             }
           </a>
@@ -125,18 +118,15 @@ export class ChatListComponent implements OnInit {
   loading = signal(false);
   error = signal('');
   statusFilter = signal('');
-  natureFilter = signal('');
 
   private currentUserId: number | null = null;
 
   // Client-side filtering keeps us off unverified query-param contracts.
-  // Filters are signals so this computed re-evaluates when they change.
+  // The filter signal is read here so this computed re-evaluates when it changes.
   filtered = computed(() => {
     const status = this.statusFilter();
-    const nature = this.natureFilter();
     return this.chats().filter(c => {
       if (status && displayChatStatus(c.status) !== status) return false;
-      if (nature && (c.nature ?? '') !== nature) return false;
       return true;
     });
   });
@@ -166,11 +156,12 @@ export class ChatListComponent implements OnInit {
   flagsFor(chat: Chat) { return activeFlags(chat); }
   objectCount(chat: Chat): number { return chat.objects?.length ?? 0; }
 
-  title(chat: Chat): string {
-    if (chat.subject) return chat.subject;
-    const obj = chat.objects?.[0];
-    if (obj) return obj.label || `${obj.object_type} #${obj.object_id}`;
-    return `Chat #${chat.id}`;
+  title(chat: Chat): string { return chatTitle(chat); }
+
+  // The list endpoint sends the newest message under `messages` (limit 1); some payloads
+  // also surface it as `latest_message`. Show whichever is present.
+  preview(chat: Chat): string {
+    return chat.latest_message?.body ?? chat.messages?.[0]?.body ?? '';
   }
 
   participantSummary(chat: Chat): string {
