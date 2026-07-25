@@ -11,7 +11,8 @@ import { NotificationService } from '../../../core/services/notification.service
       @for (n of notify.items(); track n.id) {
         <div class="toast" [attr.data-type]="n.type">
           <span class="toast-msg">{{ n.message }}</span>
-          <button class="toast-close" (click)="notify.dismiss(n.id)">&times;</button>
+          <button type="button" class="toast-close" aria-label="Cerrar"
+                  (click)="notify.dismiss(n.id)">&times;</button>
         </div>
       }
     </div>
@@ -19,7 +20,8 @@ import { NotificationService } from '../../../core/services/notification.service
   styles: [`
     .toast-container {
       position: fixed;
-      top: 16px;
+      /* Below the navbar (z 1100) so a toast never overlaps the user menu / logout. */
+      top: 72px;
       right: 16px;
       z-index: 9999;
       display: flex;

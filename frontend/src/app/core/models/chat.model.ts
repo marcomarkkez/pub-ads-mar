@@ -39,14 +39,22 @@ export interface ChatParticipant {
   user?: { id: number; name: string; role: string };
 }
 
+/** A proof preview the server hydrates onto a chat object (design.md §7 — dispute subject). */
+export interface ChatObjectProof {
+  id: number;
+  media_type: string;   // 'image' | 'video' | …
+  status: string;
+  file_url: string;
+}
+
 export interface ChatObject {
   id: number;
   chat_id?: number;
   object_type: ChatObjectType;
   object_id: number;
   label?: string;
-  // Loose context bag the server may hydrate (provider, dates, payment/proof state).
-  object?: { id: number; name?: string; [key: string]: unknown };
+  // Compact preview the server hydrates (name + related proof media, when any).
+  object?: { id: number; name?: string; proof?: ChatObjectProof; [key: string]: unknown };
 }
 
 export interface ChatFlag {

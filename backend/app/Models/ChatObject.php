@@ -22,8 +22,8 @@ class ChatObject extends Model
     ];
 
     // UC-8 · design.md §17 — the API contract exposes the SHORT type alias + a human
-    // label, not the raw polymorphic columns (which carry the FQCN + numeric id).
-    protected $appends = ['object_type', 'object_id', 'label'];
+    // label + a compact preview, not the raw polymorphic columns (FQCN + numeric id).
+    protected $appends = ['object_type', 'object_id', 'label', 'object'];
 
     /** "App\Models\Space" → "space" (matches ChatObjectAuthorizer's short keys). */
     public function getObjectTypeAttribute(): string
@@ -40,10 +40,50 @@ class ChatObject extends Model
     public function getLabelAttribute(): string
     {
         $obj = $this->objectable;
-        $name = $obj->name ?? $obj->title ?? null;
+        $name = $obj?->name ?? $obj?->title ?? null;
         $type = Str::headline($this->object_type);
 
         return $name ? "{$type}: {$name}" : "{$type} #{$this->objectable_id}";
+    }
+
+    /**
+     * UC-7/UC-8 · design.md §7/§10 — compact preview so chat members (esp. Support in a
+     * dispute) can SEE the object without leaving the chat: name + the related PROOF media
+     * (image/video/link) when the object is a Booking (or a Payment's booking). Access is
+     * already gated by chat membership, so no extra leak — the proof is the dispute subject.
+     */
+    public function getObjectAttribute(): array
+    {
+        $obj = $this->objectable;
+        $data = [
+            'id' => (int) $this->objectable_id,
+            'name' => $obj?->name ?? $obj?->title ?? null,
+        ];
+
+        $proof = $this->resolveProof($obj);
+        if ($proof) {
+            $data['proof'] = [
+                'id' => $proof->id,
+                'media_type' => $proof->media_type,
+                'status' => $proof->status,
+                'file_url' => $proof->file_url,
+            ];
+        }
+
+        return $data;
+    }
+
+    /** The latest proof reachable from the attached object (Booking direct, Payment→booking). */
+    private function resolveProof(?Model $obj): ?Proof
+    {
+        if ($obj instanceof Booking) {
+            return $obj->proofs()->latest('id')->first();
+        }
+        if ($obj instanceof Payment) {
+            return $obj->booking?->proofs()->latest('id')->first();
+        }
+
+        return null;
     }
 
     public function chat(): BelongsTo

@@ -72,6 +72,23 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
                   <button type="button" class="link-btn" (click)="detachObject(o)">Quitar</button>
                 }
               </div>
+              <!-- UC-7 · design.md §7 — show the related PROOF inline so Support can see the
+                   evidence without leaving the chat (image/video + status + open link). -->
+              @if (o.object?.proof; as pf) {
+                <div class="object-proof">
+                  <span class="proof-status">Prueba · {{ pf.status }}</span>
+                  @if (pf.file_url) {
+                    @if (pf.media_type === 'video') {
+                      <video [src]="pf.file_url" controls class="proof-media"></video>
+                    } @else {
+                      <img [src]="pf.file_url" alt="Prueba" class="proof-media" />
+                    }
+                    <a [href]="pf.file_url" target="_blank" rel="noopener" class="proof-link">Abrir en pestaña ↗</a>
+                  } @else {
+                    <span class="muted">Sin archivo de prueba aún.</span>
+                  }
+                </div>
+              }
             }
             @if (!isClosed()) {
               <div class="attach">
@@ -175,6 +192,11 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
     .badge-flag { background: #fee2e2; color: #991b1b; font-size: 11px; }
     .flag-reason { font-size: 12px; color: var(--text-muted); }
     .link-btn { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 12px; padding: 0; }
+    .object-proof { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; padding: 8px; background: var(--hover); border-radius: 8px; }
+    .proof-status { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); }
+    .proof-media { max-width: 100%; border-radius: 6px; max-height: 220px; object-fit: contain; background: #000; }
+    .proof-link { font-size: 12px; color: var(--primary); text-decoration: none; }
+    .proof-link:hover { text-decoration: underline; }
     .attach { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
     .actions { display: flex; flex-direction: column; gap: 8px; }
     .btn-sm { width: auto; }
