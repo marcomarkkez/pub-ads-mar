@@ -1,0 +1,52 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PubAds — Design Dashboard</title>
+<link rel="stylesheet" href="styles.css">
+
+<div id="app">
+  <aside id="sidebar" aria-label="Views">
+    <div class="brand">
+      <span class="brand-dot" aria-hidden="true"></span>
+      <div class="brand-txt">
+        <strong id="brand-title">Design Dashboard</strong>
+        <small id="brand-sub">loading…</small>
+      </div>
+    </div>
+    <nav id="nav" role="tablist" aria-label="Dashboard views">
+      <button class="nav-btn" role="tab" data-view="specs"><span class="nav-ic">▤</span> Specs</button>
+      <button class="nav-btn" role="tab" data-view="kanban"><span class="nav-ic">▦</span> Kanban</button>
+      <button class="nav-btn" role="tab" data-view="flow"><span class="nav-ic">⇄</span> Flow</button>
+      <button class="nav-btn" role="tab" data-view="er"><span class="nav-ic">◈</span> ER</button>
+      <button class="nav-btn" role="tab" data-view="classes"><span class="nav-ic">❏</span> Classes</button>
+      <button class="nav-btn" role="tab" data-view="stories"><span class="nav-ic">☰</span> User Stories</button>
+    </nav>
+    <div class="side-foot">
+      <button id="theme-toggle" title="Toggle light / dark">◑ Theme</button>
+      <small id="meta-line"></small>
+    </div>
+  </aside>
+
+  <main id="main">
+    <header id="topbar">
+      <button id="menu-btn" aria-label="Toggle menu" title="Menu">☰</button>
+      <h1 id="view-title">Specs</h1>
+      <div id="view-tools" class="view-tools"></div>
+    </header>
+    <section id="content" aria-live="polite"><div class="loading">Loading design.json…</div></section>
+  </main>
+</div>
+
+<!-- detail drawer (shared by Specs + Kanban) -->
+<div id="drawer" class="drawer" hidden>
+  <div class="drawer-scrim" data-close></div>
+  <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer-head">
+      <h2 id="drawer-title"></h2>
+      <button class="drawer-close" data-close aria-label="Close">✕</button>
+    </div>
+    <div id="drawer-body" class="drawer-body"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="app.js"></script>
