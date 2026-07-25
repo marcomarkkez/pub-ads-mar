@@ -226,7 +226,7 @@ const SPACE_ICON_SELECTED = L.divIcon({
                   [style.background]="isInSelection(space) ? 'var(--primary)' : ''"
                   [style.color]="isInSelection(space) ? '#fff' : ''"
                   style="width:100%;margin-top:8px;">
-                  {{ isInSelection(space) ? '✓ Added to selection' : '+ Add to selection' }}
+                  {{ isInSelection(space) ? '✓ En la selección' : '➕ Añadir a la selección' }}
                 </button>
                 <!-- design.md §10 (UC-8) — the ONLY path to a provider chat: from a published
                      listing, carrying the space as context. -->
