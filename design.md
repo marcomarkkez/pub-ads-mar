@@ -502,6 +502,15 @@ Counterparties are **not fixed at creation**: they **enter or are notified as th
 Payments may join a money-relevant chat later, Support may join a client↔provider inquiry (announced).
 So "who is on a chat" evolves over its life; the attached object stays a mere context attachment throughout.
 
+**Multiple contact entry points per page, routed by context.** [owner 2026-07-25] A single screen may
+offer SEVERAL "contact" affordances, each opening a chat with a different counterparty depending on
+WHAT the user is asking about — e.g. a **global** button in the header (near the user icon) → **Support**
+(general help, objectless); an **in-context** button inside a space's body → that **Provider** (the space
+auto-attached as evidence); a button on an invoice → **Support** with the payment attached. The object
+attaches itself so the counterparty knows what the conversation is about. **Payments and Admin are
+INTERNAL**: a client can **NEVER** contact them directly — they only talk to **Support**, or are **added**
+to an existing conversation when the context requires it (Payments to a money chat, Admin as read-only oversight).
+
 **Flags — zero..many, with history.** A chat carries ZERO or MANY flags. A flag =
 `{ type, reason, active, created_by, superseded_at }`, `type ∈ {payment_held, refund, payout_hold,
 cancel, mismatch, …}`. Flags are the **volatile human annotations**; on any change the old flag is
