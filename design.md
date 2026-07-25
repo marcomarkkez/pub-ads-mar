@@ -479,11 +479,28 @@ chat-capable subrole (so a collaborator added later still reaches their account'
 
 **Objects — zero..many polymorphic attachments.** A chat may attach ZERO or MANY objects, each of
 `ad | adset | campaign | space | payment | booking`. A chat opened *from* an object carries it from
-the start (with its context: provider, dates, payment status, proof state). A chat with NO object
-is a general question. The UI attaches an object via two dropdowns (object type → the object, e.g.
-Ads → "My Ad #1"). **Attaching is ownership-checked:** a client/provider may attach only THEIR OWN
-objects; Support/Admin may attach any. An object never grants chat access, and a chat never exposes
-an object its attacher could not already see (this is the guard against private-object leakage).
+the start as **context** (provider, dates, payment status, proof state) — but the object is ONLY an
+attachment for the conversation; it does **NOT** define the counterparty (see "Entry point" next).
+A chat with NO object is a general question. The UI attaches an object via two dropdowns (object
+type → the object, e.g. Ads → "My Ad #1"). **Attaching is ownership-checked:** a client/provider may
+attach only THEIR OWN objects; Support/Admin may attach any. An object never grants chat access, and
+a chat never exposes an object its attacher could not already see (guard against private-object leakage).
+
+**Entry point sets the counterparty — the object is only context.** [owner 2026-07-25] A chat's
+opposite party is decided by WHERE the client opens it, **never inferred from an attached object's
+owner**:
+- from the **Messages** tab, or from an **ad / adset / campaign** object → **Support**
+  (`support_client`); the object rides along as context Support can see — it does NOT pull in the provider.
+- from a **provider's published space/ad listing** → that **Provider** (`client_provider`, the space
+  attached). This is the ONLY path to a provider: providers have **no public profile** (none in the
+  UI), so a client can only reach one from a listing the provider published.
+- from **Billing / invoices** → **Support**, with the payment/invoice attached; Support fronts it and
+  loops **Payments** in through the internal Support↔Payments chat. Payments never faces the client
+  directly — the client still "reaches billing", just via Support. [owner 2026-07-25: chose B]
+
+Counterparties are **not fixed at creation**: they **enter or are notified as the context demands** —
+Payments may join a money-relevant chat later, Support may join a client↔provider inquiry (announced).
+So "who is on a chat" evolves over its life; the attached object stays a mere context attachment throughout.
 
 **Flags — zero..many, with history.** A chat carries ZERO or MANY flags. A flag =
 `{ type, reason, active, created_by, superseded_at }`, `type ∈ {payment_held, refund, payout_hold,
@@ -858,7 +875,8 @@ Payments (role:payments, prefix /payments):
   GET /proofs · POST /proofs/{proof}/approve · POST /…/reject — ⚠ VIOLATES B9, REMOVE (Payments must not review proof content)
 
 Shared — Chats (any authenticated; ONE primitive — §10; nature + ACL DERIVED from participants+objects):
-  GET,POST /chats — list caller's chats (derived queue) / open a chat (objectless or object-attached)
+  GET,POST /chats — list caller's chats (derived queue) / open a chat. COUNTERPARTY is set by the ENTRY POINT
+    (target: support [default, incl. from an ad/adset/campaign object] | provider [only from a published listing, space attached] | billing→support+payment), NOT inferred from the attached object; object is context only (§10). [owner 2026-07-25]
   GET /chats/{chat} — chat + participants + objects + active flags + messages (PII-masked at render)
   POST /chats/{chat}/messages — post (raw stored, masked at render); same derived ACL
   POST /chats/{chat}/objects · DELETE /…/objects/{obj} — attach/detach an object (OWNERSHIP-checked; system msg)
@@ -945,8 +963,8 @@ CLIENT
 - UC-5 — Client books-for-later / pre-pays into escrow (AFTER-MVP) — §6
 - UC-6 — Client reviews & ACCEPTS proof → payout releasable — §7
 - UC-7 — Client REJECTS proof / flags mismatch → dispute (3 chats + hold) — §7, §10
-- UC-8 — Client chats with a provider (inquiry) — §10
-- UC-9 — Client contacts support (opens an objectless/attached chat) — §10
+- UC-8 — Client opens a provider inquiry FROM the provider's published space/ad listing (space attached; the ONLY path to a provider — providers have no public profile/UI) — §10
+- UC-9 — Client contacts Support from Messages or an ad/adset/campaign object (object = context, provider NOT pulled in); a Billing-opened chat is Support-fronted with the payment attached (Payments looped in via the internal chat) — §10
 - UC-10 — Client cancels a booking (refund per policy) — §8
 - UC-11 — Client views wallet & withdraws — §8
 - UC-12 — Client rates a provider (AFTER-MVP) — §9
