@@ -228,6 +228,13 @@ const SPACE_ICON_SELECTED = L.divIcon({
                   style="width:100%;margin-top:8px;">
                   {{ isInSelection(space) ? '✓ Added to selection' : '+ Add to selection' }}
                 </button>
+                <!-- design.md §10 (UC-8) — the ONLY path to a provider chat: from a published
+                     listing, carrying the space as context. -->
+                <button type="button" class="btn"
+                  (click)="$event.stopPropagation(); messageProvider(space)"
+                  style="width:100%;margin-top:6px;">
+                  💬 Mensaje al proveedor
+                </button>
               </div>
             </div>
           }
@@ -473,6 +480,17 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
       this.map.setView([+space.latitude, +space.longitude], 15);
       this.zone.runOutsideAngular(() => this.updateMapMarkers());
     }
+  }
+
+  /**
+   * UC-8 · design.md §10 — open a client↔provider inquiry FROM this published listing (the ONLY
+   * path to a provider). Sends target=provider + the space as context; the backend anchors the
+   * provider from the space, so the client never needs the provider's identity up front.
+   */
+  messageProvider(space: Space): void {
+    this.router.navigate(['/messages/new'], {
+      queryParams: { target: 'provider', object_type: 'space', object_id: space.id },
+    });
   }
 
   // ── Selection basket (C03) ──────────────────────────────────────────────────

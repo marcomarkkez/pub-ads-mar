@@ -16,11 +16,15 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
   imports: [CommonModule, FormsModule, RouterLink, ObjectPickerComponent],
   template: `
     <div class="page-header">
-      <h1><a routerLink="/messages" class="back-link">&larr;</a> Chat con soporte</h1>
+      <h1><a routerLink="/messages" class="back-link">&larr;</a> {{ heading() }}</h1>
     </div>
 
-    <p class="lead">Inicias un chat con el equipo de soporte. Puedes adjuntar un objeto
-      (anuncio, espacio, reserva…) para darles contexto.</p>
+    @if (target === 'provider') {
+      <p class="lead">Escríbele al proveedor sobre este espacio. Se adjunta como contexto de la conversación.</p>
+    } @else {
+      <p class="lead">Inicias un chat con el equipo de soporte. Puedes adjuntar un objeto
+        (anuncio, espacio, reserva…) para darles contexto.</p>
+    }
 
     @if (error()) {
       <div class="alert alert-error">{{ error() }}</div>
@@ -46,7 +50,8 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
         <div class="form-actions">
           <a routerLink="/messages" class="btn">Cancelar</a>
           <button type="submit" class="btn btn-primary submit-btn" [disabled]="submitting()">
-            @if (submitting()) { <span class="spinner"></span> Enviando… } @else { Enviar a soporte }
+            @if (submitting()) { <span class="spinner"></span> Enviando… }
+            @else { {{ target === 'provider' ? 'Enviar al proveedor' : 'Enviar a soporte' }} }
           </button>
         </div>
       </form>
@@ -72,10 +77,18 @@ export class ChatNewComponent implements OnInit {
   locked = signal(false);
   submitting = signal(false);
   error = signal('');
+  // UC-8/UC-9 · design.md §10 — the ENTRY POINT sets the counterparty. 'provider' arrives only
+  // from a published listing (space attached); everything else is 'support'.
+  target: 'support' | 'provider' = 'support';
+
+  heading(): string {
+    return this.target === 'provider' ? 'Mensaje al proveedor' : 'Chat con soporte';
+  }
 
   ngOnInit(): void {
     // Prefill + lock the object when arriving from a per-item "open a chat" button.
     const qp = this.route.snapshot.queryParamMap;
+    if (qp.get('target') === 'provider') this.target = 'provider';
     const type = qp.get('object_type') as ChatObjectType | null;
     const id = qp.get('object_id');
     if (type && id) {
@@ -98,8 +111,8 @@ export class ChatNewComponent implements OnInit {
     this.error.set('');
 
     const obj = this.picked();
-    // The API expects `body` for the opening message (design.md §17).
-    const payload: Record<string, unknown> = { body: this.message.trim() };
+    // The API expects `body` for the opening message; `target` routes the counterparty (§10/§17).
+    const payload: Record<string, unknown> = { body: this.message.trim(), target: this.target };
     if (obj) {
       payload['object_type'] = obj.object_type;
       payload['object_id'] = obj.object_id;

@@ -56,6 +56,9 @@ class ChatController extends Controller
             'object_type' => 'nullable|in:ad,adset,campaign,space,payment,booking',
             'object_id' => 'nullable|integer',
             'provider_id' => 'nullable|exists:users,id',
+            // UC-8/UC-9 · design.md §10 — the ENTRY POINT sets the counterparty (support = default;
+            // provider only from a published listing). Billing routes to support (option B).
+            'target' => 'nullable|in:support,provider',
             'body' => 'nullable|string|max:5000',
         ]);
 
@@ -79,9 +82,15 @@ class ChatController extends Controller
 
         if ($user->isClient()) {
             $clientId = $user->id;
-            $providerId = $object
-                ? $this->authorizer->providerFor($object)
-                : ($validated['provider_id'] ?? null);
+            // UC-8/UC-9 · design.md §10 — the ENTRY POINT sets the counterparty, NOT the attached
+            // object. Default = Support (support_client); the object is context only and does NOT
+            // pull in the provider. A provider inquiry is reached ONLY from a published listing,
+            // which sends target=provider (+ the space object, or an explicit provider_id).
+            $providerId = null;
+            if (($validated['target'] ?? null) === 'provider') {
+                $providerId = $validated['provider_id']
+                    ?? ($object ? $this->authorizer->providerFor($object) : null);
+            }
         } else { // provider
             $providerId = $user->id;
             // A provider-opened chat is provider↔support unless a client is implied.

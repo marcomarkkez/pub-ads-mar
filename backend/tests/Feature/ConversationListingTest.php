@@ -83,4 +83,28 @@ class ConversationListingTest extends TestCase
         $this->postJson('/api/chats', ['object_type' => 'space', 'object_id' => $s['space']->id])
             ->assertStatus(201);
     }
+
+    /**
+     * UC-8/UC-9 · design.md §10 — the ENTRY POINT sets the counterparty, NOT the attached object.
+     * A client attaching a space as CONTEXT (no target) stays a Support chat; only target=provider
+     * (opened from a published listing) pulls the provider in.
+     */
+    public function test_entry_point_target_sets_the_counterparty(): void
+    {
+        $s = $this->bookingScenario();
+        Sanctum::actingAs($s['client']);
+
+        // Space attached as context, no target → Support chat (provider NOT pulled in).
+        $this->postJson('/api/chats', ['object_type' => 'space', 'object_id' => $s['space']->id])
+            ->assertStatus(201)
+            ->assertJsonPath('nature', 'support_client');
+
+        // Opened from the listing (target=provider) → client↔provider inquiry, provider anchored.
+        $this->postJson('/api/chats', [
+            'object_type' => 'space', 'object_id' => $s['space']->id, 'target' => 'provider',
+        ])
+            ->assertStatus(201)
+            ->assertJsonPath('nature', 'client_provider')
+            ->assertJsonPath('provider_user_id', $s['provider']->id);
+    }
 }
