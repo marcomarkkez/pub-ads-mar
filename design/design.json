@@ -33,6 +33,28 @@
       "M",
       "L",
       "XL"
+    ],
+    "todoStatuses": [
+      {
+        "key": "done",
+        "label": "Hecho",
+        "color": "#22c55e"
+      },
+      {
+        "key": "in_progress",
+        "label": "En curso",
+        "color": "#3b82f6"
+      },
+      {
+        "key": "pending",
+        "label": "Pendiente",
+        "color": "#f59e0b"
+      },
+      {
+        "key": "deferred",
+        "label": "Diferido",
+        "color": "#94a3b8"
+      }
     ]
   },
   "specs": [
@@ -2602,5 +2624,201 @@
       "title": "Domain classes & key methods (chat primitive)",
       "def": "classDiagram\n  class Chat {\n    +int id\n    +string status\n    +datetime support_joined_at\n    +deriveNature() string\n    +isStaffOnly() bool\n    +isClosed() bool\n    +userCanAccess(User) bool\n    +hasLiveParticipant(User) bool\n    +scopeVisibleTo(query, User)\n    +participants() HasMany\n    +objects() HasMany\n    +flags() HasMany\n    +activeFlags() HasMany\n    +messages() HasMany\n  }\n  class ChatParticipant {\n    +string side\n    +bool announced\n    +datetime joined_at\n    +datetime left_at\n  }\n  class ChatObject {\n    +string objectable_type\n    +int objectable_id\n    +getLabel() string\n    +objectable() MorphTo\n  }\n  class ChatFlag {\n    +string type\n    +string reason\n    +bool active\n    +datetime superseded_at\n  }\n  class Message {\n    +string body\n    +string kind\n    +bool is_read\n  }\n  class ChatController {\n    +index() list derived queue\n    +store() open, counterparty by entry point\n    +show()\n    +postMessage()\n    +join() announced + PII relax\n    +resolve()\n    +close()\n    +reopen() admin only\n  }\n  class Booking {\n    +string status\n    +datetime display_start\n    +json config_snapshot\n    +payment() HasOne\n    +proofs() HasMany\n  }\n  class Payment {\n    +decimal amount\n    +string status\n    +string payment_platform\n    +chatObjects() MorphMany\n  }\n  class Proof {\n    +string status\n    +datetime deadline\n    +reviewedBy() BelongsTo\n  }\n  class WalletEntry {\n    +decimal amount\n    +string type\n    +string idempotency_key\n  }\n  Chat \"1\" o-- \"many\" ChatParticipant\n  Chat \"1\" o-- \"many\" ChatObject\n  Chat \"1\" o-- \"many\" ChatFlag\n  Chat \"1\" o-- \"many\" Message\n  ChatController ..> Chat : operates on\n  ChatObject ..> Payment : morphs to\n  ChatObject ..> Booking : morphs to\n  Booking \"1\" --> \"1\" Payment\n  Booking \"1\" --> \"many\" Proof"
     }
-  }
+  },
+  "todos": [
+    {
+      "id": "F01",
+      "title": "Auth y 5 roles (client, provider, support, payments, admin)",
+      "status": "done",
+      "tags": [
+        "F01"
+      ]
+    },
+    {
+      "id": "F02",
+      "title": "Cuentas y colaboradores (subroles)",
+      "status": "done",
+      "tags": [
+        "F02"
+      ],
+      "note": "Cableado de colaboradores del lado proveedor: diferido."
+    },
+    {
+      "id": "F03",
+      "title": "Catálogo y búsqueda en mapa (cercanía, fechas)",
+      "status": "done",
+      "tags": [
+        "F03"
+      ]
+    },
+    {
+      "id": "F04",
+      "title": "Campaña → adset → ads con backlog de huérfanos",
+      "status": "done",
+      "tags": [
+        "F04"
+      ]
+    },
+    {
+      "id": "F05",
+      "title": "Cliente sube su creativo por ad (vs media-specs del espacio)",
+      "status": "pending",
+      "tags": [
+        "F05"
+      ],
+      "note": "Falta quitar el form '+ Ad Space' y subir creativo por-ad."
+    },
+    {
+      "id": "F06",
+      "title": "Booking y go-live por-ad (approve→instalador / reject)",
+      "status": "done",
+      "tags": [
+        "F06"
+      ]
+    },
+    {
+      "id": "F07",
+      "title": "Proof of display + disputa (3 chats + hold)",
+      "status": "done",
+      "tags": [
+        "F07"
+      ]
+    },
+    {
+      "id": "F08",
+      "title": "Chat y enmascarado de PII",
+      "status": "in_progress",
+      "tags": [
+        "F08"
+      ],
+      "note": "Recorrido humano (Messages) pendiente para cerrar."
+    },
+    {
+      "id": "F09",
+      "title": "Soporte como chat (tickets retirados)",
+      "status": "in_progress",
+      "tags": [
+        "F09"
+      ],
+      "note": "Unificado en el primitivo chat; recorrido pendiente."
+    },
+    {
+      "id": "F10",
+      "title": "Dinero (approve/reject/refund/release/hold; wallet idempotente)",
+      "status": "done",
+      "tags": [
+        "F10"
+      ]
+    },
+    {
+      "id": "F11",
+      "title": "Admin oversight / eagle-eye",
+      "status": "pending",
+      "tags": [
+        "F11"
+      ]
+    },
+    {
+      "id": "F12",
+      "title": "Admin configurations (apply-scope; snapshot)",
+      "status": "pending",
+      "tags": [
+        "F12"
+      ]
+    },
+    {
+      "id": "F13",
+      "title": "Notificaciones y calendario (iCal/Google, rangos)",
+      "status": "pending",
+      "tags": [
+        "F13"
+      ]
+    },
+    {
+      "id": "F14",
+      "title": "RBAC y capabilities (editor de permisos)",
+      "status": "pending",
+      "tags": [
+        "F14"
+      ],
+      "note": "Matriz base hecha; overlay por-cuenta pendiente."
+    },
+    {
+      "id": "F15",
+      "title": "Book-for-later, pre-pago y escrow",
+      "status": "deferred",
+      "tags": [
+        "F15"
+      ]
+    },
+    {
+      "id": "F16",
+      "title": "Strikes (contador 90 días, apelaciones)",
+      "status": "deferred",
+      "tags": [
+        "F16"
+      ]
+    },
+    {
+      "id": "F17",
+      "title": "Ratings de proveedor",
+      "status": "deferred",
+      "tags": [
+        "F17"
+      ]
+    },
+    {
+      "id": "CHAT-1",
+      "title": "Unificación de chat: un primitivo (chats/objetos/flags/participantes)",
+      "status": "done",
+      "tags": [
+        "F08",
+        "F09",
+        "§10"
+      ]
+    },
+    {
+      "id": "CHAT-2",
+      "title": "Routing del chat por punto de entrada (target), objeto = contexto",
+      "status": "done",
+      "tags": [
+        "§10",
+        "§17"
+      ]
+    },
+    {
+      "id": "CHAT-3",
+      "title": "Prueba (proof) visible inline en el chat de soporte",
+      "status": "done",
+      "tags": [
+        "F07",
+        "§10"
+      ]
+    },
+    {
+      "id": "CHAT-4",
+      "title": "Botones de contacto: 'Soporte' (navbar) y 'Mensaje al proveedor' (listado)",
+      "status": "done",
+      "tags": [
+        "§10"
+      ]
+    },
+    {
+      "id": "DASH-1",
+      "title": "Dashboard interactivo design.html + design.json",
+      "status": "done",
+      "tags": [
+        "docs"
+      ]
+    },
+    {
+      "id": "WALK-1",
+      "title": "Recorrido humano de Messages por rol (cierra F08+F09)",
+      "status": "pending",
+      "tags": [
+        "F08",
+        "F09"
+      ]
+    }
+  ]
 }

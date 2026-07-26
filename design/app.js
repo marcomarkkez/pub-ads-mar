@@ -38,11 +38,20 @@
   var state = {
     data: null,
     view: "specs",
+    specLayout: "list",   // "list" | "kanban" — two layouts of the SAME specs data
     specFilter: { feature: null, status: null, q: "" },
     storyQ: "",
+    todoFilter: { status: null, q: "" },
     theme: null,          // null = system, "light", "dark"
     renderedDiagrams: {}  // cache: view -> true
   };
+
+  var DEFAULT_TODO_STATUSES = [
+    { key: "done", label: "Hecho", color: "#22c55e" },
+    { key: "in_progress", label: "En curso", color: "#3b82f6" },
+    { key: "pending", label: "Pendiente", color: "#f59e0b" },
+    { key: "deferred", label: "Diferido", color: "#94a3b8" }
+  ];
 
   var els = {};
   function $(id) { return document.getElementById(id); }
@@ -136,6 +145,10 @@
     }
     d.specs = Array.isArray(d.specs) ? d.specs : [];
     d.userStories = Array.isArray(d.userStories) ? d.userStories : [];
+    d.todos = Array.isArray(d.todos) ? d.todos : [];
+    if (!Array.isArray(d.legend.todoStatuses) || !d.legend.todoStatuses.length) {
+      d.legend.todoStatuses = DEFAULT_TODO_STATUSES;
+    }
     d.diagrams = d.diagrams || {};
     return d;
   }
@@ -173,7 +186,7 @@
       if (b.getAttribute("data-view") === v) b.setAttribute("aria-selected", "true");
       else b.removeAttribute("aria-selected");
     });
-    var titles = { specs: "Specs", kanban: "Kanban", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories" };
+    var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories" };
     els.title.textContent = titles[v] || v;
     render();
   }
@@ -183,7 +196,7 @@
     els.tools.innerHTML = "";
     switch (state.view) {
       case "specs": return renderSpecs();
-      case "kanban": return renderKanban();
+      case "todos": return renderTodos();
       case "flow": return renderDiagram("flow");
       case "er": return renderDiagram("er");
       case "classes": return renderDiagram("classes");
@@ -206,12 +219,43 @@
   /* ---------------- Specs view ---------------- */
   function renderSpecs() {
     var f = state.specFilter;
-    // tools: search
+    els.tools.innerHTML = "";
+
+    // layout toggle — Lista ⇄ Kanban are two views of the SAME specs data.
+    var seg = document.createElement("div");
+    seg.className = "seg-toggle";
+    [["list", "Lista"], ["kanban", "Kanban"]].forEach(function (m) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "seg" + (state.specLayout === m[0] ? " on" : "");
+      b.textContent = m[1];
+      b.addEventListener("click", function () { state.specLayout = m[0]; renderSpecs(); });
+      seg.appendChild(b);
+    });
+    els.tools.appendChild(seg);
+
+    // search (shared by both layouts)
     var search = document.createElement("input");
-    search.type = "search"; search.placeholder = "Search specs…"; search.value = f.q;
-    search.addEventListener("input", function () { f.q = search.value.toLowerCase(); paintSpecs(); });
+    search.type = "search";
+    search.placeholder = state.specLayout === "kanban" ? "Filter cards…" : "Search specs…";
+    search.value = f.q;
+    search.addEventListener("input", function () {
+      f.q = search.value.toLowerCase();
+      if (state.specLayout === "kanban") paintKanban(); else paintSpecs();
+    });
     els.tools.appendChild(search);
 
+    // KANBAN layout: columns by status
+    if (state.specLayout === "kanban") {
+      var cols = document.createElement("div");
+      cols.className = "kanban"; cols.id = "kanban-cols";
+      els.content.innerHTML = "";
+      els.content.appendChild(cols);
+      paintKanban();
+      return;
+    }
+
+    // LIST layout: filter chips + compact rows
     var wrap = document.createElement("div");
     wrap.innerHTML =
       '<div class="filterbar">' +
@@ -219,7 +263,7 @@
         '<span style="width:1px;height:20px;background:var(--border)"></span>' +
         '<div class="filter-group" id="feature-filters"></div>' +
         '<span class="count-note" id="spec-count"></span>' +
-      '</div><div class="grid" id="spec-grid"></div>';
+      '</div><div class="spec-list" id="spec-list"></div>';
     els.content.innerHTML = "";
     els.content.appendChild(wrap);
 
@@ -264,52 +308,38 @@
 
   function paintSpecs() {
     var f = state.specFilter;
-    var grid = $("spec-grid");
+    var listEl = $("spec-list");
     var count = $("spec-count");
-    if (!grid) return;
+    if (!listEl) return;
     var list = state.data.specs.filter(function (s) { return specMatches(s, f); });
-    count.textContent = list.length + " of " + state.data.specs.length + " specs";
-    if (!list.length) { grid.innerHTML = '<div class="empty">No specs match the current filters.</div>'; return; }
-    grid.innerHTML = "";
-    list.forEach(function (s) { grid.appendChild(specCard(s)); });
+    if (count) count.textContent = list.length + " of " + state.data.specs.length + " specs";
+    if (!list.length) { listEl.innerHTML = '<div class="empty">No specs match the current filters.</div>'; return; }
+    listEl.innerHTML = "";
+    list.forEach(function (s) { listEl.appendChild(specRow(s)); });
   }
 
-  function specCard(s) {
+  function specRow(s) {
     var k = s.kanban;
-    var el = document.createElement("div");
-    el.className = "card"; el.tabIndex = 0; el.setAttribute("role", "button");
     var st = k ? statusMeta(k.status) : null;
-    var html =
-      '<div class="card-head">' +
-        '<span class="card-id">§' + esc(s.id) + '</span>' +
-        (st ? '<span class="status-pill" style="background:' + esc(st.color) + '">' + esc(st.label) + '</span>' : '') +
-      '</div>' +
-      '<h3>' + esc(s.title || "Untitled") + '</h3>' +
-      (s.summary ? '<p>' + esc(s.summary) + '</p>' : '') +
-      '<div class="tags">' +
-        (k && k.weight ? '<span class="weight-pill">' + esc(k.weight) + '</span>' : '') +
+    var el = document.createElement("div");
+    el.className = "spec-row"; el.tabIndex = 0; el.setAttribute("role", "button");
+    el.innerHTML =
+      '<span class="row-id">§' + esc(s.id) + '</span>' +
+      '<span class="row-main">' +
+        '<span class="row-title">' + esc(s.title || "Untitled") + '</span>' +
+        (s.summary ? '<span class="row-sub">' + esc(s.summary) + '</span>' : '') +
+      '</span>' +
+      '<span class="row-tags">' +
         (s.features || []).map(function (ft) { return '<span class="tag feat">' + esc(ft) + '</span>'; }).join('') +
-      '</div>';
-    el.innerHTML = html;
+        (k && k.weight ? '<span class="weight-pill">' + esc(k.weight) + '</span>' : '') +
+        (st ? '<span class="status-pill" style="background:' + esc(st.color) + '">' + esc(st.label) + '</span>' : '') +
+      '</span>';
     el.addEventListener("click", function () { openSpec(s); });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSpec(s); } });
     return el;
   }
 
-  /* ---------------- Kanban view ---------------- */
-  function renderKanban() {
-    var search = document.createElement("input");
-    search.type = "search"; search.placeholder = "Filter cards…"; search.value = state.specFilter.q;
-    search.addEventListener("input", function () { state.specFilter.q = search.value.toLowerCase(); paintKanban(); });
-    els.tools.appendChild(search);
-
-    var cols = document.createElement("div");
-    cols.className = "kanban"; cols.id = "kanban-cols";
-    els.content.innerHTML = "";
-    els.content.appendChild(cols);
-    paintKanban();
-  }
-
+  /* ---------------- Kanban layout (rendered inside the Specs view) ---------------- */
   function paintKanban() {
     var cols = $("kanban-cols");
     if (!cols) return;
@@ -348,6 +378,78 @@
       '<div class="tags">' + (s.features || []).map(function (ft) { return '<span class="tag feat">' + esc(ft) + '</span>'; }).join('') + '</div>';
     el.addEventListener("click", function () { openSpec(s); });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSpec(s); } });
+    return el;
+  }
+
+  /* ---------------- Todos view (consolidated; done + pending, single list) ---------------- */
+  function renderTodos() {
+    var f = state.todoFilter;
+    els.tools.innerHTML = "";
+    var search = document.createElement("input");
+    search.type = "search"; search.placeholder = "Search todos…"; search.value = f.q;
+    search.addEventListener("input", function () { f.q = search.value.toLowerCase(); paintTodos(); });
+    els.tools.appendChild(search);
+
+    var wrap = document.createElement("div");
+    wrap.innerHTML =
+      '<div class="filterbar"><div class="filter-group" id="todo-filters"></div>' +
+      '<span class="count-note" id="todo-count"></span></div><div id="todo-host"></div>';
+    els.content.innerHTML = "";
+    els.content.appendChild(wrap);
+
+    var tf = wrap.querySelector("#todo-filters");
+    tf.appendChild(chip("All", f.status === null, function () { f.status = null; paintTodos(); refreshTChips(); }));
+    state.data.legend.todoStatuses.forEach(function (st) {
+      tf.appendChild(chip(st.label, f.status === st.key, function () {
+        f.status = f.status === st.key ? null : st.key; paintTodos(); refreshTChips();
+      }, st.color));
+    });
+    function refreshTChips() {
+      tf.querySelectorAll(".chip").forEach(function (c, i) {
+        c.classList.toggle("on", i === 0 ? f.status === null : f.status === state.data.legend.todoStatuses[i - 1].key);
+      });
+    }
+    paintTodos();
+  }
+
+  function paintTodos() {
+    var f = state.todoFilter;
+    var host = $("todo-host");
+    var count = $("todo-count");
+    if (!host) return;
+    var items = state.data.todos.filter(function (t) {
+      if (f.status && t.status !== f.status) return false;
+      if (f.q) {
+        var hay = ((t.id || "") + " " + (t.title || "") + " " + (t.note || "") + " " + (t.tags || []).join(" ")).toLowerCase();
+        if (hay.indexOf(f.q) === -1) return false;
+      }
+      return true;
+    });
+    if (count) count.textContent = items.length + " of " + state.data.todos.length + " todos";
+    if (!items.length) { host.innerHTML = '<div class="empty">No todos match the current filters.</div>'; return; }
+    host.innerHTML = "";
+    state.data.legend.todoStatuses.forEach(function (st) {
+      var group = items.filter(function (t) { return t.status === st.key; });
+      if (!group.length) return;
+      var g = document.createElement("div"); g.className = "todo-group";
+      g.innerHTML = '<h3 class="todo-head"><span class="kcol-dot" style="background:' + esc(st.color) + '"></span>' +
+        esc(st.label) + ' <span class="badge">' + group.length + '</span></h3>';
+      group.forEach(function (t) { g.appendChild(todoRow(t, st)); });
+      host.appendChild(g);
+    });
+  }
+
+  function todoRow(t, st) {
+    var el = document.createElement("div");
+    el.className = "todo-row";
+    var done = t.status === "done";
+    el.innerHTML =
+      '<span class="todo-check" style="border-color:' + esc(st.color || "#94a3b8") + ';background:' + (done ? esc(st.color) : "transparent") + '">' + (done ? "✓" : "") + '</span>' +
+      '<span class="todo-main">' +
+        '<span class="todo-title' + (done ? " is-done" : "") + '">' + (t.id ? '<span class="todo-id">' + esc(t.id) + '</span> ' : '') + esc(t.title || "") + '</span>' +
+        (t.note ? '<span class="todo-note">' + esc(t.note) + '</span>' : '') +
+      '</span>' +
+      '<span class="todo-tags">' + (t.tags || []).map(function (x) { return '<span class="tag feat">' + esc(x) + '</span>'; }).join('') + '</span>';
     return el;
   }
 

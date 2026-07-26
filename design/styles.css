@@ -181,3 +181,31 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
   #menu-btn { display: inline-block; }
   .kanban { grid-template-columns: 1fr; }
 }
+
+/* ---- segmented toggle (Specs: Lista ⇄ Kanban) ---- */
+.seg-toggle { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+.seg-toggle .seg { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+.seg-toggle .seg.on { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+
+/* ---- Specs LIST layout ---- */
+.spec-list { display: flex; flex-direction: column; gap: 6px; }
+.spec-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: border-color .12s, background .12s; }
+.spec-row:hover, .spec-row:focus { border-color: var(--accent); outline: none; }
+.spec-row .row-id { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); min-width: 42px; }
+.spec-row .row-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.spec-row .row-title { font-weight: 600; }
+.spec-row .row-sub { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spec-row .row-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ---- Todos view ---- */
+.todo-group { margin-bottom: 22px; }
+.todo-head { display: flex; align-items: center; gap: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+.todo-row { display: flex; align-items: flex-start; gap: 12px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.todo-row:last-child { border-bottom: 0; }
+.todo-check { flex: none; width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--border); color: #fff; font-size: 12px; line-height: 15px; text-align: center; margin-top: 1px; }
+.todo-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.todo-title { font-weight: 600; }
+.todo-title.is-done { color: var(--muted); }
+.todo-id { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 700; margin-right: 4px; }
+.todo-note { color: var(--muted); font-size: 12px; }
+.todo-tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
