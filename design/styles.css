@@ -209,3 +209,11 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .todo-id { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 700; margin-right: 4px; }
 .todo-note { color: var(--muted); font-size: 12px; }
 .todo-tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ---- cross-link chips (Related) + clickable todo rows ---- */
+.link-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; font: inherit; font-size: 12px; font-weight: 600;
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--accent);
+  cursor: pointer; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-chip:hover { border-color: var(--accent); background: var(--accent-weak); }
+.todo-row { cursor: pointer; border-radius: 8px; }
+.todo-row:hover, .todo-row:focus { background: var(--surface-2); outline: none; }

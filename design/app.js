@@ -85,9 +85,11 @@
     $("menu-btn").addEventListener("click", function () { els.app.classList.toggle("nav-open"); });
     $("theme-toggle").addEventListener("click", toggleTheme);
 
-    // drawer close
+    // drawer close + delegated cross-link navigation (chips carry data-goto-type/id)
     els.drawer.addEventListener("click", function (e) {
-      if (e.target.hasAttribute("data-close")) closeDrawer();
+      if (e.target.hasAttribute("data-close")) return closeDrawer();
+      var chip = e.target.closest ? e.target.closest("[data-goto-type]") : null;
+      if (chip) { goto(chip.getAttribute("data-goto-type"), chip.getAttribute("data-goto-id")); }
     });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") closeDrawer();
@@ -159,7 +161,65 @@
     els.brandSub.textContent = (state.data.specs.length) + " specs · " + state.data.userStories.length + " stories";
     els.metaLine.textContent = "source: " + (m.source || "design.md") +
       (m.version ? " · v" + m.version : "") + (m.generatedAt ? " · " + m.generatedAt : "");
+    buildIndexes();
     setView(state.view);
+  }
+
+  /* ---------------- cross-link graph (specs ⇄ stories ⇄ todos) ---------------- */
+  // Match keys: spec => "§id" + features; story => its "§sections"; todo => its tags + Fxx id.
+  // Keys are EXPANDED feature<->section via the specs so the graph is well connected.
+  function buildIndexes() {
+    var specBySec = {}, specsByFeat = {}, specById = {}, storyById = {}, todoById = {};
+    state.data.specs.forEach(function (s) {
+      specById[s.id] = s;
+      specBySec["§" + s.id] = s;
+      (s.features || []).forEach(function (f) { (specsByFeat[f] = specsByFeat[f] || []).push(s); });
+    });
+    state.data.userStories.forEach(function (u) { storyById[u.id] = u; });
+    state.data.todos.forEach(function (t) { if (t.id) todoById[t.id] = t; });
+    state._ix = { specBySec: specBySec, specsByFeat: specsByFeat, specById: specById, storyById: storyById, todoById: todoById };
+  }
+
+  function baseKeys(type, item) {
+    if (type === "spec") return ["§" + item.id].concat(item.features || []);
+    if (type === "story") return (item.sections || []).slice();
+    // todo
+    var k = (item.tags || []).slice();
+    if (/^F\d+$/i.test(item.id || "")) k.push(item.id);
+    return k;
+  }
+  function expandKeys(tokens) {
+    var out = {}, ix = state._ix;
+    tokens.forEach(function (t) { out[t] = 1; });
+    tokens.forEach(function (t) {
+      if (t.charAt(0) === "§") { var sp = ix.specBySec[t]; if (sp) (sp.features || []).forEach(function (f) { out[f] = 1; }); }
+      else { (ix.specsByFeat[t] || []).forEach(function (sp) { out["§" + sp.id] = 1; }); }
+    });
+    return Object.keys(out);
+  }
+  function keysOf(type, item) { return expandKeys(baseKeys(type, item)); }
+  function related(item, itemType, targetType) {
+    var ik = keysOf(itemType, item);
+    var pool = targetType === "spec" ? state.data.specs : targetType === "story" ? state.data.userStories : state.data.todos;
+    return pool.filter(function (t) {
+      if (t === item) return false;
+      var tk = keysOf(targetType, t);
+      return ik.some(function (x) { return tk.indexOf(x) !== -1; });
+    });
+  }
+  // delegated navigation: any [data-goto-type][data-goto-id] chip opens that item's drawer
+  function goto(type, id) {
+    var ix = state._ix; if (!ix) return;
+    if (type === "spec" && ix.specById[id]) return openSpec(ix.specById[id]);
+    if (type === "story" && ix.storyById[id]) return openStory(ix.storyById[id]);
+    if (type === "todo" && ix.todoById[id]) return openTodo(ix.todoById[id]);
+  }
+  function relChips(label, type, items, labelFn) {
+    if (!items || !items.length) return "";
+    return '<h4>' + esc(label) + '</h4><div class="rel-list">' + items.map(function (it) {
+      return '<button type="button" class="link-chip" data-goto-type="' + type + '" data-goto-id="' + esc(it.id) + '">' +
+        esc(labelFn(it)) + '</button>';
+    }).join("") + '</div>';
   }
 
   function showLoadError(err) {
@@ -441,7 +501,7 @@
 
   function todoRow(t, st) {
     var el = document.createElement("div");
-    el.className = "todo-row";
+    el.className = "todo-row"; el.tabIndex = 0; el.setAttribute("role", "button");
     var done = t.status === "done";
     el.innerHTML =
       '<span class="todo-check" style="border-color:' + esc(st.color || "#94a3b8") + ';background:' + (done ? esc(st.color) : "transparent") + '">' + (done ? "✓" : "") + '</span>' +
@@ -450,6 +510,8 @@
         (t.note ? '<span class="todo-note">' + esc(t.note) + '</span>' : '') +
       '</span>' +
       '<span class="todo-tags">' + (t.tags || []).map(function (x) { return '<span class="tag feat">' + esc(x) + '</span>'; }).join('') + '</span>';
+    el.addEventListener("click", function () { openTodo(t); });
+    el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openTodo(t); } });
     return el;
   }
 
@@ -515,14 +577,17 @@
       var g = document.createElement("div"); g.className = "actor-group";
       g.innerHTML = '<h3 class="actor-head">' + esc(actor) + ' <span class="badge">' + groups[actor].length + '</span></h3>';
       groups[actor].forEach(function (u) {
-        var d = document.createElement("details"); d.className = "story";
         var secs = (u.sections || []).join(" ");
-        d.innerHTML =
-          '<summary><span class="st-id">' + esc(u.id) + '</span>' +
-          '<span class="st-title">' + esc(u.title || "") + '</span>' +
-          (secs ? '<span class="st-secs">' + esc(secs) + '</span>' : '') + '</summary>' +
-          '<div class="st-detail">' + esc(u.detail || u.title || "") + '</div>';
-        g.appendChild(d);
+        var row = document.createElement("div");
+        row.className = "spec-row"; row.tabIndex = 0; row.setAttribute("role", "button");
+        row.innerHTML =
+          '<span class="row-id">' + esc(u.id) + '</span>' +
+          '<span class="row-main"><span class="row-title">' + esc(u.title || "") + '</span>' +
+          (u.detail ? '<span class="row-sub">' + esc(u.detail) + '</span>' : '') + '</span>' +
+          '<span class="row-tags">' + (secs ? '<span class="tag">' + esc(secs) + '</span>' : '') + '</span>';
+        row.addEventListener("click", function () { openStory(u); });
+        row.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openStory(u); } });
+        g.appendChild(row);
       });
       host.appendChild(g);
     });
@@ -549,10 +614,50 @@
       parts.push(relBlock("Depends on", k.deps));
       parts.push(relBlock("IDs", k.ids));
     }
+    parts.push(relChips("User Stories", "story", related(s, "spec", "story"), storyLabel));
+    parts.push(relChips("Todos", "todo", related(s, "spec", "todo"), todoLabel));
     if (s.body) {
       parts.push('<h4>Details</h4><div class="prose">' + esc(s.body) + '</div>');
     }
-    els.drawerBody.innerHTML = parts.join("");
+    openDrawer("§" + s.id + " · " + (s.title || "Untitled"), parts.join(""));
+  }
+
+  function openStory(u) {
+    var parts = [];
+    parts.push('<div class="meta-row">');
+    (u.sections || []).forEach(function (sec) { parts.push('<span class="tag">' + esc(sec) + '</span>'); });
+    if (u.actor) parts.push('<span class="tag feat">' + esc(u.actor) + '</span>');
+    parts.push('</div>');
+    if (u.detail) parts.push('<div class="prose">' + esc(u.detail) + '</div>');
+    parts.push(relChips("Specs", "spec", related(u, "story", "spec"), specLabel));
+    parts.push(relChips("Todos", "todo", related(u, "story", "todo"), todoLabel));
+    openDrawer(esc(u.id) + " · " + (u.title || ""), parts.join(""));
+  }
+
+  function openTodo(t) {
+    var st = todoStatusMeta(t.status);
+    var parts = [];
+    parts.push('<div class="meta-row"><span class="status-pill" style="background:' + esc(st.color) + '">' + esc(st.label) + '</span>');
+    (t.tags || []).forEach(function (x) { parts.push('<span class="tag">' + esc(x) + '</span>'); });
+    parts.push('</div>');
+    if (t.note) parts.push('<p class="prose" style="color:var(--muted)">' + esc(t.note) + '</p>');
+    parts.push(relChips("Specs", "spec", related(t, "todo", "spec"), specLabel));
+    parts.push(relChips("User Stories", "story", related(t, "todo", "story"), storyLabel));
+    openDrawer((t.id ? t.id + " · " : "") + (t.title || "Todo"), parts.join(""));
+  }
+
+  function specLabel(s) { return "§" + s.id + " · " + (s.title || ""); }
+  function storyLabel(u) { return u.id + " · " + (u.title || ""); }
+  function todoLabel(t) { return (t.id ? t.id + " · " : "") + (t.title || ""); }
+  function todoStatusMeta(key) {
+    var list = state.data.legend.todoStatuses || [];
+    for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+    return { key: key, label: key || "—", color: "#94a3b8" };
+  }
+
+  function openDrawer(title, html) {
+    els.drawerTitle.textContent = title;
+    els.drawerBody.innerHTML = html;
     els.drawer.hidden = false;
     els.drawerBody.parentNode.querySelector(".drawer-close").focus();
   }
