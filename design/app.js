@@ -38,7 +38,7 @@
   var state = {
     data: null,
     view: "specs",
-    specLayout: "list",   // "list" | "kanban" — two layouts of the SAME specs data
+    specLayout: "kanban", // "list" | "kanban" — specs ARE spec-kanban, so default to the board
     specFilter: { feature: null, status: null, q: "" },
     storyQ: "",
     todoFilter: { status: null, q: "" },
@@ -84,6 +84,9 @@
     });
     $("menu-btn").addEventListener("click", function () { els.app.classList.toggle("nav-open"); });
     $("theme-toggle").addEventListener("click", toggleTheme);
+
+    // deep-link routing: react to pasted URLs / back-forward (our own writes use replaceState)
+    window.addEventListener("hashchange", navFromHash);
 
     // drawer close + delegated cross-link navigation (chips carry data-goto-type/id)
     els.drawer.addEventListener("click", function (e) {
@@ -162,7 +165,28 @@
     els.metaLine.textContent = "source: " + (m.source || "design.md") +
       (m.version ? " · v" + m.version : "") + (m.generatedAt ? " · " + m.generatedAt : "");
     buildIndexes();
-    setView(state.view);
+    navFromHash();
+  }
+
+  /* ---------------- deep-link routing (friendly URLs) ---------------- */
+  // #view (specs|todos|flow|er|classes|stories) OR #type/id (spec|todo|uc) to open an item.
+  function writeHash(h) {
+    if (window.history && history.replaceState) history.replaceState(null, "", "#" + h);
+    else location.hash = h; // fallback fires hashchange; navFromHash is idempotent
+  }
+  function navFromHash() {
+    var raw = (location.hash || "").replace(/^#/, "");
+    if (!raw) { return setView("specs"); }
+    var slash = raw.indexOf("/");
+    var head = slash === -1 ? raw : raw.slice(0, slash);
+    var id = slash === -1 ? "" : decodeURIComponent(raw.slice(slash + 1));
+    var itemViews = { spec: "specs", todo: "todos", uc: "stories" };
+    if (itemViews[head] && id) {
+      setView(itemViews[head]);
+      return goto(head === "uc" ? "story" : head, id); // opens the item's drawer
+    }
+    var views = ["specs", "todos", "flow", "er", "classes", "stories"];
+    setView(views.indexOf(head) !== -1 ? head : "specs");
   }
 
   /* ---------------- cross-link graph (specs ⇄ stories ⇄ todos) ---------------- */
@@ -248,6 +272,7 @@
     });
     var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories" };
     els.title.textContent = titles[v] || v;
+    writeHash(v);
     render();
   }
 
@@ -619,7 +644,7 @@
     if (s.body) {
       parts.push('<h4>Details</h4><div class="prose">' + esc(s.body) + '</div>');
     }
-    openDrawer("§" + s.id + " · " + (s.title || "Untitled"), parts.join(""));
+    openDrawer("§" + s.id + " · " + (s.title || "Untitled"), parts.join(""), "spec/" + encodeURIComponent(s.id));
   }
 
   function openStory(u) {
@@ -631,7 +656,7 @@
     if (u.detail) parts.push('<div class="prose">' + esc(u.detail) + '</div>');
     parts.push(relChips("Specs", "spec", related(u, "story", "spec"), specLabel));
     parts.push(relChips("Todos", "todo", related(u, "story", "todo"), todoLabel));
-    openDrawer(esc(u.id) + " · " + (u.title || ""), parts.join(""));
+    openDrawer(u.id + " · " + (u.title || ""), parts.join(""), "uc/" + encodeURIComponent(u.id));
   }
 
   function openTodo(t) {
@@ -643,7 +668,7 @@
     if (t.note) parts.push('<p class="prose" style="color:var(--muted)">' + esc(t.note) + '</p>');
     parts.push(relChips("Specs", "spec", related(t, "todo", "spec"), specLabel));
     parts.push(relChips("User Stories", "story", related(t, "todo", "story"), storyLabel));
-    openDrawer((t.id ? t.id + " · " : "") + (t.title || "Todo"), parts.join(""));
+    openDrawer((t.id ? t.id + " · " : "") + (t.title || "Todo"), parts.join(""), t.id ? "todo/" + encodeURIComponent(t.id) : null);
   }
 
   function specLabel(s) { return "§" + s.id + " · " + (s.title || ""); }
@@ -655,10 +680,11 @@
     return { key: key, label: key || "—", color: "#94a3b8" };
   }
 
-  function openDrawer(title, html) {
+  function openDrawer(title, html, hash) {
     els.drawerTitle.textContent = title;
     els.drawerBody.innerHTML = html;
     els.drawer.hidden = false;
+    if (hash) writeHash(hash);
     els.drawerBody.parentNode.querySelector(".drawer-close").focus();
   }
   function relBlock(label, arr) {
@@ -666,7 +692,11 @@
     return '<h4>' + esc(label) + '</h4><div class="rel-list">' +
       arr.map(function (x) { return '<span class="tag">' + esc(x) + '</span>'; }).join("") + '</div>';
   }
-  function closeDrawer() { els.drawer.hidden = true; }
+  function closeDrawer() {
+    if (els.drawer.hidden) return;
+    els.drawer.hidden = true;
+    writeHash(state.view); // drop the item id from the URL, keep the view
+  }
 
   /* ---------------- misc ---------------- */
   function chip(label, on, onClick, color) {
