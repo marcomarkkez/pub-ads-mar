@@ -62,7 +62,7 @@
   }
 
   /* ---------------- boot ---------------- */
-  document.addEventListener("DOMContentLoaded", function () {
+  function boot() {
     els.content = $("content");
     els.title = $("view-title");
     els.tools = $("view-tools");
@@ -102,7 +102,10 @@
 
     initMermaid();
     load();
-  });
+  }
+  // app.js may be injected AFTER DOMContentLoaded (cache-bust loader), so don't rely on the event.
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
 
   function currentThemeIsDark() {
     if (state.theme === "dark") return true;
