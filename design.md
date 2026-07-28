@@ -1149,3 +1149,48 @@ Roadmap, per-feature build order, and the live code-vs-design gap list are track
 `.claude/todos/mvp-sprint.json` (not duplicated here). Shorthand: PHASE 1 = owner-decision fixes +
 UI wiring; PHASE 2 = Support edit-any + audit log, Admin eagle-eye; PHASE 3 (deferred) = strikes,
 ratings, notifications, escrow/pre-pay, media-spec validator, moderation, invoice line-items.
+
+
+== Lineage ID Registry (mirror of design/design.json — design.json is authoritative) ==
+kanban: `status:done` · `weight:S` · `impacts:all` · `deps:-` · `ids:-`
+
+[owner 2026-07-25] Stable IDs so specs/UCs/todos can REFERENCE graph elements (not regenerate them).
+Planning lineage: UC → spec → flow → class → ER (roots = UC + spec). Metadata is reference-only.
+
+**Flow nodes (FL):**
+- `FL01` (start) — Client: map + nearest-first search
+- `FL02` (step) — Multi-select spaces -> campaign backlog orphan ads
+- `FL03` (step) — Move orphans into an adset
+- `FL04` (step) — Upload creative, validated vs media-delivery specs
+- `FL05` (step) — Checkout: ONE invoice per campaign, fee added on top
+- `FL06` (step) — payments.status = held from booking
+- `FL07` (decision) — Provider Approve or Reject?
+- `FL08` (step) — Booking rejected - no charge, funds to wallet
+- `FL09` (step) — Booking live -> dispatched to Installator
+- `FL10` (step) — Display window: proof-pending, deadline default 5d
+- `FL11` (decision) — Primary proof uploaded in time?
+- `FL12` (step) — Auto-cancel + full refund + provider strike
+- `FL13` (step) — proof-uploaded: client reviews
+- `FL14` (decision) — Client Accept or Reject?
+- `FL15` (step) — proofs.status=client_accepted -> payment releasable
+- `FL16` (step) — Payments releases -> processing queue grace window 1h reversible
+- `FL17` (end) — Dispatch to gateway -> released -> settled per provider
+- `FL18` (step) — payments.status=held + payment_held flag
+- `FL19` (step) — Auto-open 3 Support chats: Support-Client / Support-Provider / Support-Payments
+- `FL20` (decision) — Payments + Support decision
+- `FL21` (step) — Cancel booking + full refund to wallet
+- `FL22` (end) — Wallet ledger append-only
+
+**Flow decision branches:**
+- `FL07>FL08` → Reject, reason optional [Reject, reason optional]
+- `FL07>FL09` → Approve per-ad [Approve per-ad]
+- `FL11>FL12` → No, day-5 missed [No, day-5 missed]
+- `FL11>FL13` → Yes [Yes]
+- `FL14>FL15` → Accept [Accept]
+- `FL14>FL18` → Reject / mismatch flag [Reject / mismatch flag]
+- `FL20>FL16` → Satisfactory proof, client accepts [Satisfactory proof, client accepts]
+- `FL20>FL21` → Uphold dispute [Uphold dispute]
+
+**ER entities (ER):** `ER01`=users · `ER02`=personal_access_tokens · `ER03`=accounts · `ER04`=campaigns · `ER05`=adsets · `ER06`=ads · `ER07`=spaces · `ER08`=space_photos · `ER09`=space_availabilities · `ER10`=bookings · `ER11`=payments · `ER12`=chats · `ER13`=chat_objects · `ER14`=chat_flags · `ER15`=chat_participants · `ER16`=messages · `ER17`=proofs · `ER18`=collaborators · `ER19`=invoices · `ER20`=role_permissions · `ER21`=wallet_entries · `ER22`=system_configurations · `ER23`=(PLANNED) strikes / ratings / audit_logs / account_grants / notifications
+
+**Classes (CL):** `CL01`=Chat · `CL02`=ChatParticipant · `CL03`=ChatObject · `CL04`=ChatFlag · `CL05`=Message · `CL06`=ChatController · `CL07`=Booking · `CL08`=Payment · `CL09`=Proof · `CL10`=WalletEntry

@@ -79,7 +79,21 @@
         ]
       },
       "summary": "An advertising-spaces marketplace (Laravel 12 API + Angular 18 SPA, Mexico-first, MXN) where clients book provider ad spaces and verify display via proof. Defines the five system roles: Client, Provider, Admin, Support, Payments.",
-      "body": "Web advertising-spaces marketplace: clients book provider ad spaces (billboards, screens, radio, transit, kiosks), pay per time span, and verify display via proof. Laravel 12 (API, headless) + Angular 18 SPA; Mexico-first (Monterrey launch), single currency MXN. The five SYSTEM roles (users.role enum = client|provider|admin|support|payments):\n\n- Client — owns campaigns->adsets->ads; searches spaces on the map, books, pays per campaign, reviews proof, chats with providers. No dashboard (lands on Map+Search).\n- Provider — owns spaces (+photos, availability, pricing); approves/rejects bookings, uploads the PRIMARY proof. Lands on a stats dashboard.\n- Admin — eagle-eye: sees EVERYTHING (every chat), moderates listings (takedown/restore/freeze), edits any object, configures System Configurations, reads the immutable audit log, manages users + the RBAC matrix. Reads every chat SILENTLY/incognito; the one chat write-power is reopening a closed chat for investigation. The only role above Support and Payments.\n- Support — investigates user-reported problems; near-admin: edits every NON-money object, joins client<->provider chats ANNOUNCED, can only FLAG a refund/payout-hold (never execute), adjudicates mismatches, removes strikes (audited). Every action audit-logged.\n- Payments — the ONLY role that moves money: approves/rejects payments, executes refunds and payouts. Does NOT review proof content and has no content powers.\n\n(Legacy Manager\\UserController is the old 3-role MVP name for Admin — compat only.)"
+      "body": "Web advertising-spaces marketplace: clients book provider ad spaces (billboards, screens, radio, transit, kiosks), pay per time span, and verify display via proof. Laravel 12 (API, headless) + Angular 18 SPA; Mexico-first (Monterrey launch), single currency MXN. The five SYSTEM roles (users.role enum = client|provider|admin|support|payments):\n\n- Client — owns campaigns->adsets->ads; searches spaces on the map, books, pays per campaign, reviews proof, chats with providers. No dashboard (lands on Map+Search).\n- Provider — owns spaces (+photos, availability, pricing); approves/rejects bookings, uploads the PRIMARY proof. Lands on a stats dashboard.\n- Admin — eagle-eye: sees EVERYTHING (every chat), moderates listings (takedown/restore/freeze), edits any object, configures System Configurations, reads the immutable audit log, manages users + the RBAC matrix. Reads every chat SILENTLY/incognito; the one chat write-power is reopening a closed chat for investigation. The only role above Support and Payments.\n- Support — investigates user-reported problems; near-admin: edits every NON-money object, joins client<->provider chats ANNOUNCED, can only FLAG a refund/payout-hold (never execute), adjudicates mismatches, removes strikes (audited). Every action audit-logged.\n- Payments — the ONLY role that moves money: approves/rejects payments, executes refunds and payouts. Does NOT review proof content and has no content powers.\n\n(Legacy Manager\\UserController is the old 3-role MVP name for Admin — compat only.)",
+      "kind": "feature",
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-33",
+        "UC-34"
+      ],
+      "flow": [
+        "FL01"
+      ],
+      "er": [
+        "ER01",
+        "ER03"
+      ],
+      "classes": []
     },
     {
       "id": "2",
@@ -104,7 +118,29 @@
         ]
       },
       "summary": "A role-by-object capability matrix (own CRUD, inspect, edit-any, money, silent observe, announced join, audit-logged) plus load-bearing separation-of-powers rules: Support raises money flags, Payments executes; chat is one primitive.",
-      "body": "Rows = object, cols = role. Legend: own CRUD / inspect (read) / edit-any / $ money action / silent observe / announced join / audit-logged. Collaborator columns split by ecosystem subrole (client: publ, mgr; provider: inst, sales, sup); see §3 for exact subrole capabilities.\n\nSeparation-of-powers (load-bearing):\n- A client-rejected proof AUTO-HOLDS the payment; an accepted proof makes it releasable for MANUAL Payments release. Strikes route Support->Admin, never Payments.\n- Chat (one primitive — §10): every conversation, 'ticket', internal money huddle, and dispute is ONE chat; a 'ticket' is just a chat with a Support participant. Nature is DERIVED from participants+objects+flags (no type column). Chat flags = payment_held/refund/payout_hold/cancel/mismatch; Support RAISES money flags, Payments EXECUTES the money — a flag never grants access and the money authority is payments.status, never a flag.\n- Internal Support<->Payments chats are membership-ACL'd; the client never sees them; Admin observes read-only/incognito.\n- Auto-approve: Admin System Config toggle + amount threshold, default OFF; larger payments still need manual Payments review.\n- Audit log is append-only/immutable; every staff (edit/$) action is logged.\n\n[owner 2026-07-17] Payments chat-join is SILENT, not announced; Supervisor does NOT see Payments; Supervisor CAN upload the primary proof; Installator is provider-side only."
+      "body": "Rows = object, cols = role. Legend: own CRUD / inspect (read) / edit-any / $ money action / silent observe / announced join / audit-logged. Collaborator columns split by ecosystem subrole (client: publ, mgr; provider: inst, sales, sup); see §3 for exact subrole capabilities.\n\nSeparation-of-powers (load-bearing):\n- A client-rejected proof AUTO-HOLDS the payment; an accepted proof makes it releasable for MANUAL Payments release. Strikes route Support->Admin, never Payments.\n- Chat (one primitive — §10): every conversation, 'ticket', internal money huddle, and dispute is ONE chat; a 'ticket' is just a chat with a Support participant. Nature is DERIVED from participants+objects+flags (no type column). Chat flags = payment_held/refund/payout_hold/cancel/mismatch; Support RAISES money flags, Payments EXECUTES the money — a flag never grants access and the money authority is payments.status, never a flag.\n- Internal Support<->Payments chats are membership-ACL'd; the client never sees them; Admin observes read-only/incognito.\n- Auto-approve: Admin System Config toggle + amount threshold, default OFF; larger payments still need manual Payments review.\n- Audit log is append-only/immutable; every staff (edit/$) action is logged.\n\n[owner 2026-07-17] Payments chat-join is SILENT, not announced; Supervisor does NOT see Payments; Supervisor CAN upload the primary proof; Installator is provider-side only.",
+      "kind": "feature",
+      "ucs": [
+        "UC-30",
+        "UC-22",
+        "UC-25"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL18",
+        "FL19"
+      ],
+      "er": [
+        "ER20",
+        "ER14",
+        "ER11",
+        "ER12"
+      ],
+      "classes": [
+        "CL04",
+        "CL08",
+        "CL01"
+      ]
     },
     {
       "id": "3",
@@ -130,7 +166,20 @@
         ]
       },
       "summary": "An Account is a first-class object (MVP: 1 user = 1 account, email is identity). Collaborators are ACCOUNT-scoped via an account_grants overlay, with distinct client-side (publicist/manager) and provider-side (installator/sales/supervisor) subrole sets.",
-      "body": "Account object (owner 2026-06-25): a first-class object. Every owner user has exactly ONE account; for MVP an account IS that single owner user. The separate accounts object exists so a team of multiple owner-users can later share one account WITHOUT a schema change. [owner 2026-06-27] An EMAIL is the account identity: exactly ONE account per email. A person wanting both a client and a provider account registers two different emails.\n\nCollaborators (UC-19 owner manages; UC-20 collaborator acts in subrole scope) are invited by email from an account-scoped Collaborators screen under the Configurations tab. They are ACCOUNT-scoped: a collaborator points to account_id and, per role, sees/acts across ALL of that account's campaigns/spaces. Enforced by a SEPARATE per-account RBAC grant overlay (account_grants) evaluated AFTER the global role matrix. (DB: collaborators table, unique(account_id, email).)\n\nCLIENT-side subroles:\n- Publicist — operational: create/edit campaigns, adsets, ads; review proofs; upload SECONDARY proofs; chat with providers; open support chats. CANNOT see money/billing.\n- Manager — everything the owner can do INCLUDING money and billing (the ONLY client collaborator that sees money).\n\nPROVIDER-side subroles:\n- Installator — can ONLY upload proofs (crews who install physical ads). Sees nothing about money, listings, or other topics.\n- Sales — provider-side equivalent of Support: answers client messages. Can ONLY reply to messages/chats.\n- Supervisor — can see and EDIT almost everything in the provider account EXCEPT owner-only powers (cannot remove people, adjust configurations, DELETE spaces) AND [owner 2026-07-17] EXCEPT money/Payments.\n\nMoney/billing on the CLIENT side is visible to the owner and the client Manager. On the PROVIDER side money is owner-only for now."
+      "body": "Account object (owner 2026-06-25): a first-class object. Every owner user has exactly ONE account; for MVP an account IS that single owner user. The separate accounts object exists so a team of multiple owner-users can later share one account WITHOUT a schema change. [owner 2026-06-27] An EMAIL is the account identity: exactly ONE account per email. A person wanting both a client and a provider account registers two different emails.\n\nCollaborators (UC-19 owner manages; UC-20 collaborator acts in subrole scope) are invited by email from an account-scoped Collaborators screen under the Configurations tab. They are ACCOUNT-scoped: a collaborator points to account_id and, per role, sees/acts across ALL of that account's campaigns/spaces. Enforced by a SEPARATE per-account RBAC grant overlay (account_grants) evaluated AFTER the global role matrix. (DB: collaborators table, unique(account_id, email).)\n\nCLIENT-side subroles:\n- Publicist — operational: create/edit campaigns, adsets, ads; review proofs; upload SECONDARY proofs; chat with providers; open support chats. CANNOT see money/billing.\n- Manager — everything the owner can do INCLUDING money and billing (the ONLY client collaborator that sees money).\n\nPROVIDER-side subroles:\n- Installator — can ONLY upload proofs (crews who install physical ads). Sees nothing about money, listings, or other topics.\n- Sales — provider-side equivalent of Support: answers client messages. Can ONLY reply to messages/chats.\n- Supervisor — can see and EDIT almost everything in the provider account EXCEPT owner-only powers (cannot remove people, adjust configurations, DELETE spaces) AND [owner 2026-07-17] EXCEPT money/Payments.\n\nMoney/billing on the CLIENT side is visible to the owner and the client Manager. On the PROVIDER side money is owner-only for now.",
+      "kind": "feature",
+      "ucs": [
+        "UC-19",
+        "UC-20"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER03",
+        "ER18",
+        "ER01"
+      ],
+      "classes": []
     },
     {
       "id": "4",
@@ -158,7 +207,31 @@
         ]
       },
       "summary": "Defines the object hierarchy (Campaign > Adset > Ad; Space) and the canonical booking state enum, the four-value proofs.status enum, the single-canonical-enum rule, and cheapest-decomposition pricing.",
-      "body": "Object hierarchy:\n- Campaign — top user-level unit; holds a budget and one or more adsets. Invoicing is per-ad but printed at campaign level.\n- Adset — a PURE GROUPING LABEL with a name. No effect on price, dates, or location. Ads from multiple providers can sit in one adset.\n- Ad — the basic publicity unit: audio, image, video, gif, or other. Each ad has its OWN price, time span, location, and provider. MVP = ONE file per ad. Two gates apply and BOTH must pass: automated upload-time validation against the space's media-delivery specs AND manual provider approval. On manual rejection the client is NOT charged.\n- Space — a provider's publicity slot. Has name, address, lat/long, photos, pricing per day/month/custom span, two spec sets (physical + media-delivery), availability calendar.\n\nCANONICAL booking state enum [owner 2026-06-25]:\ndraft -> waiting-approval -> waiting-booking-confirmation -> live -> proof-pending -> proof-uploaded -> (completed | rejected | cancelled). payout-held is NOT a booking state — it lives on payments.status. ADS keep their OWN separate enum (draft|pending_approval|approved|rejected|active|paused|completed|cancelled).\n\nproofs.status enum (FOUR values): pending, uploaded, client_accepted, client_rejected. A missed deadline is a BOOKING outcome (auto-cancel), NOT a proof status.\n\nOne canonical enum list: a SINGLE canonical list so DB, backend, Angular UI, and docs agree on the states.\n\nCheapest-decomposition pricing: when a booked window straddles two pricing tiers, the price is the CHEAPEST valid decomposition (fit the largest cheaper blocks first)."
+      "body": "Object hierarchy:\n- Campaign — top user-level unit; holds a budget and one or more adsets. Invoicing is per-ad but printed at campaign level.\n- Adset — a PURE GROUPING LABEL with a name. No effect on price, dates, or location. Ads from multiple providers can sit in one adset.\n- Ad — the basic publicity unit: audio, image, video, gif, or other. Each ad has its OWN price, time span, location, and provider. MVP = ONE file per ad. Two gates apply and BOTH must pass: automated upload-time validation against the space's media-delivery specs AND manual provider approval. On manual rejection the client is NOT charged.\n- Space — a provider's publicity slot. Has name, address, lat/long, photos, pricing per day/month/custom span, two spec sets (physical + media-delivery), availability calendar.\n\nCANONICAL booking state enum [owner 2026-06-25]:\ndraft -> waiting-approval -> waiting-booking-confirmation -> live -> proof-pending -> proof-uploaded -> (completed | rejected | cancelled). payout-held is NOT a booking state — it lives on payments.status. ADS keep their OWN separate enum (draft|pending_approval|approved|rejected|active|paused|completed|cancelled).\n\nproofs.status enum (FOUR values): pending, uploaded, client_accepted, client_rejected. A missed deadline is a BOOKING outcome (auto-cancel), NOT a proof status.\n\nOne canonical enum list: a SINGLE canonical list so DB, backend, Angular UI, and docs agree on the states.\n\nCheapest-decomposition pricing: when a booked window straddles two pricing tiers, the price is the CHEAPEST valid decomposition (fit the largest cheaper blocks first).",
+      "kind": "feature",
+      "ucs": [
+        "UC-2",
+        "UC-13",
+        "UC-15"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL02",
+        "FL03",
+        "FL07"
+      ],
+      "er": [
+        "ER04",
+        "ER05",
+        "ER06",
+        "ER07",
+        "ER10",
+        "ER17"
+      ],
+      "classes": [
+        "CL07",
+        "CL09"
+      ]
     },
     {
       "id": "5",
@@ -186,7 +259,33 @@
         ]
       },
       "summary": "The map stack (Leaflet/OSM + what3words), nearest-first search sidebar, exact-date filters and orphan backlog, the ad-origin invariant (ads only come from existing provider spaces), and per-ad go-live via provider Approve/Reject.",
-      "body": "Map stack: Leaflet/OpenStreetMap is the map provider, with what3words layered on the location picker (optional client-side sugar, stores NO column; canonical location stays lat/long/location_name). The whole map stack is swappable to Google Maps via environment.mapProvider.\n\nLanding & nearest-first sidebar (UC-1, UC-2, UC-3): Client lands on a map centered on their geolocation (default Monterrey). The right rail lists nearby spaces sorted near-to-far, each tagged with type. The list is multi-select; selecting shows 'Add to an existing campaign' / 'Add to a new campaign'.\n\nRadio-in-map-range: 'In range' for a radio station = inside the current MAP view range — NOT listener location. Pan/zoom updates the station list.\n\nFilters (exact dates) & backlog: Filters: space type, date range, budget per day. Dates are EXACT — no date-flexibility filter. Spaces whose calendar doesn't coincide are TAGGED, not hidden, sorted to the bottom. The campaign view shows an Orphan-spaces list (backlog spaces not yet in any adset); orphaned ads cannot go live and their payment cannot be processed.\n\nINVARIANT — ad origin: A client NEVER creates a space or an ad from scratch. Every ad ALWAYS belongs to an existing provider space (ad = space + provider + the client's creative). Ads originate ONLY by selecting existing spaces on the map -> campaign backlog -> adset. The only per-ad action inside an adset is uploading THAT ad's creative media. Any UI that lets a client mint a brand-new, space-less ad is a bug.\n\nBooking action & per-ad go-live (UC-15, UC-13): Provider acts with Approve or Reject only — NO counter-offers. Rejection reason is OPTIONAL. Go-live is PER-AD, not all-or-nothing. An inquiry chat becomes a confirmed booking chat only when BOTH provider approval AND client payment are complete."
+      "body": "Map stack: Leaflet/OpenStreetMap is the map provider, with what3words layered on the location picker (optional client-side sugar, stores NO column; canonical location stays lat/long/location_name). The whole map stack is swappable to Google Maps via environment.mapProvider.\n\nLanding & nearest-first sidebar (UC-1, UC-2, UC-3): Client lands on a map centered on their geolocation (default Monterrey). The right rail lists nearby spaces sorted near-to-far, each tagged with type. The list is multi-select; selecting shows 'Add to an existing campaign' / 'Add to a new campaign'.\n\nRadio-in-map-range: 'In range' for a radio station = inside the current MAP view range — NOT listener location. Pan/zoom updates the station list.\n\nFilters (exact dates) & backlog: Filters: space type, date range, budget per day. Dates are EXACT — no date-flexibility filter. Spaces whose calendar doesn't coincide are TAGGED, not hidden, sorted to the bottom. The campaign view shows an Orphan-spaces list (backlog spaces not yet in any adset); orphaned ads cannot go live and their payment cannot be processed.\n\nINVARIANT — ad origin: A client NEVER creates a space or an ad from scratch. Every ad ALWAYS belongs to an existing provider space (ad = space + provider + the client's creative). Ads originate ONLY by selecting existing spaces on the map -> campaign backlog -> adset. The only per-ad action inside an adset is uploading THAT ad's creative media. Any UI that lets a client mint a brand-new, space-less ad is a bug.\n\nBooking action & per-ad go-live (UC-15, UC-13): Provider acts with Approve or Reject only — NO counter-offers. Rejection reason is OPTIONAL. Go-live is PER-AD, not all-or-nothing. An inquiry chat becomes a confirmed booking chat only when BOTH provider approval AND client payment are complete.",
+      "kind": "feature",
+      "ucs": [
+        "UC-1",
+        "UC-2",
+        "UC-3",
+        "UC-13",
+        "UC-15"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL01",
+        "FL02",
+        "FL04",
+        "FL07"
+      ],
+      "er": [
+        "ER07",
+        "ER06",
+        "ER05",
+        "ER04",
+        "ER10",
+        "ER09"
+      ],
+      "classes": [
+        "CL07"
+      ]
     },
     {
       "id": "6",
@@ -209,7 +308,26 @@
         ]
       },
       "summary": "After-MVP: when a window isn't free, clients can 'book for later' via two per-space queues (pre-pay into escrow or non-pre-pay FCFS). Provider chooses which offer to confirm; confirming atomically cancels+refunds sibling pre-pay offers.",
-      "body": "When a requested window isn't yet free the client sees 'Book it for later.' Two per-space queues:\n- PRE-PAY — funds captured into escrow; the booking joins the provider's per-space waiting list (provider sees a SIMPLE list with NO amounts + a reject action). If the slot never opens within the admin-configurable expiry window, the client is refunded to wallet.\n- NON-PRE-PAY — queued with no funds, resolved FCFS when the calendar frees.\n- Cross-queue precedence is the PROVIDER's choice. Confirming one offer for a freed slot atomically cancels+refunds every sibling pre-pay offer.\n- [owner 2026-06-27] Pre-pay is OPTIONAL. Confirming an offer is NOT final file approval and locks in NEITHER party: provider may still REJECT the file, client may CANCEL before display; on any cancel/reject escrowed funds return to the client's wallet. (One checkout per campaign covers all ads regardless of provider.)"
+      "body": "When a requested window isn't yet free the client sees 'Book it for later.' Two per-space queues:\n- PRE-PAY — funds captured into escrow; the booking joins the provider's per-space waiting list (provider sees a SIMPLE list with NO amounts + a reject action). If the slot never opens within the admin-configurable expiry window, the client is refunded to wallet.\n- NON-PRE-PAY — queued with no funds, resolved FCFS when the calendar frees.\n- Cross-queue precedence is the PROVIDER's choice. Confirming one offer for a freed slot atomically cancels+refunds every sibling pre-pay offer.\n- [owner 2026-06-27] Pre-pay is OPTIONAL. Confirming an offer is NOT final file approval and locks in NEITHER party: provider may still REJECT the file, client may CANCEL before display; on any cancel/reject escrowed funds return to the client's wallet. (One checkout per campaign covers all ads regardless of provider.)",
+      "kind": "feature",
+      "ucs": [
+        "UC-5"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL05",
+        "FL06"
+      ],
+      "er": [
+        "ER10",
+        "ER11",
+        "ER21"
+      ],
+      "classes": [
+        "CL08",
+        "CL10",
+        "CL07"
+      ]
     },
     {
       "id": "7",
@@ -237,7 +355,36 @@
         ]
       },
       "summary": "The provider owns the PRIMARY proof (payout-eligible); admin-configured deadline (default 5d) with day-3/4 reminders and day-5 auto-cancel+refund+strike. Client accept releases payout; client reject auto-holds it and opens THREE Support chats. Strikes (after-MVP) route Support->Admin.",
-      "body": "Primary & secondary proofs (UC-16): The PROVIDER owns the PRIMARY proof of display — only the primary proof makes a booking eligible for payout. Within the deadline the PRIMARY proof is uploaded by the provider owner OR the provider's Installator or Supervisor subrole — NOT Sales, and no client-side role. It is a photo or a short video. Client-side collaborators may upload SECONDARY proofs and flag mismatches.\n\nDeadline & reminders [MVP; cron AFTER-MVP]: Proof deadline is admin-configured (default 5 days), counted from display_start = the booking's calendar start_date set at confirmation. Reminders fire day 3 and day 4 (day-4 includes SMS). Missing the day-5 deadline auto-cancels the booking, refunds the client to wallet in full, and accrues a provider strike. The auto-cancel cron locks the booking and re-checks proof IS NULL inside the transaction.\n\nReview, payout & client reject -> auto-hold (UC-6, UC-7): Two phases. PHASE 1: the provider must post the primary proof within the deadline. PHASE 2 (human analysis): once the client reviews, humans take over — NO second automatic window. The client's payment is HELD from booking until the CLIENT accepts. Payments does NOT review proof content.\n- If the client ACCEPTS, the payment becomes releasable and Payments MANUALLY releases the payout.\n- If the client REJECTS (or a collaborator flags a mismatch), the ONLY automatic actions are: (1) the payout is AUTO-HELD; (2) a FLAG is raised carrying reason text attached to the payment; and (3) THREE Support-anchored CHATS auto-open, each anchored to the held payment+booking with a payment_held flag, differing ONLY by participant set: Support<->Payments (internal, the money decision), Support<->Client (Support investigates), Support<->Provider (Support asks for a corrected proof). There is NO automatic re-upload window.\n- Releasing a held payout is a MANUAL decision by Payments together with Support. A release enters the §8 payout processing queue (a reversible grace window) before the money leaves.\n\nProof photos are NOT auto geotag-checked. Mismatches are caught by the client/collaborator mismatch-flag -> Support/Payments path.\n\nStrikes (AFTER-MVP): accrue on missed proof deadline, provider cancel, or upheld mismatch. NOT a Payments power — routes Support then Admin. 3 strikes in a trailing 90-day window flags the account for Admin review. SUPPORT can remove a strike (reversible, audited) (UC-18, UC-24)."
+      "body": "Primary & secondary proofs (UC-16): The PROVIDER owns the PRIMARY proof of display — only the primary proof makes a booking eligible for payout. Within the deadline the PRIMARY proof is uploaded by the provider owner OR the provider's Installator or Supervisor subrole — NOT Sales, and no client-side role. It is a photo or a short video. Client-side collaborators may upload SECONDARY proofs and flag mismatches.\n\nDeadline & reminders [MVP; cron AFTER-MVP]: Proof deadline is admin-configured (default 5 days), counted from display_start = the booking's calendar start_date set at confirmation. Reminders fire day 3 and day 4 (day-4 includes SMS). Missing the day-5 deadline auto-cancels the booking, refunds the client to wallet in full, and accrues a provider strike. The auto-cancel cron locks the booking and re-checks proof IS NULL inside the transaction.\n\nReview, payout & client reject -> auto-hold (UC-6, UC-7): Two phases. PHASE 1: the provider must post the primary proof within the deadline. PHASE 2 (human analysis): once the client reviews, humans take over — NO second automatic window. The client's payment is HELD from booking until the CLIENT accepts. Payments does NOT review proof content.\n- If the client ACCEPTS, the payment becomes releasable and Payments MANUALLY releases the payout.\n- If the client REJECTS (or a collaborator flags a mismatch), the ONLY automatic actions are: (1) the payout is AUTO-HELD; (2) a FLAG is raised carrying reason text attached to the payment; and (3) THREE Support-anchored CHATS auto-open, each anchored to the held payment+booking with a payment_held flag, differing ONLY by participant set: Support<->Payments (internal, the money decision), Support<->Client (Support investigates), Support<->Provider (Support asks for a corrected proof). There is NO automatic re-upload window.\n- Releasing a held payout is a MANUAL decision by Payments together with Support. A release enters the §8 payout processing queue (a reversible grace window) before the money leaves.\n\nProof photos are NOT auto geotag-checked. Mismatches are caught by the client/collaborator mismatch-flag -> Support/Payments path.\n\nStrikes (AFTER-MVP): accrue on missed proof deadline, provider cancel, or upheld mismatch. NOT a Payments power — routes Support then Admin. 3 strikes in a trailing 90-day window flags the account for Admin review. SUPPORT can remove a strike (reversible, audited) (UC-18, UC-24).",
+      "kind": "feature",
+      "ucs": [
+        "UC-6",
+        "UC-7",
+        "UC-16",
+        "UC-18",
+        "UC-24",
+        "UC-40"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL10",
+        "FL11",
+        "FL13",
+        "FL14",
+        "FL18"
+      ],
+      "er": [
+        "ER17",
+        "ER10",
+        "ER11",
+        "ER12",
+        "ER14"
+      ],
+      "classes": [
+        "CL09",
+        "CL07",
+        "CL08"
+      ]
     },
     {
       "id": "8",
@@ -263,7 +410,35 @@
         ]
       },
       "summary": "All money is decimal MXN pesos (no centavos). Covers gateways (Mercado Pago/PayPal, mocked), the payment/payout state machine with a reversible processing-queue grace window, the append-only wallet ledger, refunds/clawback, per-provider payouts, and one-invoice-per-campaign.",
-      "body": "All money is decimal MXN pesos — decimal(12,2), single currency, no centavos. Gateway callbacks in another currency are normalized to MXN at capture. Timestamps stored UTC; deadline math against the admin-default timezone (Monterrey).\n\nGateway: Mercado Pago and PayPal (payments.payment_platform), mocked until keys exist. Webhooks signature-verified, persisted raw, idempotent by gateway event id, nightly reconciliation. Gateway processing fee is paid GROSS by the CLIENT — added on top at checkout.\n\nPayment lifecycle: payments belongs to a booking; status pending|completed|failed|refunded|held|processing|released|settled. The client's payment is HELD from booking until the CLIENT accepts the primary proof. Client-accept -> releasable; client-reject -> HELD with a payment_held flag + three auto-opened Support chats.\n\nEscrow (AFTER-MVP — §6): pre-pay funds -> escrow (wallet_entries.type=escrow_capture), released on confirm/cancel. Payout state machine held -> processing -> released -> settled.\n\nWallet ledger (UC-11): wallet_entries is append-only, double-entry: user_id, signed amount, type {refund|withdrawal|escrow_capture|escrow_release|adjustment}, ref_type, ref_id, idempotency_key (UNIQUE). Balance = SUM(amount), never a writable column. Withdraw is blocked while any dispute/hold is open. Enforce SUM(refunds) <= captured.\n\nRefunds (UC-26, UC-10): Payments executes ALL refunds; Support only FLAGS. Cancellation refunds are 100% by default UNLESS the booking was already IN PROCESS, then reduced to cover work performed. Clawback: platform FREEZES the wallet + alerts Payments; the frozen balance waits for an Admin decision.\n\nPayouts (UC-17, UC-25, UC-32): Happen ASAP but must be APPROVED by Payments first; Support flags only. Admin has a configurable window (default 24h) to stop it. Payouts are PER-PROVIDER even within one multi-provider campaign invoice.\n\nPayout processing queue & gateway truth [owner 2026-07-16]: Releasing a payout is NOT an instant wire. When Payments releases it the payout enters a processing queue: payments.status=processing for a configurable grace window (default 1h) before dispatch. This buffer is a local, fully reversible window — Payments OR Support can pull the payout back to held with no gateway call. processing is surfaced only on Payments/Support UIs. Once the grace window elapses the payout is dispatched (one idempotency key per payout) and the gateway becomes the source of truth via signature-verified webhook. Once the gateway reports approved/settled the payout is TERMINAL and a local holdPayout is a NO-OP — undoing requires a gateway-side REFUND. Full payout state machine: held -> processing -> released -> settled; processing -> held is the ONLY backward edge and ONLY within the grace window. (Live dispatch + webhooks AFTER-MVP.)\n\nInvoices (UC-4): invoices belongs to campaign: invoice_number (unique), total_amount, status draft|issued|paid|overdue|cancelled. ONE invoice per campaign, with per-ad line items and per-provider payouts. An orphan ad cannot go live."
+      "body": "All money is decimal MXN pesos — decimal(12,2), single currency, no centavos. Gateway callbacks in another currency are normalized to MXN at capture. Timestamps stored UTC; deadline math against the admin-default timezone (Monterrey).\n\nGateway: Mercado Pago and PayPal (payments.payment_platform), mocked until keys exist. Webhooks signature-verified, persisted raw, idempotent by gateway event id, nightly reconciliation. Gateway processing fee is paid GROSS by the CLIENT — added on top at checkout.\n\nPayment lifecycle: payments belongs to a booking; status pending|completed|failed|refunded|held|processing|released|settled. The client's payment is HELD from booking until the CLIENT accepts the primary proof. Client-accept -> releasable; client-reject -> HELD with a payment_held flag + three auto-opened Support chats.\n\nEscrow (AFTER-MVP — §6): pre-pay funds -> escrow (wallet_entries.type=escrow_capture), released on confirm/cancel. Payout state machine held -> processing -> released -> settled.\n\nWallet ledger (UC-11): wallet_entries is append-only, double-entry: user_id, signed amount, type {refund|withdrawal|escrow_capture|escrow_release|adjustment}, ref_type, ref_id, idempotency_key (UNIQUE). Balance = SUM(amount), never a writable column. Withdraw is blocked while any dispute/hold is open. Enforce SUM(refunds) <= captured.\n\nRefunds (UC-26, UC-10): Payments executes ALL refunds; Support only FLAGS. Cancellation refunds are 100% by default UNLESS the booking was already IN PROCESS, then reduced to cover work performed. Clawback: platform FREEZES the wallet + alerts Payments; the frozen balance waits for an Admin decision.\n\nPayouts (UC-17, UC-25, UC-32): Happen ASAP but must be APPROVED by Payments first; Support flags only. Admin has a configurable window (default 24h) to stop it. Payouts are PER-PROVIDER even within one multi-provider campaign invoice.\n\nPayout processing queue & gateway truth [owner 2026-07-16]: Releasing a payout is NOT an instant wire. When Payments releases it the payout enters a processing queue: payments.status=processing for a configurable grace window (default 1h) before dispatch. This buffer is a local, fully reversible window — Payments OR Support can pull the payout back to held with no gateway call. processing is surfaced only on Payments/Support UIs. Once the grace window elapses the payout is dispatched (one idempotency key per payout) and the gateway becomes the source of truth via signature-verified webhook. Once the gateway reports approved/settled the payout is TERMINAL and a local holdPayout is a NO-OP — undoing requires a gateway-side REFUND. Full payout state machine: held -> processing -> released -> settled; processing -> held is the ONLY backward edge and ONLY within the grace window. (Live dispatch + webhooks AFTER-MVP.)\n\nInvoices (UC-4): invoices belongs to campaign: invoice_number (unique), total_amount, status draft|issued|paid|overdue|cancelled. ONE invoice per campaign, with per-ad line items and per-provider payouts. An orphan ad cannot go live.",
+      "kind": "feature",
+      "ucs": [
+        "UC-4",
+        "UC-10",
+        "UC-11",
+        "UC-17",
+        "UC-25",
+        "UC-26",
+        "UC-32"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL06",
+        "FL16",
+        "FL17",
+        "FL21",
+        "FL22"
+      ],
+      "er": [
+        "ER11",
+        "ER21",
+        "ER19",
+        "ER10"
+      ],
+      "classes": [
+        "CL08",
+        "CL10"
+      ]
     },
     {
       "id": "9",
@@ -284,7 +459,18 @@
         ]
       },
       "summary": "After-MVP provider star rating (1-5 + count) on each space, averaged from per-campaign ratings. Only clients rate, only after a campaign ended or ran live >=30 days, one per client per campaign; ratings are immutable and transparent.",
-      "body": "Provider star rating (1-5 + count) on each space detail = average of per-campaign ratings + optional comment; GET /spaces/{s} returns avg+count. Eligibility: only clients rate, only after a campaign with that provider ended OR ran live >=30 days, one per client per campaign (POST /client/campaigns/{c}/rating). [owner 2026-06-27] Ratings are IMMUTABLE and fully transparent — no client edit/delete; abusive comments flagged for Support, removed only by rare MANUAL admin action, never auto-hidden."
+      "body": "Provider star rating (1-5 + count) on each space detail = average of per-campaign ratings + optional comment; GET /spaces/{s} returns avg+count. Eligibility: only clients rate, only after a campaign with that provider ended OR ran live >=30 days, one per client per campaign (POST /client/campaigns/{c}/rating). [owner 2026-06-27] Ratings are IMMUTABLE and fully transparent — no client edit/delete; abusive comments flagged for Support, removed only by rare MANUAL admin action, never auto-hidden.",
+      "kind": "feature",
+      "ucs": [
+        "UC-12"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER07",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "10",
@@ -312,7 +498,36 @@
         ]
       },
       "summary": "The ONE chat primitive: every conversation, ticket, money huddle, and dispute is a chat whose nature is DERIVED from participants+objects+flags (no type column). Covers per-person membership, polymorphic object attachments, flag history, entry-point-sets-counterparty, states, PII masking, and the 3-chat dispute.",
-      "body": "One primitive: Every conversation on the platform is ONE object: a chat. There is no separate 'ticket' entity; a chat IS a 'ticket' purely by having a Support participant. A chat's nature is NEVER stored in a type/kind column — it is DERIVED at read time from its participants, its attached objects, and its flags. Why a chat was opened and every transformation live in its persisted message/event history (kind=system messages). [owner 2026-07-17: merged former §10 Chat + §11 Tickets.]\n\nParticipants — a per-person membership table: Access is by MEMBERSHIP/role, never by a (mutable) flag. chat_participants lists each person with their side (client|provider|support|payments|admin), announced, joined_at, left_at. Sides: Client side (client account + collaborators); Provider side (provider account + Sales/Supervisor, NOT Installators); Support side (any support agent can pick up a chat with a Support participant; join into a client<->provider chat is ANNOUNCED and relaxes PII); Payments (joins only money-relevant chats); Admin (eagle-eye, read-only, incognito — reads EVERY chat, never posts; only write-power is reopening a closed chat).\n\nObjects — zero..many polymorphic attachments: A chat may attach ZERO or MANY objects of ad|adset|campaign|space|payment|booking. A chat opened from an object carries it as context but the object does NOT define the counterparty. Attaching is ownership-checked.\n\nEntry point sets the counterparty — the object is only context [owner 2026-07-25]: from the Messages tab or an ad/adset/campaign object -> Support (support_client); from a provider's published space/ad listing -> that Provider (client_provider, the ONLY path to a provider); from Billing/invoices -> Support, who loops Payments in via the internal chat. Counterparties are not fixed at creation.\n\nFlags — zero..many with history: A flag = {type, reason, active, created_by, superseded_at}, type in {payment_held, refund, payout_hold, cancel, mismatch, ...}. On any change the old flag is deactivated and a system message records it. A flag NEVER grants access. The authoritative money STATE is NOT a flag — it stays on payments.status. Support RAISES money flags, Payments EXECUTES.\n\nStates: open | in_progress | resolved | closed. The user-facing UI shows only Abierto / Cerrado. A closed chat is NOT reopenable by users; only Admin reopens.\n\nPII masking: one server-side service, per-message at render, applies ONLY to a client<->provider chat with NO Support joined (phone, email, URL, off-space addresses masked; the booked space's own address whitelisted). Masking relaxes the moment Support joins and NEVER applies on any staff-only chat. Raw bodies always stored.\n\nSingle Messages surface: every role reaches all of this through ONE Messages area — NO 'Support' tabs. 'Contact support' is simply 'open a chat'.\n\nDispute (§7): When a client rejects proof, payments.status=held and three chats auto-open — Support<->Client, Support<->Provider, Support<->Payments — each anchored to the held payment+booking with a payment_held flag. Admin oversight via GET /admin/oversight/chats."
+      "body": "One primitive: Every conversation on the platform is ONE object: a chat. There is no separate 'ticket' entity; a chat IS a 'ticket' purely by having a Support participant. A chat's nature is NEVER stored in a type/kind column — it is DERIVED at read time from its participants, its attached objects, and its flags. Why a chat was opened and every transformation live in its persisted message/event history (kind=system messages). [owner 2026-07-17: merged former §10 Chat + §11 Tickets.]\n\nParticipants — a per-person membership table: Access is by MEMBERSHIP/role, never by a (mutable) flag. chat_participants lists each person with their side (client|provider|support|payments|admin), announced, joined_at, left_at. Sides: Client side (client account + collaborators); Provider side (provider account + Sales/Supervisor, NOT Installators); Support side (any support agent can pick up a chat with a Support participant; join into a client<->provider chat is ANNOUNCED and relaxes PII); Payments (joins only money-relevant chats); Admin (eagle-eye, read-only, incognito — reads EVERY chat, never posts; only write-power is reopening a closed chat).\n\nObjects — zero..many polymorphic attachments: A chat may attach ZERO or MANY objects of ad|adset|campaign|space|payment|booking. A chat opened from an object carries it as context but the object does NOT define the counterparty. Attaching is ownership-checked.\n\nEntry point sets the counterparty — the object is only context [owner 2026-07-25]: from the Messages tab or an ad/adset/campaign object -> Support (support_client); from a provider's published space/ad listing -> that Provider (client_provider, the ONLY path to a provider); from Billing/invoices -> Support, who loops Payments in via the internal chat. Counterparties are not fixed at creation.\n\nFlags — zero..many with history: A flag = {type, reason, active, created_by, superseded_at}, type in {payment_held, refund, payout_hold, cancel, mismatch, ...}. On any change the old flag is deactivated and a system message records it. A flag NEVER grants access. The authoritative money STATE is NOT a flag — it stays on payments.status. Support RAISES money flags, Payments EXECUTES.\n\nStates: open | in_progress | resolved | closed. The user-facing UI shows only Abierto / Cerrado. A closed chat is NOT reopenable by users; only Admin reopens.\n\nPII masking: one server-side service, per-message at render, applies ONLY to a client<->provider chat with NO Support joined (phone, email, URL, off-space addresses masked; the booked space's own address whitelisted). Masking relaxes the moment Support joins and NEVER applies on any staff-only chat. Raw bodies always stored.\n\nSingle Messages surface: every role reaches all of this through ONE Messages area — NO 'Support' tabs. 'Contact support' is simply 'open a chat'.\n\nDispute (§7): When a client rejects proof, payments.status=held and three chats auto-open — Support<->Client, Support<->Provider, Support<->Payments — each anchored to the held payment+booking with a payment_held flag. Admin oversight via GET /admin/oversight/chats.",
+      "kind": "feature",
+      "ucs": [
+        "UC-7",
+        "UC-8",
+        "UC-9",
+        "UC-21",
+        "UC-27",
+        "UC-28"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL19",
+        "FL18"
+      ],
+      "er": [
+        "ER12",
+        "ER15",
+        "ER13",
+        "ER14",
+        "ER16"
+      ],
+      "classes": [
+        "CL01",
+        "CL02",
+        "CL03",
+        "CL04",
+        "CL05",
+        "CL06"
+      ]
     },
     {
       "id": "11",
@@ -332,7 +547,22 @@
         "ids": []
       },
       "summary": "Tickets & Support are no longer a separate system — a 'ticket' is just a chat with a Support participant (see §10). Support's non-chat powers live with their domains.",
-      "body": "Tickets & Support are no longer a separate system: a 'ticket' is just a chat with a Support participant — see §10 'Chats, Objetos & Flags'. Support's non-chat powers live with their domains: edit-any-NON-money object (audited, UC-23) and strike accrual/removal -> §7/§12 (UC-24); money FLAGS that Payments executes -> §8 (UC-22 flag, UC-25/UC-26 execute). Support 'resolves' a chat; the opener (or Admin) 'closes' it."
+      "body": "Tickets & Support are no longer a separate system: a 'ticket' is just a chat with a Support participant — see §10 'Chats, Objetos & Flags'. Support's non-chat powers live with their domains: edit-any-NON-money object (audited, UC-23) and strike accrual/removal -> §7/§12 (UC-24); money FLAGS that Payments executes -> §8 (UC-22 flag, UC-25/UC-26 execute). Support 'resolves' a chat; the opener (or Admin) 'closes' it.",
+      "kind": "meta",
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-22",
+        "UC-23",
+        "UC-24"
+      ],
+      "flow": [],
+      "er": [
+        "ER12",
+        "ER15"
+      ],
+      "classes": [
+        "CL01"
+      ]
     },
     {
       "id": "12",
@@ -359,7 +589,28 @@
         ]
       },
       "summary": "Admin eagle-eye read-only chat oversight; three levels of taking a listing off (pause / takedown / freeze); deletion guardrails ('programmed for deletion'); the immutable audit log; System Configurations with apply-to-in-flight snapshots; the operational dashboard; and rate limits.",
-      "body": "Admin is the eagle-eye role: reads EVERYTHING. Chat oversight is ONE screen GET /admin/oversight/chats with filters (nature/flag/object/status/participant) — read-only/incognito; its only chat write-power is reopening a closed chat (UC-28). Admin has no money-execution role beyond the payout-stop window.\n\nThree levels of taking a listing/provider off (UC-29): Pause/unpublish (provider's own action, reversible); Takedown/restore (admin moderation, provider CANNOT self-reverse); Freeze (admin, account-level: pauses NEW bookings AND auto-cancels ALL upcoming bookings with a full refund; busts permission/session cache immediately and revokes Sanctum tokens).\n\nDeletion guardrails (EVERY deletable object): a hard delete is BLOCKED whenever the object has open support chats, a booking in progress, or unsettled funds. Instead deletion is a 'programmed for deletion' state: the object is unpublished, stops new activity, and stays visible with a legend until current bookings finish, then is removed (UC-37).\n\nImmutable audit log (UC-31): Append-only; one entry per action of ANY role with actor, target, before/after, timestamp; queryable as per-object history; Admin read-only. API: AuditLog::record() + GET /admin/audit.\n\nSystem Configurations (Admin-only; defaults) (UC-30): proof deadline (5d), strike window (90d) + 3-strike threshold, pre-pay offer expiry, calendar-staleness (7d), payout-stop window (24h), payout processing grace (1h), cancellation refund policy (100% default), currency (MXN), default timezone (Monterrey), auto-approve/auto-release threshold, rate-limit thresholds, audit-log retention per role.\n\nApply-to-in-flight + config snapshot: Changing a configurable value offers a CHECKBOX: 'apply to existing/in-flight bookings too' vs 'new bookings only.' Unchecked snapshots config onto each booking at creation (bookings.config_snapshot JSON). API: GET,PUT /admin/configurations.\n\nAdmin operational/eagle-eye dashboard: Indicators — ads rejected, proofs rejected, open chats with a Support participant, payments stopped — plus queue depths, refund rate, strike rate, gateway health.\n\nRate limits: Per-IP and per-account caps on login, chat send, file upload, search, booking submission, admin-configurable."
+      "body": "Admin is the eagle-eye role: reads EVERYTHING. Chat oversight is ONE screen GET /admin/oversight/chats with filters (nature/flag/object/status/participant) — read-only/incognito; its only chat write-power is reopening a closed chat (UC-28). Admin has no money-execution role beyond the payout-stop window.\n\nThree levels of taking a listing/provider off (UC-29): Pause/unpublish (provider's own action, reversible); Takedown/restore (admin moderation, provider CANNOT self-reverse); Freeze (admin, account-level: pauses NEW bookings AND auto-cancels ALL upcoming bookings with a full refund; busts permission/session cache immediately and revokes Sanctum tokens).\n\nDeletion guardrails (EVERY deletable object): a hard delete is BLOCKED whenever the object has open support chats, a booking in progress, or unsettled funds. Instead deletion is a 'programmed for deletion' state: the object is unpublished, stops new activity, and stays visible with a legend until current bookings finish, then is removed (UC-37).\n\nImmutable audit log (UC-31): Append-only; one entry per action of ANY role with actor, target, before/after, timestamp; queryable as per-object history; Admin read-only. API: AuditLog::record() + GET /admin/audit.\n\nSystem Configurations (Admin-only; defaults) (UC-30): proof deadline (5d), strike window (90d) + 3-strike threshold, pre-pay offer expiry, calendar-staleness (7d), payout-stop window (24h), payout processing grace (1h), cancellation refund policy (100% default), currency (MXN), default timezone (Monterrey), auto-approve/auto-release threshold, rate-limit thresholds, audit-log retention per role.\n\nApply-to-in-flight + config snapshot: Changing a configurable value offers a CHECKBOX: 'apply to existing/in-flight bookings too' vs 'new bookings only.' Unchecked snapshots config onto each booking at creation (bookings.config_snapshot JSON). API: GET,PUT /admin/configurations.\n\nAdmin operational/eagle-eye dashboard: Indicators — ads rejected, proofs rejected, open chats with a Support participant, payments stopped — plus queue depths, refund rate, strike rate, gateway health.\n\nRate limits: Per-IP and per-account caps on login, chat send, file upload, search, booking submission, admin-configurable.",
+      "kind": "feature",
+      "ucs": [
+        "UC-28",
+        "UC-29",
+        "UC-30",
+        "UC-31",
+        "UC-37",
+        "UC-39"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER22",
+        "ER20",
+        "ER12",
+        "ER23"
+      ],
+      "classes": [
+        "CL01",
+        "CL06"
+      ]
     },
     {
       "id": "13",
@@ -383,7 +634,22 @@
         ]
       },
       "summary": "After-MVP notifications dispatcher (domain events -> channel/urgency fan-out) across in-app/email/SMS-mock, plus provider calendar iCal sync with a staleness clock measured from last successful sync or manual edit.",
-      "body": "Dispatcher (AFTER-MVP): Emit domain events (BookingApproved, ProofRejected, ...); queued listeners fan out via a channel/urgency lookup — no scattered Notification::send. API: internal dispatch + GET /notifications, POST /notifications/{n}/read. The full ~35-event alert schema table is in §19.\n\nChannels: in-app / email / SMS-mock; most are in-app text, some surface as a Support/Payments chat. SMS is reserved for Payments alerts and cancellations only (Twilio default, Vonage fallback, mocked). Strike alerts go to Provider + Support (and Admin on the 3rd) — never Payments.\n\nCalendar (iCal sync + staleness) (UC-14): The provider availability UI strongly recommends connecting a live calendar URL (.ical or public Google/Outlook). API: GET,POST /provider/spaces/{s}/availabilities, DELETE, POST /sync-ical, POST /import-ical.\n- Staleness clock is measured from the LAST SUCCESSFUL SYNC or LAST MANUAL EDIT — never from space creation. If older than the threshold (default 7d), an alert appears next to that space. A healthy auto-syncing URL never fires.\n- If an imported calendar goes OFFLINE, the space FALLS BACK to its last-known/manual range rather than vanishing."
+      "body": "Dispatcher (AFTER-MVP): Emit domain events (BookingApproved, ProofRejected, ...); queued listeners fan out via a channel/urgency lookup — no scattered Notification::send. API: internal dispatch + GET /notifications, POST /notifications/{n}/read. The full ~35-event alert schema table is in §19.\n\nChannels: in-app / email / SMS-mock; most are in-app text, some surface as a Support/Payments chat. SMS is reserved for Payments alerts and cancellations only (Twilio default, Vonage fallback, mocked). Strike alerts go to Provider + Support (and Admin on the 3rd) — never Payments.\n\nCalendar (iCal sync + staleness) (UC-14): The provider availability UI strongly recommends connecting a live calendar URL (.ical or public Google/Outlook). API: GET,POST /provider/spaces/{s}/availabilities, DELETE, POST /sync-ical, POST /import-ical.\n- Staleness clock is measured from the LAST SUCCESSFUL SYNC or LAST MANUAL EDIT — never from space creation. If older than the threshold (default 7d), an alert appears next to that space. A healthy auto-syncing URL never fires.\n- If an imported calendar goes OFFLINE, the space FALLS BACK to its last-known/manual range rather than vanishing.",
+      "kind": "feature",
+      "ucs": [
+        "UC-14",
+        "UC-38"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL10"
+      ],
+      "er": [
+        "ER09",
+        "ER07",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "14",
@@ -409,7 +675,22 @@
         ]
       },
       "summary": "Two-layer RBAC: a global role_permissions matrix for system roles plus a per-account account_grants overlay for collaborators. Covers PermissionMiddleware, caching, named capabilities (flag vs execute), and the UTC-stored / Monterrey-computed timezone rule.",
-      "body": "Two layers: The global role_permissions matrix governs SYSTEM roles only; a SEPARATE per-ACCOUNT grant overlay governs collaborators, evaluated AFTER the global matrix and scoped so grants never leak across accounts.\n\nGlobal matrix (role_permissions): Which actions (create, read, update, delete) each role has on each resource: users, campaigns, adsets, ads, spaces, space_photos, space_availabilities, bookings, payments, proofs, chats (retires the old tickets + conversations resources — alias both to chats), invoices, collaborators, dashboard.\n- PermissionMiddleware checks every route via permission:resource,action.\n- Permissions cached per-role for 60 min, auto-invalidated on admin edit.\n- Login and /me return the user's permissions.\n- Admin permission routes carry NO permission middleware (only role:admin) to prevent lockout.\n- API: GET /admin/permissions; GET/PUT /admin/permissions/{role}; PATCH /admin/permissions/{role}/{resource}.\n\nPer-account collaborator overlay: Collaborators are account-scoped via account_grants (account_id, collaborator_user_id, role, capability). API: GET,POST /client/collaborators + DELETE (publicist, manager); GET,POST /provider/collaborators + DELETE (installator, sales, supervisor).\n\nNamed capabilities (beyond CRUD): refund.flag vs refund.execute, payout.hold vs payout.release, strike.accrue vs strike.reverse, chat.flag vs chat.join vs chat.oversight. Support gets flag-only + announced join; Payments gets execute-only; Admin gets read-only chat oversight.\n\nTimezone [owner 2026-06-25]: All timestamps STORED in UTC. Deadline math is computed against the platform DEFAULT timezone — America/Monterrey at launch — an Admin System-Configurations setting. DISPLAY is localized PER USER. The canonical deadline instant is identical for everyone; never compute deadlines off the requester's local clock."
+      "body": "Two layers: The global role_permissions matrix governs SYSTEM roles only; a SEPARATE per-ACCOUNT grant overlay governs collaborators, evaluated AFTER the global matrix and scoped so grants never leak across accounts.\n\nGlobal matrix (role_permissions): Which actions (create, read, update, delete) each role has on each resource: users, campaigns, adsets, ads, spaces, space_photos, space_availabilities, bookings, payments, proofs, chats (retires the old tickets + conversations resources — alias both to chats), invoices, collaborators, dashboard.\n- PermissionMiddleware checks every route via permission:resource,action.\n- Permissions cached per-role for 60 min, auto-invalidated on admin edit.\n- Login and /me return the user's permissions.\n- Admin permission routes carry NO permission middleware (only role:admin) to prevent lockout.\n- API: GET /admin/permissions; GET/PUT /admin/permissions/{role}; PATCH /admin/permissions/{role}/{resource}.\n\nPer-account collaborator overlay: Collaborators are account-scoped via account_grants (account_id, collaborator_user_id, role, capability). API: GET,POST /client/collaborators + DELETE (publicist, manager); GET,POST /provider/collaborators + DELETE (installator, sales, supervisor).\n\nNamed capabilities (beyond CRUD): refund.flag vs refund.execute, payout.hold vs payout.release, strike.accrue vs strike.reverse, chat.flag vs chat.join vs chat.oversight. Support gets flag-only + announced join; Payments gets execute-only; Admin gets read-only chat oversight.\n\nTimezone [owner 2026-06-25]: All timestamps STORED in UTC. Deadline math is computed against the platform DEFAULT timezone — America/Monterrey at launch — an Admin System-Configurations setting. DISPLAY is localized PER USER. The canonical deadline instant is identical for everyone; never compute deadlines off the requester's local clock.",
+      "kind": "feature",
+      "ucs": [
+        "UC-19",
+        "UC-20",
+        "UC-30"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER20",
+        "ER18",
+        "ER03",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "15",
@@ -430,7 +711,42 @@
         ]
       },
       "summary": "The authoritative PostgreSQL 17 table list (db pub_ads_mar): users, accounts, campaigns/adsets/ads/spaces, bookings/payments, the unified chat tables (chats/chat_objects/chat_flags/chat_participants/messages), proofs, collaborators, invoices, wallet_entries, and RBAC. Tickets/ticket_messages are RETIRED.",
-      "body": "Authoritative table list. PostgreSQL 17 — db pub_ads_mar, user postgres (trust auth). All money is DECIMAL MXN pesos (decimal(12,2)) — no centavos. Timestamps stored in UTC.\n\nCore tables: users, personal_access_tokens (Sanctum), accounts (MVP: one per owner user), campaigns, adsets (pure grouping labels), ads (adset_id nullable = orphan; own status enum), spaces, space_photos, space_availabilities, bookings (canonical status enum; config_snapshot json; EXCLUDE USING gist prevents overlapping confirmed bookings), payments (money state machine: pending|completed|failed|refunded|held|processing|released|settled).\n\nUnified chat tables (§10): chats (NO type/kind column — nature is DERIVED; side-anchor columns client_user_id/provider_user_id; support_joined_at; status open|in_progress|resolved|closed), chat_objects (polymorphic morphTo objectable = Ad|Adset|Campaign|Space|Payment|Booking; attach is ownership-checked), chat_flags (N + history: type enum, active, superseded_at), chat_participants (per-person membership: side enum, announced, joined_at, left_at, unique(chat_id,user_id)), messages (chat_id, sender_user_id, body, kind user|system).\n\nproofs (belongs to ad + booking + uploaded_by; status pending|uploaded|client_accepted|client_rejected; CLIENT accepts/rejects). RETIRED (2026-07-17): tickets + ticket_messages — a 'ticket' is now just a chat with a Support participant; ticketable -> chat_objects.\n\ncollaborators (ACCOUNT-SCOPED: account_id FK, unique(account_id,email)), invoices (belongs to campaign), role_permissions (RBAC), wallet_entries (append-only ledger; balance = SUM(amount)), system_configurations (admin-tunable key/value).\n\nPLANNED tables (designed, not built): strikes, ratings, audit_logs, account_grants, notifications."
+      "body": "Authoritative table list. PostgreSQL 17 — db pub_ads_mar, user postgres (trust auth). All money is DECIMAL MXN pesos (decimal(12,2)) — no centavos. Timestamps stored in UTC.\n\nCore tables: users, personal_access_tokens (Sanctum), accounts (MVP: one per owner user), campaigns, adsets (pure grouping labels), ads (adset_id nullable = orphan; own status enum), spaces, space_photos, space_availabilities, bookings (canonical status enum; config_snapshot json; EXCLUDE USING gist prevents overlapping confirmed bookings), payments (money state machine: pending|completed|failed|refunded|held|processing|released|settled).\n\nUnified chat tables (§10): chats (NO type/kind column — nature is DERIVED; side-anchor columns client_user_id/provider_user_id; support_joined_at; status open|in_progress|resolved|closed), chat_objects (polymorphic morphTo objectable = Ad|Adset|Campaign|Space|Payment|Booking; attach is ownership-checked), chat_flags (N + history: type enum, active, superseded_at), chat_participants (per-person membership: side enum, announced, joined_at, left_at, unique(chat_id,user_id)), messages (chat_id, sender_user_id, body, kind user|system).\n\nproofs (belongs to ad + booking + uploaded_by; status pending|uploaded|client_accepted|client_rejected; CLIENT accepts/rejects). RETIRED (2026-07-17): tickets + ticket_messages — a 'ticket' is now just a chat with a Support participant; ticketable -> chat_objects.\n\ncollaborators (ACCOUNT-SCOPED: account_id FK, unique(account_id,email)), invoices (belongs to campaign), role_permissions (RBAC), wallet_entries (append-only ledger; balance = SUM(amount)), system_configurations (admin-tunable key/value).\n\nPLANNED tables (designed, not built): strikes, ratings, audit_logs, account_grants, notifications.",
+      "kind": "meta",
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-33",
+        "UC-35"
+      ],
+      "flow": [],
+      "er": [
+        "ER01",
+        "ER03",
+        "ER04",
+        "ER05",
+        "ER06",
+        "ER07",
+        "ER10",
+        "ER11",
+        "ER12",
+        "ER13",
+        "ER14",
+        "ER15",
+        "ER16",
+        "ER17",
+        "ER18",
+        "ER19",
+        "ER21",
+        "ER20",
+        "ER22"
+      ],
+      "classes": [
+        "CL01",
+        "CL07",
+        "CL08",
+        "CL09",
+        "CL10"
+      ]
     },
     {
       "id": "16",
@@ -452,7 +768,27 @@
         ]
       },
       "summary": "Terse integrity rules (most AFTER-MVP): money ledger append-only with unique idempotency keys, concurrency via EXCLUDE gist + row locks, config snapshots, the one-chat-primitive access-by-membership rule, two-layer RBAC, and audit immutability.",
-      "body": "Integrity rules (terse; most are AFTER-MVP — build when their subsystem ships):\n- Money [MVP]: wallet = append-only entries, balance = SUM(amount), never a writable column; every refund/payout has a UNIQUE idempotency_key; SUM(refunds) <= captured.\n- Money [AFTER-MVP]: escrow capture/release + booking change in one row-locked txn; payout held->processing->released->settled (grace window, §8); gateway webhooks signed/idempotent + nightly reconcile.\n- Concurrency: MVP = lightweight app-level overlap check on booking create. AFTER-MVP = Postgres EXCLUDE USING gist + SELECT FOR UPDATE; pre-pay confirm atomically cancels+refunds sibling offers; auto-cancel cron re-checks proof IS NULL in-txn.\n- Snapshots [MVP]: config snapshot onto booking at creation; 'apply to in-flight' checkbox re-applies.\n- Chat [MVP] (§10): ONE chats primitive — nature is DERIVED from participants+objects+flags, never a type column. Access is by MEMBERSHIP/role, NEVER by a mutable flag. Staff-only chats NEVER mask PII. Object-attach is OWNERSHIP-CHECKED. Admin chat oversight is READ-ONLY/incognito. Money authority is payments.status, never a flag.\n- RBAC: global matrix for system roles; collaborators via per-account account_grants overlay. Provider freeze busts perm/session cache + revokes tokens.\n- AFTER-MVP: display_start stored timestamp for proof crons; per-person chat_participants as the sole membership source; DB-level audit immutability; strikes decoupled from notifications + reversible.\n- NOTE: proofs.status is currently a SUPERSET (legacy + B9 client_accepted/client_rejected) until the deprecated Payments proof-review is removed."
+      "body": "Integrity rules (terse; most are AFTER-MVP — build when their subsystem ships):\n- Money [MVP]: wallet = append-only entries, balance = SUM(amount), never a writable column; every refund/payout has a UNIQUE idempotency_key; SUM(refunds) <= captured.\n- Money [AFTER-MVP]: escrow capture/release + booking change in one row-locked txn; payout held->processing->released->settled (grace window, §8); gateway webhooks signed/idempotent + nightly reconcile.\n- Concurrency: MVP = lightweight app-level overlap check on booking create. AFTER-MVP = Postgres EXCLUDE USING gist + SELECT FOR UPDATE; pre-pay confirm atomically cancels+refunds sibling offers; auto-cancel cron re-checks proof IS NULL in-txn.\n- Snapshots [MVP]: config snapshot onto booking at creation; 'apply to in-flight' checkbox re-applies.\n- Chat [MVP] (§10): ONE chats primitive — nature is DERIVED from participants+objects+flags, never a type column. Access is by MEMBERSHIP/role, NEVER by a mutable flag. Staff-only chats NEVER mask PII. Object-attach is OWNERSHIP-CHECKED. Admin chat oversight is READ-ONLY/incognito. Money authority is payments.status, never a flag.\n- RBAC: global matrix for system roles; collaborators via per-account account_grants overlay. Provider freeze busts perm/session cache + revokes tokens.\n- AFTER-MVP: display_start stored timestamp for proof crons; per-person chat_participants as the sole membership source; DB-level audit immutability; strikes decoupled from notifications + reversible.\n- NOTE: proofs.status is currently a SUPERSET (legacy + B9 client_accepted/client_rejected) until the deprecated Payments proof-review is removed.",
+      "kind": "meta",
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-11",
+        "UC-25",
+        "UC-8"
+      ],
+      "flow": [],
+      "er": [
+        "ER21",
+        "ER11",
+        "ER10",
+        "ER12",
+        "ER20"
+      ],
+      "classes": [
+        "CL10",
+        "CL08",
+        "CL01"
+      ]
     },
     {
       "id": "17",
@@ -470,7 +806,24 @@
         "ids": []
       },
       "summary": "The API endpoint map (source of truth backend/routes/api.php): LIVE (built) auth/client/provider/admin/support/payments plus the shared unified /chats routes, and PLANNED (designed) endpoints. Marks divergences and retired conversations/tickets routes.",
-      "body": "Source of truth: backend/routes/api.php. Format: METHOD path — purpose. All paths prefixed /api. Two parts: LIVE (built) and PLANNED (designed).\n\nLIVE endpoints span Public/auth (register, login, logout, me), Client (campaigns/adsets/ads CRUD, bookings, spaces/search, collaborators, invoices, backlog/orphans, proof accept/reject, wallet), Provider (spaces + media, availabilities + iCal, booking queue Approve/Reject, dashboard, proofs), Admin (dashboard, users CRM, RBAC permissions matrix, oversight/chats eagle-eye, configurations), Support (dashboard; acts on chats via the shared /chats map), Payments (dashboard, payments approve/reject, refund, payout release/hold), and the Shared Chats map (ONE primitive): GET,POST /chats (counterparty set by ENTRY POINT), GET /chats/{chat}, POST /chats/{chat}/messages, POST/DELETE /chats/{chat}/objects, POST /chats/{chat}/flags, POST /chats/{chat}/join, POST resolve/close/reopen.\n\nRETIRED -> /chats: /conversations, /tickets, /support/tickets, /support/conversations/{c}/join, /support/payments/{p}/flag-*, the dual-ticket auto-open. The §8 Payments money routes are UNCHANGED.\n\nPLANNED endpoints (designed, not built): account-scoped collaborators (both sides), media specs + spec-mismatch upload fail, checkout/escrow, ratings, wallet withdraw, audit log, moderation (takedown/restore/freeze), Support edit-any-non-money, the 3-chat dispute auto-open, notifications dispatcher, proof-deadline cron + strikes.\n\nCompliance: CONTRADICTS canon (fix LIVE code): Payments proof approve/reject (B9 remove), campaign-scoped collaborators (-> account_id), bookings.status not canonical enum, provider booking PUT bare confirm/cancel, hard DELETE with no guardrails."
+      "body": "Source of truth: backend/routes/api.php. Format: METHOD path — purpose. All paths prefixed /api. Two parts: LIVE (built) and PLANNED (designed).\n\nLIVE endpoints span Public/auth (register, login, logout, me), Client (campaigns/adsets/ads CRUD, bookings, spaces/search, collaborators, invoices, backlog/orphans, proof accept/reject, wallet), Provider (spaces + media, availabilities + iCal, booking queue Approve/Reject, dashboard, proofs), Admin (dashboard, users CRM, RBAC permissions matrix, oversight/chats eagle-eye, configurations), Support (dashboard; acts on chats via the shared /chats map), Payments (dashboard, payments approve/reject, refund, payout release/hold), and the Shared Chats map (ONE primitive): GET,POST /chats (counterparty set by ENTRY POINT), GET /chats/{chat}, POST /chats/{chat}/messages, POST/DELETE /chats/{chat}/objects, POST /chats/{chat}/flags, POST /chats/{chat}/join, POST resolve/close/reopen.\n\nRETIRED -> /chats: /conversations, /tickets, /support/tickets, /support/conversations/{c}/join, /support/payments/{p}/flag-*, the dual-ticket auto-open. The §8 Payments money routes are UNCHANGED.\n\nPLANNED endpoints (designed, not built): account-scoped collaborators (both sides), media specs + spec-mismatch upload fail, checkout/escrow, ratings, wallet withdraw, audit log, moderation (takedown/restore/freeze), Support edit-any-non-money, the 3-chat dispute auto-open, notifications dispatcher, proof-deadline cron + strikes.\n\nCompliance: CONTRADICTS canon (fix LIVE code): Payments proof approve/reject (B9 remove), campaign-scoped collaborators (-> account_id), bookings.status not canonical enum, provider booking PUT bare confirm/cancel, hard DELETE with no guardrails.",
+      "kind": "meta",
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-33",
+        "UC-35"
+      ],
+      "flow": [],
+      "er": [
+        "ER12",
+        "ER11",
+        "ER10",
+        "ER07",
+        "ER04"
+      ],
+      "classes": [
+        "CL06"
+      ]
     },
     {
       "id": "18",
@@ -490,7 +843,15 @@
         ]
       },
       "summary": "Stack and dev setup: Laravel 12 API + Angular 18 SPA + PostgreSQL 17, Sanctum auth, Leaflet/OSM maps, mocked Mercado Pago/PayPal and Twilio/Vonage SMS. Docker is canonical; demo accounts seeded (password 'password').",
-      "body": "Backend: Laravel 12 (API only), backend/. Frontend: Angular 18 SPA (SSR), frontend/. DB: PostgreSQL 17 (Docker host :5435 -> container :5432; bare-metal PG17 on :5434, trust auth). Auth: Sanctum Bearer token in localStorage. CORS: allow http://localhost:4200 with credentials. Maps: Leaflet/OSM + what3words (swap to Google via environment.mapProvider). Payments mocked (Mercado Pago / PayPal). SMS: Twilio default / Vonage fallback, mocked. Geo search: bounding-box (PostGIS = upgrade path). Files: storage/app/public/ via storage:link.\n\nDev commands: Docker is canonical (project publisher; backend auto-migrates on boot). BuildKit streaming is broken on this machine — use the classic builder. Backend + nginx :8000 + frontend :4200 + postgres :5435. Migrate/seed/psql via docker compose exec. Demo accounts (after seed; password 'password'): admin@ / support@ / payments@ / provider1@ / provider2@ / client1@ / client2@ pubads.test. (Older seed used Paris/EUR — migrating to Monterrey/MXN.)\n\nImplementation status: see §17 (LIVE vs PLANNED) and §20 for build phases."
+      "body": "Backend: Laravel 12 (API only), backend/. Frontend: Angular 18 SPA (SSR), frontend/. DB: PostgreSQL 17 (Docker host :5435 -> container :5432; bare-metal PG17 on :5434, trust auth). Auth: Sanctum Bearer token in localStorage. CORS: allow http://localhost:4200 with credentials. Maps: Leaflet/OSM + what3words (swap to Google via environment.mapProvider). Payments mocked (Mercado Pago / PayPal). SMS: Twilio default / Vonage fallback, mocked. Geo search: bounding-box (PostGIS = upgrade path). Files: storage/app/public/ via storage:link.\n\nDev commands: Docker is canonical (project publisher; backend auto-migrates on boot). BuildKit streaming is broken on this machine — use the classic builder. Backend + nginx :8000 + frontend :4200 + postgres :5435. Migrate/seed/psql via docker compose exec. Demo accounts (after seed; password 'password'): admin@ / support@ / payments@ / provider1@ / provider2@ / client1@ / client2@ pubads.test. (Older seed used Paris/EUR — migrating to Monterrey/MXN.)\n\nImplementation status: see §17 (LIVE vs PLANNED) and §20 for build phases.",
+      "kind": "meta",
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-33"
+      ],
+      "flow": [],
+      "er": [],
+      "classes": []
     },
     {
       "id": "19",
@@ -506,7 +867,18 @@
         "ids": []
       },
       "summary": "The verbose, story-level source of truth (UC-1..UC-40) — the Use-Case Index, per-role UX notes, the ~35-event notification/alert schema, media-delivery specs by space type, and representative end-to-end journeys. Specs win when a story and a spec disagree.",
-      "body": "The verbose, story-level source of truth for what each role does. The canonical DESIGN (modules, enums, policies) is in §1-18 — when a story and a spec disagree, the spec wins.\n\nUse-Case Index: every user story carries a stable UC-N code. Grouped CLIENT (UC-1..12), PROVIDER (UC-13..18), ACCOUNTS & COLLABORATORS (UC-19..20), SUPPORT (UC-21..24), PAYMENTS (UC-25..27), ADMIN (UC-28..32), and END-TO-END JOURNEYS (UC-33..40).\n\nCLIENT UX notes: multi-select spaces -> 'Add to a new/existing campaign' + a 10-second toast; orphans can't reach checkout; the upload control shows upload-instructions inline and rejects spec-mismatch; refund/terms/privacy linked on checkout.\n\nPROVIDER UX notes: media specs auto-populate from a per-type template; confirmed bookings move to an installation queue; revenue dashboard shows upcoming/held/paid/refunded + trailing-90-day strike counter.\n\nNotification & alert schema: a ~35-row table (Event | Trigger | Recipients | Channel | Urgency | Template) covering booking, proof, dispute, payout, strike, chat, moderation, pre-pay, and calendar events.\n\nMedia-delivery specs by space type: billboard, digital screen (big/little), radio station, transit, kiosk — each with provider physical declarations and the file the client must deliver.\n\nRepresentative journeys: UC-33 first-time client single billboard, UC-34 first-time provider, UC-35 disputed proof that travels, UC-36 ad creative & installation actor boundaries."
+      "body": "The verbose, story-level source of truth for what each role does. The canonical DESIGN (modules, enums, policies) is in §1-18 — when a story and a spec disagree, the spec wins.\n\nUse-Case Index: every user story carries a stable UC-N code. Grouped CLIENT (UC-1..12), PROVIDER (UC-13..18), ACCOUNTS & COLLABORATORS (UC-19..20), SUPPORT (UC-21..24), PAYMENTS (UC-25..27), ADMIN (UC-28..32), and END-TO-END JOURNEYS (UC-33..40).\n\nCLIENT UX notes: multi-select spaces -> 'Add to a new/existing campaign' + a 10-second toast; orphans can't reach checkout; the upload control shows upload-instructions inline and rejects spec-mismatch; refund/terms/privacy linked on checkout.\n\nPROVIDER UX notes: media specs auto-populate from a per-type template; confirmed bookings move to an installation queue; revenue dashboard shows upcoming/held/paid/refunded + trailing-90-day strike counter.\n\nNotification & alert schema: a ~35-row table (Event | Trigger | Recipients | Channel | Urgency | Template) covering booking, proof, dispute, payout, strike, chat, moderation, pre-pay, and calendar events.\n\nMedia-delivery specs by space type: billboard, digital screen (big/little), radio station, transit, kiosk — each with provider physical declarations and the file the client must deliver.\n\nRepresentative journeys: UC-33 first-time client single billboard, UC-34 first-time provider, UC-35 disputed proof that travels, UC-36 ad creative & installation actor boundaries.",
+      "kind": "meta",
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-33",
+        "UC-34",
+        "UC-35",
+        "UC-36"
+      ],
+      "flow": [],
+      "er": [],
+      "classes": []
     },
     {
       "id": "20",
@@ -522,7 +894,15 @@
         "ids": []
       },
       "summary": "Owner decisions that supersede earlier text (latest wins) and the build phases. Reaffirms decimal-MXN money, account-wide collaborators, client-accepts-proof (B9), the one-chat primitive, and provider Approve/Reject. Team targets ~90% compliance.",
-      "body": "These owner decisions SUPERSEDE earlier text where they conflict (latest wins). The team builds toward ~90% compliance, not 100% — some older text is intentionally stale.\n\nRevised decisions (override above where older):\n- MONEY: DECIMAL MXN pesos everywhere (no centavos).\n- COLLABORATORS: ACCOUNT-WIDE for BOTH clients and providers; subroles per ecosystem (client: publicist/manager; provider: installator/sales/supervisor); under a 'Configurations' tab.\n- PROOF/PAYMENTS (B9): the CLIENT accepts/rejects the primary proof — acceptance releases payout, rejection HOLDS it; Payments doesn't judge content up front. Remove Payments proof approve/reject of content.\n- CHATS (§10): ONE primitive — a 'ticket' is just a chat with a Support participant. A chat carries ZERO..MANY attached objects + flags; its nature is DERIVED. Admin+Support eagle-eye; only SUPPORT entry is announced, Admin is silent/read-only. The dispute opens THREE chats.\n- PROVIDER BOOKING ACTION: Approve (and send to an installator) OR Reject (reason optional). Not bare Confirm/Cancel.\n\nRoadmap and the code-vs-design gap list are tracked in .claude/todos/mvp-sprint.json. Shorthand: PHASE 1 = owner-decision fixes + UI wiring; PHASE 2 = Support edit-any + audit log, Admin eagle-eye; PHASE 3 (deferred) = strikes, ratings, notifications, escrow/pre-pay, media-spec validator, moderation, invoice line-items."
+      "body": "These owner decisions SUPERSEDE earlier text where they conflict (latest wins). The team builds toward ~90% compliance, not 100% — some older text is intentionally stale.\n\nRevised decisions (override above where older):\n- MONEY: DECIMAL MXN pesos everywhere (no centavos).\n- COLLABORATORS: ACCOUNT-WIDE for BOTH clients and providers; subroles per ecosystem (client: publicist/manager; provider: installator/sales/supervisor); under a 'Configurations' tab.\n- PROOF/PAYMENTS (B9): the CLIENT accepts/rejects the primary proof — acceptance releases payout, rejection HOLDS it; Payments doesn't judge content up front. Remove Payments proof approve/reject of content.\n- CHATS (§10): ONE primitive — a 'ticket' is just a chat with a Support participant. A chat carries ZERO..MANY attached objects + flags; its nature is DERIVED. Admin+Support eagle-eye; only SUPPORT entry is announced, Admin is silent/read-only. The dispute opens THREE chats.\n- PROVIDER BOOKING ACTION: Approve (and send to an installator) OR Reject (reason optional). Not bare Confirm/Cancel.\n\nRoadmap and the code-vs-design gap list are tracked in .claude/todos/mvp-sprint.json. Shorthand: PHASE 1 = owner-decision fixes + UI wiring; PHASE 2 = Support edit-any + audit log, Admin eagle-eye; PHASE 3 (deferred) = strikes, ratings, notifications, escrow/pre-pay, media-spec validator, moderation, invoice line-items.",
+      "kind": "meta",
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-33"
+      ],
+      "flow": [],
+      "er": [],
+      "classes": []
     }
   ],
   "userStories": [
@@ -533,7 +913,20 @@
       "sections": [
         "§5"
       ],
-      "detail": "Client lands on a map centered on their geolocation (default Monterrey). The nearest-first right rail lists nearby spaces sorted near-to-far, tagged by type (billboard, big/little screen, radio, kiosk, transit). The list is multi-select; selecting shows 'Add to an existing campaign' / 'Add to a new campaign' (new campaign fires a 10-second 'Go to my new campaign' toast). Radio 'in range' means inside the current map view."
+      "detail": "Client lands on a map centered on their geolocation (default Monterrey). The nearest-first right rail lists nearby spaces sorted near-to-far, tagged by type (billboard, big/little screen, radio, kiosk, transit). The list is multi-select; selecting shows 'Add to an existing campaign' / 'Add to a new campaign' (new campaign fires a 10-second 'Go to my new campaign' toast). Radio 'in range' means inside the current map view.",
+      "specs": [
+        "§5"
+      ],
+      "flow": [
+        "FL01",
+        "FL02"
+      ],
+      "er": [
+        "ER07",
+        "ER06",
+        "ER04"
+      ],
+      "classes": []
     },
     {
       "id": "UC-2",
@@ -543,7 +936,21 @@
         "§4",
         "§5"
       ],
-      "detail": "Selected spaces sit in the campaign backlog as orphan ads until placed. The campaign view's Orphan-spaces list has a one-click 'Move all to new adset'; orphans can't reach checkout. Adsets are pure grouping labels; the way to populate an adset is to move ads in from the backlog — never mint a new space-less ad."
+      "detail": "Selected spaces sit in the campaign backlog as orphan ads until placed. The campaign view's Orphan-spaces list has a one-click 'Move all to new adset'; orphans can't reach checkout. Adsets are pure grouping labels; the way to populate an adset is to move ads in from the backlog — never mint a new space-less ad.",
+      "specs": [
+        "§4",
+        "§5"
+      ],
+      "flow": [
+        "FL02",
+        "FL03"
+      ],
+      "er": [
+        "ER04",
+        "ER05",
+        "ER06"
+      ],
+      "classes": []
     },
     {
       "id": "UC-3",
@@ -553,7 +960,19 @@
         "§4",
         "§5"
       ],
-      "detail": "The client's only content action is uploading THEIR creative (image/video/audio) for each ad, validated against the space's media-delivery specs. The upload control shows the provider's upload-instructions inline; on spec-mismatch the upload is rejected with a clear message (e.g. 'your file must be PDF/X-1a, CMYK, 150 DPI at trim, 1 cm bleed'). One file per ad (MVP)."
+      "detail": "The client's only content action is uploading THEIR creative (image/video/audio) for each ad, validated against the space's media-delivery specs. The upload control shows the provider's upload-instructions inline; on spec-mismatch the upload is rejected with a clear message (e.g. 'your file must be PDF/X-1a, CMYK, 150 DPI at trim, 1 cm bleed'). One file per ad (MVP).",
+      "specs": [
+        "§4",
+        "§5"
+      ],
+      "flow": [
+        "FL04"
+      ],
+      "er": [
+        "ER06",
+        "ER07"
+      ],
+      "classes": []
     },
     {
       "id": "UC-4",
@@ -562,7 +981,23 @@
       "sections": [
         "§8"
       ],
-      "detail": "One checkout per campaign covers all ads regardless of provider, producing ONE invoice with per-ad line items and per-provider payouts. Refund policy, terms & conditions, and privacy policy are linked on the checkout screen before paying. The gateway processing fee is added on top (paid gross by the client). An orphan ad cannot be checked out / go live."
+      "detail": "One checkout per campaign covers all ads regardless of provider, producing ONE invoice with per-ad line items and per-provider payouts. Refund policy, terms & conditions, and privacy policy are linked on the checkout screen before paying. The gateway processing fee is added on top (paid gross by the client). An orphan ad cannot be checked out / go live.",
+      "specs": [
+        "§8"
+      ],
+      "flow": [
+        "FL05",
+        "FL06"
+      ],
+      "er": [
+        "ER19",
+        "ER11",
+        "ER10",
+        "ER04"
+      ],
+      "classes": [
+        "CL08"
+      ]
     },
     {
       "id": "UC-5",
@@ -571,7 +1006,23 @@
       "sections": [
         "§6"
       ],
-      "detail": "When a window isn't free, the client can 'book it for later' via a per-space queue: PRE-PAY (funds captured into escrow, joins the provider's waiting list) or NON-PRE-PAY (queued FCFS). Confirming pre-pay is not final approval and locks in neither party; on any cancel/reject escrowed funds return to the wallet. If the slot never opens within the expiry window, the client is refunded."
+      "detail": "When a window isn't free, the client can 'book it for later' via a per-space queue: PRE-PAY (funds captured into escrow, joins the provider's waiting list) or NON-PRE-PAY (queued FCFS). Confirming pre-pay is not final approval and locks in neither party; on any cancel/reject escrowed funds return to the wallet. If the slot never opens within the expiry window, the client is refunded.",
+      "specs": [
+        "§6"
+      ],
+      "flow": [
+        "FL05",
+        "FL06"
+      ],
+      "er": [
+        "ER10",
+        "ER11",
+        "ER21"
+      ],
+      "classes": [
+        "CL10",
+        "CL08"
+      ]
     },
     {
       "id": "UC-6",
@@ -580,7 +1031,24 @@
       "sections": [
         "§7"
       ],
-      "detail": "The client (or a collaborator per role) reviews the provider's primary proof. Accepting sets proofs.status=client_accepted, making the payment releasable so Payments can MANUALLY release the payout. Payments never reviews proof content."
+      "detail": "The client (or a collaborator per role) reviews the provider's primary proof. Accepting sets proofs.status=client_accepted, making the payment releasable so Payments can MANUALLY release the payout. Payments never reviews proof content.",
+      "specs": [
+        "§7"
+      ],
+      "flow": [
+        "FL13",
+        "FL14",
+        "FL15"
+      ],
+      "er": [
+        "ER17",
+        "ER11",
+        "ER10"
+      ],
+      "classes": [
+        "CL09",
+        "CL08"
+      ]
     },
     {
       "id": "UC-7",
@@ -590,7 +1058,28 @@
         "§7",
         "§10"
       ],
-      "detail": "If the client rejects the proof (or a collaborator flags a mismatch), the only automatic actions are: payout is AUTO-HELD (payments.status=held); a payment_held flag with reason text is attached; and THREE Support-anchored chats auto-open (Support<->Client, Support<->Provider, Support<->Payments), each anchored to the held payment+booking. There is NO automatic re-upload window — any request for a corrected proof is a human Support action."
+      "detail": "If the client rejects the proof (or a collaborator flags a mismatch), the only automatic actions are: payout is AUTO-HELD (payments.status=held); a payment_held flag with reason text is attached; and THREE Support-anchored chats auto-open (Support<->Client, Support<->Provider, Support<->Payments), each anchored to the held payment+booking. There is NO automatic re-upload window — any request for a corrected proof is a human Support action.",
+      "specs": [
+        "§7",
+        "§10"
+      ],
+      "flow": [
+        "FL14",
+        "FL18",
+        "FL19"
+      ],
+      "er": [
+        "ER17",
+        "ER11",
+        "ER12",
+        "ER14"
+      ],
+      "classes": [
+        "CL09",
+        "CL08",
+        "CL01",
+        "CL04"
+      ]
     },
     {
       "id": "UC-8",
@@ -599,7 +1088,26 @@
       "sections": [
         "§10"
       ],
-      "detail": "A client reaches a provider ONLY from a listing the provider published (space/ad), which opens a client_provider chat with the space attached as context. Providers have no public profile/UI, so this is the ONLY path to a provider. An inquiry chat becomes a confirmed booking chat only when both provider approval and client payment complete. PII masking applies until Support joins."
+      "detail": "A client reaches a provider ONLY from a listing the provider published (space/ad), which opens a client_provider chat with the space attached as context. Providers have no public profile/UI, so this is the ONLY path to a provider. An inquiry chat becomes a confirmed booking chat only when both provider approval and client payment complete. PII masking applies until Support joins.",
+      "specs": [
+        "§10"
+      ],
+      "flow": [
+        "FL01",
+        "FL07"
+      ],
+      "er": [
+        "ER12",
+        "ER15",
+        "ER13",
+        "ER07"
+      ],
+      "classes": [
+        "CL01",
+        "CL02",
+        "CL03",
+        "CL06"
+      ]
     },
     {
       "id": "UC-9",
@@ -608,7 +1116,20 @@
       "sections": [
         "§10"
       ],
-      "detail": "From the Messages tab or an ad/adset/campaign object the counterparty is Support (support_client); the object rides along as context and does NOT pull in the provider. A Billing-opened chat is Support-fronted with the payment/invoice attached, and Payments is looped in via the internal Support<->Payments chat — Payments never faces the client directly. 'Contact support' is simply 'open a chat'."
+      "detail": "From the Messages tab or an ad/adset/campaign object the counterparty is Support (support_client); the object rides along as context and does NOT pull in the provider. A Billing-opened chat is Support-fronted with the payment/invoice attached, and Payments is looped in via the internal Support<->Payments chat — Payments never faces the client directly. 'Contact support' is simply 'open a chat'.",
+      "specs": [
+        "§10"
+      ],
+      "flow": [],
+      "er": [
+        "ER12",
+        "ER15",
+        "ER13"
+      ],
+      "classes": [
+        "CL01",
+        "CL06"
+      ]
     },
     {
       "id": "UC-10",
@@ -617,7 +1138,24 @@
       "sections": [
         "§8"
       ],
-      "detail": "Cancellation refunds are 100% by default UNLESS the booking was already in process (install work started), then reduced to cover work performed (stated in the T&C). Free pre-approval cancel; nothing post-display unless a proof fails; full refund on proof-miss auto-cancel or provider cancel. Payments executes the refund to the wallet."
+      "detail": "Cancellation refunds are 100% by default UNLESS the booking was already in process (install work started), then reduced to cover work performed (stated in the T&C). Free pre-approval cancel; nothing post-display unless a proof fails; full refund on proof-miss auto-cancel or provider cancel. Payments executes the refund to the wallet.",
+      "specs": [
+        "§8"
+      ],
+      "flow": [
+        "FL21",
+        "FL22"
+      ],
+      "er": [
+        "ER10",
+        "ER11",
+        "ER21"
+      ],
+      "classes": [
+        "CL08",
+        "CL10",
+        "CL07"
+      ]
     },
     {
       "id": "UC-11",
@@ -626,7 +1164,20 @@
       "sections": [
         "§8"
       ],
-      "detail": "The wallet is an append-only, double-entry ledger; balance = SUM(amount), never a writable column. GET /wallet returns balance + entries. Withdraw (POST /client/wallet/withdraw) is BLOCKED while any dispute/hold is open. Every refund/payout carries an idempotency key so a retry can't double-pay."
+      "detail": "The wallet is an append-only, double-entry ledger; balance = SUM(amount), never a writable column. GET /wallet returns balance + entries. Withdraw (POST /client/wallet/withdraw) is BLOCKED while any dispute/hold is open. Every refund/payout carries an idempotency key so a retry can't double-pay.",
+      "specs": [
+        "§8"
+      ],
+      "flow": [
+        "FL22"
+      ],
+      "er": [
+        "ER21",
+        "ER11"
+      ],
+      "classes": [
+        "CL10"
+      ]
     },
     {
       "id": "UC-12",
@@ -635,7 +1186,16 @@
       "sections": [
         "§9"
       ],
-      "detail": "Only clients rate, only after a campaign with that provider ended OR ran live >=30 days, one per client per campaign (POST /client/campaigns/{c}/rating). A provider's star rating (1-5 + count) on each space = average of per-campaign ratings + optional comment. Ratings are immutable and fully transparent — no client edit/delete."
+      "detail": "Only clients rate, only after a campaign with that provider ended OR ran live >=30 days, one per client per campaign (POST /client/campaigns/{c}/rating). A provider's star rating (1-5 + count) on each space = average of per-campaign ratings + optional comment. Ratings are immutable and fully transparent — no client edit/delete.",
+      "specs": [
+        "§9"
+      ],
+      "flow": [],
+      "er": [
+        "ER07",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "UC-13",
@@ -645,7 +1205,18 @@
         "§4",
         "§5"
       ],
-      "detail": "The provider creates the space (with photos, pricing per day/month/custom, physical + media-delivery specs, availability calendar). Media specs auto-populate from a per-type template (provider can tighten) plus free-text rules. A client never creates a space or sets media specs — that is exclusively the provider's job."
+      "detail": "The provider creates the space (with photos, pricing per day/month/custom, physical + media-delivery specs, availability calendar). Media specs auto-populate from a per-type template (provider can tighten) plus free-text rules. A client never creates a space or sets media specs — that is exclusively the provider's job.",
+      "specs": [
+        "§4",
+        "§5"
+      ],
+      "flow": [],
+      "er": [
+        "ER07",
+        "ER08",
+        "ER09"
+      ],
+      "classes": []
     },
     {
       "id": "UC-14",
@@ -654,7 +1225,16 @@
       "sections": [
         "§13"
       ],
-      "detail": "The availability UI strongly recommends connecting a live calendar URL (.ical or public Google/Outlook); a '?' help button explains how to find it. The staleness clock is measured from the last successful sync or last manual edit — never from space creation; older than 7d fires an alert next to that space. An offline imported calendar falls back to its last-known range rather than vanishing."
+      "detail": "The availability UI strongly recommends connecting a live calendar URL (.ical or public Google/Outlook); a '?' help button explains how to find it. The staleness clock is measured from the last successful sync or last manual edit — never from space creation; older than 7d fires an alert next to that space. An offline imported calendar falls back to its last-known range rather than vanishing.",
+      "specs": [
+        "§13"
+      ],
+      "flow": [],
+      "er": [
+        "ER09",
+        "ER07"
+      ],
+      "classes": []
     },
     {
       "id": "UC-15",
@@ -663,7 +1243,22 @@
       "sections": [
         "§5"
       ],
-      "detail": "The provider acts with Approve or Reject only — NO counter-offers; the rejection reason is optional (stored, helps re-submit). The request queue shows client, dates, total, and the attached media file. Go-live is PER-AD: each ad is approved, goes live, and bills on its own approval independently. Confirmed bookings move to an installation queue for Installator collaborators."
+      "detail": "The provider acts with Approve or Reject only — NO counter-offers; the rejection reason is optional (stored, helps re-submit). The request queue shows client, dates, total, and the attached media file. Go-live is PER-AD: each ad is approved, goes live, and bills on its own approval independently. Confirmed bookings move to an installation queue for Installator collaborators.",
+      "specs": [
+        "§5"
+      ],
+      "flow": [
+        "FL07",
+        "FL08",
+        "FL09"
+      ],
+      "er": [
+        "ER10",
+        "ER06"
+      ],
+      "classes": [
+        "CL07"
+      ]
     },
     {
       "id": "UC-16",
@@ -672,7 +1267,22 @@
       "sections": [
         "§7"
       ],
-      "detail": "Only the PRIMARY proof makes a booking eligible for payout. Within the deadline it is uploaded by the provider owner OR the provider's Installator or Supervisor subrole — NOT Sales, and no client-side role. It is a photo (printed/screen) or short video (radio/audio). Proofs are a provider-side artifact; the client only accepts or rejects."
+      "detail": "Only the PRIMARY proof makes a booking eligible for payout. Within the deadline it is uploaded by the provider owner OR the provider's Installator or Supervisor subrole — NOT Sales, and no client-side role. It is a photo (printed/screen) or short video (radio/audio). Proofs are a provider-side artifact; the client only accepts or rejects.",
+      "specs": [
+        "§7"
+      ],
+      "flow": [
+        "FL10",
+        "FL11",
+        "FL13"
+      ],
+      "er": [
+        "ER17",
+        "ER10"
+      ],
+      "classes": [
+        "CL09"
+      ]
     },
     {
       "id": "UC-17",
@@ -681,7 +1291,21 @@
       "sections": [
         "§8"
       ],
-      "detail": "Payouts happen ASAP but must be APPROVED by Payments first (Support flags only). Once approved and nothing holds it, the payout enters the processing queue (grace window, default 1h, reversible) then dispatches to the provider's Mercado Pago/PayPal. Admin has a 24h window to stop it. Payouts are PER-PROVIDER even within one multi-provider campaign invoice."
+      "detail": "Payouts happen ASAP but must be APPROVED by Payments first (Support flags only). Once approved and nothing holds it, the payout enters the processing queue (grace window, default 1h, reversible) then dispatches to the provider's Mercado Pago/PayPal. Admin has a 24h window to stop it. Payouts are PER-PROVIDER even within one multi-provider campaign invoice.",
+      "specs": [
+        "§8"
+      ],
+      "flow": [
+        "FL16",
+        "FL17"
+      ],
+      "er": [
+        "ER11",
+        "ER21"
+      ],
+      "classes": [
+        "CL08"
+      ]
     },
     {
       "id": "UC-18",
@@ -690,7 +1314,18 @@
       "sections": [
         "§7"
       ],
-      "detail": "Strikes accrue on missed proof deadline, provider cancel of a confirmed booking, or upheld mismatch; the trailing-90-day count shows on the provider dashboard. 3 strikes in 90 days flags the account for Admin review (possible freeze). The provider appeals via a support chat; SUPPORT (not Payments) can remove a strike (reversible, audited)."
+      "detail": "Strikes accrue on missed proof deadline, provider cancel of a confirmed booking, or upheld mismatch; the trailing-90-day count shows on the provider dashboard. 3 strikes in 90 days flags the account for Admin review (possible freeze). The provider appeals via a support chat; SUPPORT (not Payments) can remove a strike (reversible, audited).",
+      "specs": [
+        "§7"
+      ],
+      "flow": [
+        "FL12"
+      ],
+      "er": [
+        "ER10",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "UC-19",
@@ -700,7 +1335,17 @@
         "§3",
         "§14"
       ],
-      "detail": "The account owner invites collaborators by email from an account-scoped Collaborators screen under the Configurations tab. Collaborators are ACCOUNT-scoped (point to account_id, unique(account_id,email)) and, per subrole, see/act across ALL of that account's campaigns/spaces. The owner can see any conversation a collaborator has."
+      "detail": "The account owner invites collaborators by email from an account-scoped Collaborators screen under the Configurations tab. Collaborators are ACCOUNT-scoped (point to account_id, unique(account_id,email)) and, per subrole, see/act across ALL of that account's campaigns/spaces. The owner can see any conversation a collaborator has.",
+      "specs": [
+        "§3",
+        "§14"
+      ],
+      "flow": [],
+      "er": [
+        "ER03",
+        "ER18"
+      ],
+      "classes": []
     },
     {
       "id": "UC-20",
@@ -709,7 +1354,17 @@
       "sections": [
         "§3"
       ],
-      "detail": "A collaborator acts only within its subrole scope, enforced by the per-account account_grants overlay evaluated after the global matrix. CLIENT side: Publicist (operational, no money) / Manager (everything incl. money). PROVIDER side: Installator (proof-upload only) / Sales (chat replies only) / Supervisor (edit almost everything except owner-only powers and money)."
+      "detail": "A collaborator acts only within its subrole scope, enforced by the per-account account_grants overlay evaluated after the global matrix. CLIENT side: Publicist (operational, no money) / Manager (everything incl. money). PROVIDER side: Installator (proof-upload only) / Sales (chat replies only) / Supervisor (edit almost everything except owner-only powers and money).",
+      "specs": [
+        "§3"
+      ],
+      "flow": [],
+      "er": [
+        "ER18",
+        "ER20",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "UC-21",
@@ -718,7 +1373,22 @@
       "sections": [
         "§10"
       ],
-      "detail": "Any support agent can pick up a chat with a Support participant (the queue is DERIVED). A Support join into a client<->provider chat is ANNOUNCED (a system message) and RELAXES PII masking for that chat. Support sets the chat to in_progress on pickup."
+      "detail": "Any support agent can pick up a chat with a Support participant (the queue is DERIVED). A Support join into a client<->provider chat is ANNOUNCED (a system message) and RELAXES PII masking for that chat. Support sets the chat to in_progress on pickup.",
+      "specs": [
+        "§10"
+      ],
+      "flow": [
+        "FL19"
+      ],
+      "er": [
+        "ER12",
+        "ER15"
+      ],
+      "classes": [
+        "CL01",
+        "CL02",
+        "CL06"
+      ]
     },
     {
       "id": "UC-22",
@@ -728,7 +1398,24 @@
         "§7",
         "§10"
       ],
-      "detail": "Support investigates across the dispute chats and RAISES money flags (refund/payout_hold/payment_held) via POST /chats/{c}/flags — but Support only FLAGS, it never executes money. A flag annotates the WHY; the authoritative money state stays on payments.status. Support leans toward the client and watches for fraud."
+      "detail": "Support investigates across the dispute chats and RAISES money flags (refund/payout_hold/payment_held) via POST /chats/{c}/flags — but Support only FLAGS, it never executes money. A flag annotates the WHY; the authoritative money state stays on payments.status. Support leans toward the client and watches for fraud.",
+      "specs": [
+        "§7",
+        "§10"
+      ],
+      "flow": [
+        "FL18",
+        "FL20"
+      ],
+      "er": [
+        "ER14",
+        "ER11",
+        "ER12"
+      ],
+      "classes": [
+        "CL04",
+        "CL01"
+      ]
     },
     {
       "id": "UC-23",
@@ -737,7 +1424,19 @@
       "sections": [
         "§12"
       ],
-      "detail": "Support can edit every NON-money object (spaces, ads, users, bookings, collaborators) via PUT /support/{resource}/{id} (PLANNED) — every action is audit-logged. Support has NO money-execution power."
+      "detail": "Support can edit every NON-money object (spaces, ads, users, bookings, collaborators) via PUT /support/{resource}/{id} (PLANNED) — every action is audit-logged. Support has NO money-execution power.",
+      "specs": [
+        "§12"
+      ],
+      "flow": [],
+      "er": [
+        "ER07",
+        "ER06",
+        "ER01",
+        "ER10",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "UC-24",
@@ -746,7 +1445,15 @@
       "sections": [
         "§7"
       ],
-      "detail": "SUPPORT (not Payments) can remove a strike from the counter — reversible and audited — typically after a provider appeal via a support chat. Strike accrual/removal routes Support then Admin, never Payments."
+      "detail": "SUPPORT (not Payments) can remove a strike from the counter — reversible and audited — typically after a provider appeal via a support chat. Strike accrual/removal routes Support then Admin, never Payments.",
+      "specs": [
+        "§7"
+      ],
+      "flow": [],
+      "er": [
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "UC-25",
@@ -755,7 +1462,22 @@
       "sections": [
         "§8"
       ],
-      "detail": "Payments is the ONLY role that moves money: approves/rejects payments and executes payouts. Releasing a payout enters the processing queue (payments.status=processing) for a reversible grace window before dispatch; during it Payments or Support can pull it back to held with no gateway call. Once the gateway reports settled the payout is TERMINAL and holdPayout is a NO-OP."
+      "detail": "Payments is the ONLY role that moves money: approves/rejects payments and executes payouts. Releasing a payout enters the processing queue (payments.status=processing) for a reversible grace window before dispatch; during it Payments or Support can pull it back to held with no gateway call. Once the gateway reports settled the payout is TERMINAL and holdPayout is a NO-OP.",
+      "specs": [
+        "§8"
+      ],
+      "flow": [
+        "FL16",
+        "FL17",
+        "FL20"
+      ],
+      "er": [
+        "ER11",
+        "ER21"
+      ],
+      "classes": [
+        "CL08"
+      ]
     },
     {
       "id": "UC-26",
@@ -764,7 +1486,22 @@
       "sections": [
         "§8"
       ],
-      "detail": "Payments executes ALL refunds (mocked); Support only flags. Refunds go to the client's wallet with a unique idempotency key (no double-pay), enforcing SUM(refunds) <= captured. Cancellation refunds are 100% by default unless the booking was in process."
+      "detail": "Payments executes ALL refunds (mocked); Support only flags. Refunds go to the client's wallet with a unique idempotency key (no double-pay), enforcing SUM(refunds) <= captured. Cancellation refunds are 100% by default unless the booking was in process.",
+      "specs": [
+        "§8"
+      ],
+      "flow": [
+        "FL21",
+        "FL22"
+      ],
+      "er": [
+        "ER11",
+        "ER21"
+      ],
+      "classes": [
+        "CL08",
+        "CL10"
+      ]
     },
     {
       "id": "UC-27",
@@ -773,7 +1510,24 @@
       "sections": [
         "§10"
       ],
-      "detail": "When a client rejects proof, a Support<->Payments internal chat auto-opens anchored to the held payment+booking (payment_held flag) — the ONLY chat Payments is in on that dispute. Payments never faces the client directly; it coordinates the money decision (release or cancel+refund) with Support there. The client never sees this membership-ACL'd chat; Admin observes read-only."
+      "detail": "When a client rejects proof, a Support<->Payments internal chat auto-opens anchored to the held payment+booking (payment_held flag) — the ONLY chat Payments is in on that dispute. Payments never faces the client directly; it coordinates the money decision (release or cancel+refund) with Support there. The client never sees this membership-ACL'd chat; Admin observes read-only.",
+      "specs": [
+        "§10"
+      ],
+      "flow": [
+        "FL19",
+        "FL20"
+      ],
+      "er": [
+        "ER12",
+        "ER15",
+        "ER14",
+        "ER11"
+      ],
+      "classes": [
+        "CL01",
+        "CL02"
+      ]
     },
     {
       "id": "UC-28",
@@ -783,7 +1537,21 @@
         "§10",
         "§12"
       ],
-      "detail": "Admin reads EVERY chat (including closed ones, full unmasked history) via ONE read-only/incognito screen GET /admin/oversight/chats with filters (nature/flag/object/status/participant). Admin never posts as a ghost; its only chat write-power is reopening a closed chat for investigation. This replaces the former conversations + tickets oversight views."
+      "detail": "Admin reads EVERY chat (including closed ones, full unmasked history) via ONE read-only/incognito screen GET /admin/oversight/chats with filters (nature/flag/object/status/participant). Admin never posts as a ghost; its only chat write-power is reopening a closed chat for investigation. This replaces the former conversations + tickets oversight views.",
+      "specs": [
+        "§10",
+        "§12"
+      ],
+      "flow": [],
+      "er": [
+        "ER12",
+        "ER15",
+        "ER16"
+      ],
+      "classes": [
+        "CL01",
+        "CL06"
+      ]
     },
     {
       "id": "UC-29",
@@ -792,7 +1560,17 @@
       "sections": [
         "§12"
       ],
-      "detail": "Three levels of taking a listing/provider off: Pause/unpublish (provider's own, reversible); Takedown/restore (admin moderation, POST /admin/spaces/{s}/takedown|restore, provider cannot self-reverse); Freeze (account-level, POST /admin/providers/{u}/freeze|unfreeze — pauses new bookings AND auto-cancels upcoming ones with full refunds, busts permission/session cache and revokes tokens immediately)."
+      "detail": "Three levels of taking a listing/provider off: Pause/unpublish (provider's own, reversible); Takedown/restore (admin moderation, POST /admin/spaces/{s}/takedown|restore, provider cannot self-reverse); Freeze (account-level, POST /admin/providers/{u}/freeze|unfreeze — pauses new bookings AND auto-cancels upcoming ones with full refunds, busts permission/session cache and revokes tokens immediately).",
+      "specs": [
+        "§12"
+      ],
+      "flow": [],
+      "er": [
+        "ER07",
+        "ER01",
+        "ER10"
+      ],
+      "classes": []
     },
     {
       "id": "UC-30",
@@ -802,7 +1580,18 @@
         "§12",
         "§14"
       ],
-      "detail": "Admin tunes System Configurations (GET,PUT /admin/configurations): proof deadline, strike window/threshold, pre-pay expiry, calendar staleness, payout-stop window, payout processing grace, cancellation refund policy, currency/timezone, auto-approve threshold, rate limits, audit retention. Changing a value offers 'apply to in-flight' vs 'new only' (config snapshotted onto each booking). Admin also edits the global role_permissions matrix (cannot lock out admin)."
+      "detail": "Admin tunes System Configurations (GET,PUT /admin/configurations): proof deadline, strike window/threshold, pre-pay expiry, calendar staleness, payout-stop window, payout processing grace, cancellation refund policy, currency/timezone, auto-approve threshold, rate limits, audit retention. Changing a value offers 'apply to in-flight' vs 'new only' (config snapshotted onto each booking). Admin also edits the global role_permissions matrix (cannot lock out admin).",
+      "specs": [
+        "§12",
+        "§14"
+      ],
+      "flow": [],
+      "er": [
+        "ER22",
+        "ER20",
+        "ER10"
+      ],
+      "classes": []
     },
     {
       "id": "UC-31",
@@ -811,7 +1600,15 @@
       "sections": [
         "§12"
       ],
-      "detail": "The append-only audit log records one entry per action of ANY role with actor, target, before/after, timestamp; queryable as per-object history via GET /admin/audit (?target_type, ?target_id). Admin is read-only. AFTER-MVP: DB-level immutability (INSERT-only + trigger, optional hash-chain)."
+      "detail": "The append-only audit log records one entry per action of ANY role with actor, target, before/after, timestamp; queryable as per-object history via GET /admin/audit (?target_type, ?target_id). Admin is read-only. AFTER-MVP: DB-level immutability (INSERT-only + trigger, optional hash-chain).",
+      "specs": [
+        "§12"
+      ],
+      "flow": [],
+      "er": [
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "UC-32",
@@ -820,7 +1617,22 @@
       "sections": [
         "§8"
       ],
-      "detail": "Once Payments approves a payout, Admin has a configurable window (default 24h) to stop it; if Admin doesn't, funds release automatically. Clawback: if a refunded client is later suspended for fraud, the platform freezes the wallet and alerts Payments — Payments cannot pull funds; the frozen balance waits for an Admin decision (claw back via negative ledger entry / keep frozen / release)."
+      "detail": "Once Payments approves a payout, Admin has a configurable window (default 24h) to stop it; if Admin doesn't, funds release automatically. Clawback: if a refunded client is later suspended for fraud, the platform freezes the wallet and alerts Payments — Payments cannot pull funds; the frozen balance waits for an Admin decision (claw back via negative ledger entry / keep frozen / release).",
+      "specs": [
+        "§8"
+      ],
+      "flow": [
+        "FL16",
+        "FL21"
+      ],
+      "er": [
+        "ER11",
+        "ER21"
+      ],
+      "classes": [
+        "CL08",
+        "CL10"
+      ]
     },
     {
       "id": "UC-33",
@@ -829,7 +1641,37 @@
       "sections": [
         "§19"
       ],
-      "detail": "Composes UC-1..UC-4, UC-6: map -> detail -> new campaign -> adset -> upload validated PDF -> checkout -> wait approval -> live -> proof received -> accept -> done."
+      "detail": "Composes UC-1..UC-4, UC-6: map -> detail -> new campaign -> adset -> upload validated PDF -> checkout -> wait approval -> live -> proof received -> accept -> done.",
+      "specs": [
+        "§19",
+        "§5",
+        "§8",
+        "§7"
+      ],
+      "flow": [
+        "FL01",
+        "FL02",
+        "FL03",
+        "FL04",
+        "FL05",
+        "FL13",
+        "FL15"
+      ],
+      "er": [
+        "ER04",
+        "ER05",
+        "ER06",
+        "ER07",
+        "ER10",
+        "ER11",
+        "ER17",
+        "ER19"
+      ],
+      "classes": [
+        "CL07",
+        "CL08",
+        "CL09"
+      ]
     },
     {
       "id": "UC-34",
@@ -838,7 +1680,33 @@
       "sections": [
         "§19"
       ],
-      "detail": "Composes UC-13..UC-17: sign up -> list space + declare specs -> set calendar via URL -> first booking -> approve -> install -> upload proof day 2 -> payout released."
+      "detail": "Composes UC-13..UC-17: sign up -> list space + declare specs -> set calendar via URL -> first booking -> approve -> install -> upload proof day 2 -> payout released.",
+      "specs": [
+        "§19",
+        "§4",
+        "§5",
+        "§7",
+        "§8"
+      ],
+      "flow": [
+        "FL07",
+        "FL09",
+        "FL10",
+        "FL11",
+        "FL17"
+      ],
+      "er": [
+        "ER07",
+        "ER09",
+        "ER10",
+        "ER17",
+        "ER11"
+      ],
+      "classes": [
+        "CL07",
+        "CL09",
+        "CL08"
+      ]
     },
     {
       "id": "UC-35",
@@ -848,7 +1716,34 @@
         "§7",
         "§10"
       ],
-      "detail": "Composes UC-7, UC-22, UC-25, UC-27: inquiry chat -> the same chat becomes a confirmed booking chat on approval -> client rejects proof for blur -> payment auto-held (payments.status=held) + a payment_held flag + THREE chats auto-open (Support<->Client / ->Provider / ->Payments), each anchored to the held payment+booking (masking relaxes when Support joins a client<->provider chat) -> Payments+Support review the case and decide (release, or cancel + full refund) — NO automatic re-upload; each chat is one chronological history with kind=system transition messages."
+      "detail": "Composes UC-7, UC-22, UC-25, UC-27: inquiry chat -> the same chat becomes a confirmed booking chat on approval -> client rejects proof for blur -> payment auto-held (payments.status=held) + a payment_held flag + THREE chats auto-open (Support<->Client / ->Provider / ->Payments), each anchored to the held payment+booking (masking relaxes when Support joins a client<->provider chat) -> Payments+Support review the case and decide (release, or cancel + full refund) — NO automatic re-upload; each chat is one chronological history with kind=system transition messages.",
+      "specs": [
+        "§7",
+        "§10",
+        "§8"
+      ],
+      "flow": [
+        "FL14",
+        "FL18",
+        "FL19",
+        "FL20",
+        "FL21"
+      ],
+      "er": [
+        "ER17",
+        "ER11",
+        "ER12",
+        "ER14",
+        "ER15"
+      ],
+      "classes": [
+        "CL09",
+        "CL08",
+        "CL01",
+        "CL04",
+        "CL02",
+        "CL06"
+      ]
     },
     {
       "id": "UC-36",
@@ -858,7 +1753,26 @@
         "§5",
         "§7"
       ],
-      "detail": "INVARIANT actor boundaries: PROVIDER creates the space (+ photos + media specs); a CLIENT never creates a space or sets media specs. CLIENT rents spaces from the map (each becomes a backlog ad) and only uploads THEIR creative, validated against the space's specs — never mints a space-less ad. PROVIDER approves the booking and dispatches to an INSTALLATOR. INSTALLATOR physically installs and uploads the PROOF; the client only accepts or rejects a proof."
+      "detail": "INVARIANT actor boundaries: PROVIDER creates the space (+ photos + media specs); a CLIENT never creates a space or sets media specs. CLIENT rents spaces from the map (each becomes a backlog ad) and only uploads THEIR creative, validated against the space's specs — never mints a space-less ad. PROVIDER approves the booking and dispatches to an INSTALLATOR. INSTALLATOR physically installs and uploads the PROOF; the client only accepts or rejects a proof.",
+      "specs": [
+        "§5",
+        "§7"
+      ],
+      "flow": [
+        "FL04",
+        "FL09",
+        "FL10"
+      ],
+      "er": [
+        "ER07",
+        "ER06",
+        "ER17",
+        "ER10"
+      ],
+      "classes": [
+        "CL09",
+        "CL07"
+      ]
     },
     {
       "id": "UC-37",
@@ -867,7 +1781,19 @@
       "sections": [
         "§12"
       ],
-      "detail": "A hard delete of any object (users, campaigns, adsets, ads, spaces) is BLOCKED whenever it has open support chats, a booking in progress, or unsettled funds. Instead deletion is a 'programmed for deletion' state: the object is unpublished, stops new activity, and stays visible with the legend until current bookings finish, then is removed."
+      "detail": "A hard delete of any object (users, campaigns, adsets, ads, spaces) is BLOCKED whenever it has open support chats, a booking in progress, or unsettled funds. Instead deletion is a 'programmed for deletion' state: the object is unpublished, stops new activity, and stays visible with the legend until current bookings finish, then is removed.",
+      "specs": [
+        "§12"
+      ],
+      "flow": [],
+      "er": [
+        "ER07",
+        "ER04",
+        "ER06",
+        "ER10",
+        "ER12"
+      ],
+      "classes": []
     },
     {
       "id": "UC-38",
@@ -876,7 +1802,17 @@
       "sections": [
         "§13"
       ],
-      "detail": "Domain events (BookingApproved, ProofRejected, ...) fan out through queued listeners via a channel/urgency lookup — no scattered Notification::send. The ~35-event alert schema (in-app/email/SMS-mock, urgency low..critical) is tabulated in §19; SMS is reserved for Payments alerts and cancellations."
+      "detail": "Domain events (BookingApproved, ProofRejected, ...) fan out through queued listeners via a channel/urgency lookup — no scattered Notification::send. The ~35-event alert schema (in-app/email/SMS-mock, urgency low..critical) is tabulated in §19; SMS is reserved for Payments alerts and cancellations.",
+      "specs": [
+        "§13"
+      ],
+      "flow": [
+        "FL10"
+      ],
+      "er": [
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "UC-39",
@@ -885,7 +1821,15 @@
       "sections": [
         "§12"
       ],
-      "detail": "A provider can pause/unpublish their own listing, hiding it and stopping new bookings while paused; it is reversible by the provider (unlike an admin takedown, which the provider cannot self-reverse)."
+      "detail": "A provider can pause/unpublish their own listing, hiding it and stopping new bookings while paused; it is reversible by the provider (unlike an admin takedown, which the provider cannot self-reverse).",
+      "specs": [
+        "§12"
+      ],
+      "flow": [],
+      "er": [
+        "ER07"
+      ],
+      "classes": []
     },
     {
       "id": "UC-40",
@@ -894,7 +1838,24 @@
       "sections": [
         "§7"
       ],
-      "detail": "The proof-deadline cron (AFTER-MVP) fires reminders on day 3 and day 4 (day-4 includes SMS), then on missing the day-5 deadline auto-cancels the booking, refunds the client to wallet in full, and accrues a provider strike. The cron locks the booking and re-checks proof IS NULL inside the transaction."
+      "detail": "The proof-deadline cron (AFTER-MVP) fires reminders on day 3 and day 4 (day-4 includes SMS), then on missing the day-5 deadline auto-cancels the booking, refunds the client to wallet in full, and accrues a provider strike. The cron locks the booking and re-checks proof IS NULL inside the transaction.",
+      "specs": [
+        "§7"
+      ],
+      "flow": [
+        "FL10",
+        "FL11",
+        "FL12"
+      ],
+      "er": [
+        "ER10",
+        "ER17",
+        "ER23"
+      ],
+      "classes": [
+        "CL07",
+        "CL09"
+      ]
     }
   ],
   "endpoints": [
@@ -2612,17 +3573,1231 @@
     "flow": {
       "type": "mermaid",
       "title": "Client -> booking -> proof -> dispute flow",
-      "def": "flowchart TD\n  A[Client: map + nearest-first search] --> B[Multi-select spaces -> campaign backlog orphan ads]\n  B --> C[Move orphans into an adset]\n  C --> D[Upload creative, validated vs media-delivery specs]\n  D --> E[Checkout: ONE invoice per campaign, fee added on top]\n  E --> F[payments.status = held from booking]\n  F --> G{Provider Approve or Reject?}\n  G -->|Reject, reason optional| R1[Booking rejected - no charge, funds to wallet]\n  G -->|Approve per-ad| H[Booking live -> dispatched to Installator]\n  H --> I[Display window: proof-pending, deadline default 5d]\n  I --> J{Primary proof uploaded in time?}\n  J -->|No, day-5 missed| R2[Auto-cancel + full refund + provider strike]\n  J -->|Yes| K[proof-uploaded: client reviews]\n  K --> L{Client Accept or Reject?}\n  L -->|Accept| M[proofs.status=client_accepted -> payment releasable]\n  M --> N[Payments releases -> processing queue grace window 1h reversible]\n  N --> O[Dispatch to gateway -> released -> settled per provider]\n  L -->|Reject / mismatch flag| P[payments.status=held + payment_held flag]\n  P --> Q[Auto-open 3 Support chats: Support-Client / Support-Provider / Support-Payments]\n  Q --> S{Payments + Support decision}\n  S -->|Satisfactory proof, client accepts| N\n  S -->|Uphold dispute| T[Cancel booking + full refund to wallet]\n  R1 --> U[Wallet ledger append-only]\n  R2 --> U\n  T --> U"
+      "def": "flowchart TD\n  A[Client: map + nearest-first search] --> B[Multi-select spaces -> campaign backlog orphan ads]\n  B --> C[Move orphans into an adset]\n  C --> D[Upload creative, validated vs media-delivery specs]\n  D --> E[Checkout: ONE invoice per campaign, fee added on top]\n  E --> F[payments.status = held from booking]\n  F --> G{Provider Approve or Reject?}\n  G -->|Reject, reason optional| R1[Booking rejected - no charge, funds to wallet]\n  G -->|Approve per-ad| H[Booking live -> dispatched to Installator]\n  H --> I[Display window: proof-pending, deadline default 5d]\n  I --> J{Primary proof uploaded in time?}\n  J -->|No, day-5 missed| R2[Auto-cancel + full refund + provider strike]\n  J -->|Yes| K[proof-uploaded: client reviews]\n  K --> L{Client Accept or Reject?}\n  L -->|Accept| M[proofs.status=client_accepted -> payment releasable]\n  M --> N[Payments releases -> processing queue grace window 1h reversible]\n  N --> O[Dispatch to gateway -> released -> settled per provider]\n  L -->|Reject / mismatch flag| P[payments.status=held + payment_held flag]\n  P --> Q[Auto-open 3 Support chats: Support-Client / Support-Provider / Support-Payments]\n  Q --> S{Payments + Support decision}\n  S -->|Satisfactory proof, client accepts| N\n  S -->|Uphold dispute| T[Cancel booking + full refund to wallet]\n  R1 --> U[Wallet ledger append-only]\n  R2 --> U\n  T --> U",
+      "index": [
+        {
+          "id": "FL01",
+          "label": "Client: map + nearest-first search",
+          "type": "start",
+          "uc": [
+            "UC-1",
+            "UC-8",
+            "UC-33"
+          ],
+          "spec": [
+            "§1",
+            "§5"
+          ],
+          "todo": [
+            "F03"
+          ]
+        },
+        {
+          "id": "FL02",
+          "label": "Multi-select spaces -> campaign backlog orphan ads",
+          "type": "step",
+          "uc": [
+            "UC-1",
+            "UC-2",
+            "UC-33"
+          ],
+          "spec": [
+            "§4",
+            "§5"
+          ],
+          "todo": [
+            "F03",
+            "F04"
+          ]
+        },
+        {
+          "id": "FL03",
+          "label": "Move orphans into an adset",
+          "type": "step",
+          "uc": [
+            "UC-2",
+            "UC-33"
+          ],
+          "spec": [
+            "§4"
+          ],
+          "todo": [
+            "F04"
+          ]
+        },
+        {
+          "id": "FL04",
+          "label": "Upload creative, validated vs media-delivery specs",
+          "type": "step",
+          "uc": [
+            "UC-3",
+            "UC-33",
+            "UC-36"
+          ],
+          "spec": [
+            "§5"
+          ],
+          "todo": [
+            "F05"
+          ]
+        },
+        {
+          "id": "FL05",
+          "label": "Checkout: ONE invoice per campaign, fee added on top",
+          "type": "step",
+          "uc": [
+            "UC-4",
+            "UC-5",
+            "UC-33"
+          ],
+          "spec": [
+            "§6"
+          ],
+          "todo": [
+            "F15"
+          ]
+        },
+        {
+          "id": "FL06",
+          "label": "payments.status = held from booking",
+          "type": "step",
+          "uc": [
+            "UC-4",
+            "UC-5"
+          ],
+          "spec": [
+            "§6",
+            "§8"
+          ],
+          "todo": []
+        },
+        {
+          "id": "FL07",
+          "label": "Provider Approve or Reject?",
+          "type": "decision",
+          "uc": [
+            "UC-8",
+            "UC-15",
+            "UC-34"
+          ],
+          "spec": [
+            "§4",
+            "§5"
+          ],
+          "todo": [
+            "F06"
+          ]
+        },
+        {
+          "id": "FL08",
+          "label": "Booking rejected - no charge, funds to wallet",
+          "type": "step",
+          "uc": [
+            "UC-15"
+          ],
+          "spec": [],
+          "todo": [
+            "F06"
+          ]
+        },
+        {
+          "id": "FL09",
+          "label": "Booking live -> dispatched to Installator",
+          "type": "step",
+          "uc": [
+            "UC-15",
+            "UC-34",
+            "UC-36"
+          ],
+          "spec": [],
+          "todo": [
+            "F06"
+          ]
+        },
+        {
+          "id": "FL10",
+          "label": "Display window: proof-pending, deadline default 5d",
+          "type": "step",
+          "uc": [
+            "UC-16",
+            "UC-34",
+            "UC-36",
+            "UC-38",
+            "UC-40"
+          ],
+          "spec": [
+            "§7",
+            "§13"
+          ],
+          "todo": []
+        },
+        {
+          "id": "FL11",
+          "label": "Primary proof uploaded in time?",
+          "type": "decision",
+          "uc": [
+            "UC-16",
+            "UC-34",
+            "UC-40"
+          ],
+          "spec": [
+            "§7"
+          ],
+          "todo": []
+        },
+        {
+          "id": "FL12",
+          "label": "Auto-cancel + full refund + provider strike",
+          "type": "step",
+          "uc": [
+            "UC-18",
+            "UC-40"
+          ],
+          "spec": [],
+          "todo": [
+            "F16"
+          ]
+        },
+        {
+          "id": "FL13",
+          "label": "proof-uploaded: client reviews",
+          "type": "step",
+          "uc": [
+            "UC-6",
+            "UC-16",
+            "UC-33"
+          ],
+          "spec": [
+            "§7"
+          ],
+          "todo": [
+            "F07"
+          ]
+        },
+        {
+          "id": "FL14",
+          "label": "Client Accept or Reject?",
+          "type": "decision",
+          "uc": [
+            "UC-6",
+            "UC-7",
+            "UC-35"
+          ],
+          "spec": [
+            "§7"
+          ],
+          "todo": [
+            "F07"
+          ]
+        },
+        {
+          "id": "FL15",
+          "label": "proofs.status=client_accepted -> payment releasable",
+          "type": "step",
+          "uc": [
+            "UC-6",
+            "UC-33"
+          ],
+          "spec": [],
+          "todo": []
+        },
+        {
+          "id": "FL16",
+          "label": "Payments releases -> processing queue grace window 1h reversible",
+          "type": "step",
+          "uc": [
+            "UC-17",
+            "UC-25",
+            "UC-32"
+          ],
+          "spec": [
+            "§8"
+          ],
+          "todo": [
+            "F10"
+          ]
+        },
+        {
+          "id": "FL17",
+          "label": "Dispatch to gateway -> released -> settled per provider",
+          "type": "end",
+          "uc": [
+            "UC-17",
+            "UC-25",
+            "UC-34"
+          ],
+          "spec": [
+            "§8"
+          ],
+          "todo": [
+            "F10"
+          ]
+        },
+        {
+          "id": "FL18",
+          "label": "payments.status=held + payment_held flag",
+          "type": "step",
+          "uc": [
+            "UC-7",
+            "UC-22",
+            "UC-35"
+          ],
+          "spec": [
+            "§2",
+            "§7",
+            "§10"
+          ],
+          "todo": [
+            "F07"
+          ]
+        },
+        {
+          "id": "FL19",
+          "label": "Auto-open 3 Support chats: Support-Client / Support-Provider / Support-Payments",
+          "type": "step",
+          "uc": [
+            "UC-7",
+            "UC-21",
+            "UC-27",
+            "UC-35"
+          ],
+          "spec": [
+            "§2",
+            "§10"
+          ],
+          "todo": [
+            "F07",
+            "F08",
+            "F09",
+            "CHAT-3"
+          ]
+        },
+        {
+          "id": "FL20",
+          "label": "Payments + Support decision",
+          "type": "decision",
+          "uc": [
+            "UC-22",
+            "UC-25",
+            "UC-27",
+            "UC-35"
+          ],
+          "spec": [],
+          "todo": [
+            "F09"
+          ]
+        },
+        {
+          "id": "FL21",
+          "label": "Cancel booking + full refund to wallet",
+          "type": "step",
+          "uc": [
+            "UC-10",
+            "UC-26",
+            "UC-32",
+            "UC-35"
+          ],
+          "spec": [
+            "§8"
+          ],
+          "todo": [
+            "F10"
+          ]
+        },
+        {
+          "id": "FL22",
+          "label": "Wallet ledger append-only",
+          "type": "end",
+          "uc": [
+            "UC-10",
+            "UC-11",
+            "UC-26"
+          ],
+          "spec": [
+            "§8"
+          ],
+          "todo": [
+            "F10"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "id": "FL01>FL02",
+          "from": "FL01",
+          "to": "FL02",
+          "label": ""
+        },
+        {
+          "id": "FL02>FL03",
+          "from": "FL02",
+          "to": "FL03",
+          "label": ""
+        },
+        {
+          "id": "FL03>FL04",
+          "from": "FL03",
+          "to": "FL04",
+          "label": ""
+        },
+        {
+          "id": "FL04>FL05",
+          "from": "FL04",
+          "to": "FL05",
+          "label": ""
+        },
+        {
+          "id": "FL05>FL06",
+          "from": "FL05",
+          "to": "FL06",
+          "label": ""
+        },
+        {
+          "id": "FL06>FL07",
+          "from": "FL06",
+          "to": "FL07",
+          "label": ""
+        },
+        {
+          "id": "FL07>FL08",
+          "from": "FL07",
+          "to": "FL08",
+          "label": "Reject, reason optional",
+          "branch": "Reject, reason optional"
+        },
+        {
+          "id": "FL07>FL09",
+          "from": "FL07",
+          "to": "FL09",
+          "label": "Approve per-ad",
+          "branch": "Approve per-ad"
+        },
+        {
+          "id": "FL09>FL10",
+          "from": "FL09",
+          "to": "FL10",
+          "label": ""
+        },
+        {
+          "id": "FL10>FL11",
+          "from": "FL10",
+          "to": "FL11",
+          "label": ""
+        },
+        {
+          "id": "FL11>FL12",
+          "from": "FL11",
+          "to": "FL12",
+          "label": "No, day-5 missed",
+          "branch": "No, day-5 missed"
+        },
+        {
+          "id": "FL11>FL13",
+          "from": "FL11",
+          "to": "FL13",
+          "label": "Yes",
+          "branch": "Yes"
+        },
+        {
+          "id": "FL13>FL14",
+          "from": "FL13",
+          "to": "FL14",
+          "label": ""
+        },
+        {
+          "id": "FL14>FL15",
+          "from": "FL14",
+          "to": "FL15",
+          "label": "Accept",
+          "branch": "Accept"
+        },
+        {
+          "id": "FL15>FL16",
+          "from": "FL15",
+          "to": "FL16",
+          "label": ""
+        },
+        {
+          "id": "FL16>FL17",
+          "from": "FL16",
+          "to": "FL17",
+          "label": ""
+        },
+        {
+          "id": "FL14>FL18",
+          "from": "FL14",
+          "to": "FL18",
+          "label": "Reject / mismatch flag",
+          "branch": "Reject / mismatch flag"
+        },
+        {
+          "id": "FL18>FL19",
+          "from": "FL18",
+          "to": "FL19",
+          "label": ""
+        },
+        {
+          "id": "FL19>FL20",
+          "from": "FL19",
+          "to": "FL20",
+          "label": ""
+        },
+        {
+          "id": "FL20>FL16",
+          "from": "FL20",
+          "to": "FL16",
+          "label": "Satisfactory proof, client accepts",
+          "branch": "Satisfactory proof, client accepts"
+        },
+        {
+          "id": "FL20>FL21",
+          "from": "FL20",
+          "to": "FL21",
+          "label": "Uphold dispute",
+          "branch": "Uphold dispute"
+        },
+        {
+          "id": "FL08>FL22",
+          "from": "FL08",
+          "to": "FL22",
+          "label": ""
+        },
+        {
+          "id": "FL12>FL22",
+          "from": "FL12",
+          "to": "FL22",
+          "label": ""
+        },
+        {
+          "id": "FL21>FL22",
+          "from": "FL21",
+          "to": "FL22",
+          "label": ""
+        }
+      ]
     },
     "er": {
       "type": "mermaid",
       "title": "Entity-Relationship (from §15)",
-      "def": "erDiagram\n  USERS ||--o| ACCOUNTS : owns\n  USERS ||--o{ CAMPAIGNS : \"owns (client)\"\n  USERS ||--o{ SPACES : \"owns (provider)\"\n  USERS ||--o{ WALLET_ENTRIES : has\n  ACCOUNTS ||--o{ COLLABORATORS : invites\n  CAMPAIGNS ||--o{ ADSETS : groups\n  CAMPAIGNS ||--|| INVOICES : \"billed by\"\n  ADSETS ||--o{ ADS : orders\n  SPACES ||--o{ SPACE_PHOTOS : has\n  SPACES ||--o{ SPACE_AVAILABILITIES : has\n  SPACES ||--o{ ADS : hosts\n  ADS ||--o{ BOOKINGS : \"booked as\"\n  BOOKINGS ||--|| PAYMENTS : \"paid by\"\n  BOOKINGS ||--o{ PROOFS : \"proven by\"\n  CHATS ||--o{ CHAT_PARTICIPANTS : has\n  CHATS ||--o{ CHAT_OBJECTS : attaches\n  CHATS ||--o{ CHAT_FLAGS : carries\n  CHATS ||--o{ MESSAGES : has\n  USERS ||--o{ CHAT_PARTICIPANTS : \"is member\"\n  PAYMENTS ||--o{ CHAT_OBJECTS : \"attachable (poly)\"\n  BOOKINGS ||--o{ CHAT_OBJECTS : \"attachable (poly)\""
+      "def": "erDiagram\n  USERS ||--o| ACCOUNTS : owns\n  USERS ||--o{ CAMPAIGNS : \"owns (client)\"\n  USERS ||--o{ SPACES : \"owns (provider)\"\n  USERS ||--o{ WALLET_ENTRIES : has\n  ACCOUNTS ||--o{ COLLABORATORS : invites\n  CAMPAIGNS ||--o{ ADSETS : groups\n  CAMPAIGNS ||--|| INVOICES : \"billed by\"\n  ADSETS ||--o{ ADS : orders\n  SPACES ||--o{ SPACE_PHOTOS : has\n  SPACES ||--o{ SPACE_AVAILABILITIES : has\n  SPACES ||--o{ ADS : hosts\n  ADS ||--o{ BOOKINGS : \"booked as\"\n  BOOKINGS ||--|| PAYMENTS : \"paid by\"\n  BOOKINGS ||--o{ PROOFS : \"proven by\"\n  CHATS ||--o{ CHAT_PARTICIPANTS : has\n  CHATS ||--o{ CHAT_OBJECTS : attaches\n  CHATS ||--o{ CHAT_FLAGS : carries\n  CHATS ||--o{ MESSAGES : has\n  USERS ||--o{ CHAT_PARTICIPANTS : \"is member\"\n  PAYMENTS ||--o{ CHAT_OBJECTS : \"attachable (poly)\"\n  BOOKINGS ||--o{ CHAT_OBJECTS : \"attachable (poly)\"",
+      "index": [
+        {
+          "id": "ER01",
+          "name": "users",
+          "uc": [
+            "UC-23",
+            "UC-29"
+          ],
+          "spec": [
+            "§1",
+            "§3",
+            "§15"
+          ],
+          "todo": [
+            "F01"
+          ]
+        },
+        {
+          "id": "ER02",
+          "name": "personal_access_tokens",
+          "uc": [],
+          "spec": [],
+          "todo": [
+            "F01"
+          ]
+        },
+        {
+          "id": "ER03",
+          "name": "accounts",
+          "uc": [
+            "UC-19"
+          ],
+          "spec": [
+            "§1",
+            "§3",
+            "§14",
+            "§15"
+          ],
+          "todo": [
+            "F01",
+            "F02"
+          ]
+        },
+        {
+          "id": "ER04",
+          "name": "campaigns",
+          "uc": [
+            "UC-1",
+            "UC-2",
+            "UC-4",
+            "UC-33",
+            "UC-37"
+          ],
+          "spec": [
+            "§4",
+            "§5",
+            "§15",
+            "§17"
+          ],
+          "todo": [
+            "F04"
+          ]
+        },
+        {
+          "id": "ER05",
+          "name": "adsets",
+          "uc": [
+            "UC-2",
+            "UC-33"
+          ],
+          "spec": [
+            "§4",
+            "§5",
+            "§15"
+          ],
+          "todo": [
+            "F04"
+          ]
+        },
+        {
+          "id": "ER06",
+          "name": "ads",
+          "uc": [
+            "UC-1",
+            "UC-2",
+            "UC-3",
+            "UC-15",
+            "UC-23",
+            "UC-33",
+            "UC-36",
+            "UC-37"
+          ],
+          "spec": [
+            "§4",
+            "§5",
+            "§15"
+          ],
+          "todo": [
+            "F04",
+            "F05",
+            "F06"
+          ]
+        },
+        {
+          "id": "ER07",
+          "name": "spaces",
+          "uc": [
+            "UC-1",
+            "UC-3",
+            "UC-8",
+            "UC-12",
+            "UC-13",
+            "UC-14",
+            "UC-23",
+            "UC-29",
+            "UC-33",
+            "UC-34",
+            "UC-36",
+            "UC-37",
+            "UC-39"
+          ],
+          "spec": [
+            "§4",
+            "§5",
+            "§9",
+            "§13",
+            "§15",
+            "§17"
+          ],
+          "todo": [
+            "F03",
+            "F05",
+            "F13",
+            "F17"
+          ]
+        },
+        {
+          "id": "ER08",
+          "name": "space_photos",
+          "uc": [
+            "UC-13"
+          ],
+          "spec": [],
+          "todo": []
+        },
+        {
+          "id": "ER09",
+          "name": "space_availabilities",
+          "uc": [
+            "UC-13",
+            "UC-14",
+            "UC-34"
+          ],
+          "spec": [
+            "§5",
+            "§13"
+          ],
+          "todo": [
+            "F03",
+            "F13"
+          ]
+        },
+        {
+          "id": "ER10",
+          "name": "bookings",
+          "uc": [
+            "UC-4",
+            "UC-5",
+            "UC-6",
+            "UC-10",
+            "UC-15",
+            "UC-16",
+            "UC-18",
+            "UC-23",
+            "UC-29",
+            "UC-30",
+            "UC-33",
+            "UC-34",
+            "UC-36",
+            "UC-37",
+            "UC-40"
+          ],
+          "spec": [
+            "§4",
+            "§5",
+            "§6",
+            "§7",
+            "§8",
+            "§15",
+            "§16",
+            "§17"
+          ],
+          "todo": [
+            "F06",
+            "F12",
+            "F15",
+            "F16"
+          ]
+        },
+        {
+          "id": "ER11",
+          "name": "payments",
+          "uc": [
+            "UC-4",
+            "UC-5",
+            "UC-6",
+            "UC-7",
+            "UC-10",
+            "UC-11",
+            "UC-17",
+            "UC-22",
+            "UC-25",
+            "UC-26",
+            "UC-27",
+            "UC-32",
+            "UC-33",
+            "UC-34",
+            "UC-35"
+          ],
+          "spec": [
+            "§2",
+            "§6",
+            "§7",
+            "§8",
+            "§15",
+            "§16",
+            "§17"
+          ],
+          "todo": [
+            "F07",
+            "F10",
+            "F15"
+          ]
+        },
+        {
+          "id": "ER12",
+          "name": "chats",
+          "uc": [
+            "UC-7",
+            "UC-8",
+            "UC-9",
+            "UC-21",
+            "UC-22",
+            "UC-27",
+            "UC-28",
+            "UC-35",
+            "UC-37"
+          ],
+          "spec": [
+            "§2",
+            "§7",
+            "§10",
+            "§11",
+            "§12",
+            "§15",
+            "§16",
+            "§17"
+          ],
+          "todo": [
+            "F07",
+            "F08",
+            "F09",
+            "F11",
+            "CHAT-1",
+            "CHAT-2",
+            "CHAT-3",
+            "CHAT-4",
+            "WALK-1"
+          ]
+        },
+        {
+          "id": "ER13",
+          "name": "chat_objects",
+          "uc": [
+            "UC-8",
+            "UC-9"
+          ],
+          "spec": [
+            "§10",
+            "§15"
+          ],
+          "todo": [
+            "CHAT-1",
+            "CHAT-2",
+            "CHAT-3"
+          ]
+        },
+        {
+          "id": "ER14",
+          "name": "chat_flags",
+          "uc": [
+            "UC-7",
+            "UC-22",
+            "UC-27",
+            "UC-35"
+          ],
+          "spec": [
+            "§2",
+            "§7",
+            "§10",
+            "§15"
+          ],
+          "todo": [
+            "F07",
+            "F09",
+            "CHAT-1"
+          ]
+        },
+        {
+          "id": "ER15",
+          "name": "chat_participants",
+          "uc": [
+            "UC-8",
+            "UC-9",
+            "UC-21",
+            "UC-27",
+            "UC-28",
+            "UC-35"
+          ],
+          "spec": [
+            "§10",
+            "§11",
+            "§15"
+          ],
+          "todo": [
+            "F08",
+            "F09",
+            "F11",
+            "CHAT-1",
+            "WALK-1"
+          ]
+        },
+        {
+          "id": "ER16",
+          "name": "messages",
+          "uc": [
+            "UC-28"
+          ],
+          "spec": [
+            "§10",
+            "§15"
+          ],
+          "todo": [
+            "F08"
+          ]
+        },
+        {
+          "id": "ER17",
+          "name": "proofs",
+          "uc": [
+            "UC-6",
+            "UC-7",
+            "UC-16",
+            "UC-33",
+            "UC-34",
+            "UC-35",
+            "UC-36",
+            "UC-40"
+          ],
+          "spec": [
+            "§4",
+            "§7",
+            "§15"
+          ],
+          "todo": [
+            "F07",
+            "CHAT-3"
+          ]
+        },
+        {
+          "id": "ER18",
+          "name": "collaborators",
+          "uc": [
+            "UC-19",
+            "UC-20"
+          ],
+          "spec": [
+            "§3",
+            "§14",
+            "§15"
+          ],
+          "todo": [
+            "F02",
+            "F14"
+          ]
+        },
+        {
+          "id": "ER19",
+          "name": "invoices",
+          "uc": [
+            "UC-4",
+            "UC-33"
+          ],
+          "spec": [
+            "§8",
+            "§15"
+          ],
+          "todo": [
+            "F10"
+          ]
+        },
+        {
+          "id": "ER20",
+          "name": "role_permissions",
+          "uc": [
+            "UC-20",
+            "UC-30"
+          ],
+          "spec": [
+            "§2",
+            "§12",
+            "§14",
+            "§15",
+            "§16"
+          ],
+          "todo": [
+            "F01",
+            "F14"
+          ]
+        },
+        {
+          "id": "ER21",
+          "name": "wallet_entries",
+          "uc": [
+            "UC-5",
+            "UC-10",
+            "UC-11",
+            "UC-17",
+            "UC-25",
+            "UC-26",
+            "UC-32"
+          ],
+          "spec": [
+            "§6",
+            "§8",
+            "§15",
+            "§16"
+          ],
+          "todo": [
+            "F10",
+            "F15"
+          ]
+        },
+        {
+          "id": "ER22",
+          "name": "system_configurations",
+          "uc": [
+            "UC-30"
+          ],
+          "spec": [
+            "§12",
+            "§15"
+          ],
+          "todo": [
+            "F12"
+          ]
+        },
+        {
+          "id": "ER23",
+          "name": "(PLANNED) strikes / ratings / audit_logs / account_grants / notifications",
+          "uc": [
+            "UC-12",
+            "UC-18",
+            "UC-20",
+            "UC-23",
+            "UC-24",
+            "UC-31",
+            "UC-38",
+            "UC-40"
+          ],
+          "spec": [
+            "§9",
+            "§12",
+            "§13",
+            "§14"
+          ],
+          "todo": [
+            "F13",
+            "F14",
+            "F16",
+            "F17"
+          ]
+        }
+      ]
     },
     "classes": {
       "type": "mermaid",
       "title": "Domain classes & key methods (chat primitive)",
-      "def": "classDiagram\n  class Chat {\n    +int id\n    +string status\n    +datetime support_joined_at\n    +deriveNature() string\n    +isStaffOnly() bool\n    +isClosed() bool\n    +userCanAccess(User) bool\n    +hasLiveParticipant(User) bool\n    +scopeVisibleTo(query, User)\n    +participants() HasMany\n    +objects() HasMany\n    +flags() HasMany\n    +activeFlags() HasMany\n    +messages() HasMany\n  }\n  class ChatParticipant {\n    +string side\n    +bool announced\n    +datetime joined_at\n    +datetime left_at\n  }\n  class ChatObject {\n    +string objectable_type\n    +int objectable_id\n    +getLabel() string\n    +objectable() MorphTo\n  }\n  class ChatFlag {\n    +string type\n    +string reason\n    +bool active\n    +datetime superseded_at\n  }\n  class Message {\n    +string body\n    +string kind\n    +bool is_read\n  }\n  class ChatController {\n    +index() list derived queue\n    +store() open, counterparty by entry point\n    +show()\n    +postMessage()\n    +join() announced + PII relax\n    +resolve()\n    +close()\n    +reopen() admin only\n  }\n  class Booking {\n    +string status\n    +datetime display_start\n    +json config_snapshot\n    +payment() HasOne\n    +proofs() HasMany\n  }\n  class Payment {\n    +decimal amount\n    +string status\n    +string payment_platform\n    +chatObjects() MorphMany\n  }\n  class Proof {\n    +string status\n    +datetime deadline\n    +reviewedBy() BelongsTo\n  }\n  class WalletEntry {\n    +decimal amount\n    +string type\n    +string idempotency_key\n  }\n  Chat \"1\" o-- \"many\" ChatParticipant\n  Chat \"1\" o-- \"many\" ChatObject\n  Chat \"1\" o-- \"many\" ChatFlag\n  Chat \"1\" o-- \"many\" Message\n  ChatController ..> Chat : operates on\n  ChatObject ..> Payment : morphs to\n  ChatObject ..> Booking : morphs to\n  Booking \"1\" --> \"1\" Payment\n  Booking \"1\" --> \"many\" Proof"
+      "def": "classDiagram\n  class Chat {\n    +int id\n    +string status\n    +datetime support_joined_at\n    +deriveNature() string\n    +isStaffOnly() bool\n    +isClosed() bool\n    +userCanAccess(User) bool\n    +hasLiveParticipant(User) bool\n    +scopeVisibleTo(query, User)\n    +participants() HasMany\n    +objects() HasMany\n    +flags() HasMany\n    +activeFlags() HasMany\n    +messages() HasMany\n  }\n  class ChatParticipant {\n    +string side\n    +bool announced\n    +datetime joined_at\n    +datetime left_at\n  }\n  class ChatObject {\n    +string objectable_type\n    +int objectable_id\n    +getLabel() string\n    +objectable() MorphTo\n  }\n  class ChatFlag {\n    +string type\n    +string reason\n    +bool active\n    +datetime superseded_at\n  }\n  class Message {\n    +string body\n    +string kind\n    +bool is_read\n  }\n  class ChatController {\n    +index() list derived queue\n    +store() open, counterparty by entry point\n    +show()\n    +postMessage()\n    +join() announced + PII relax\n    +resolve()\n    +close()\n    +reopen() admin only\n  }\n  class Booking {\n    +string status\n    +datetime display_start\n    +json config_snapshot\n    +payment() HasOne\n    +proofs() HasMany\n  }\n  class Payment {\n    +decimal amount\n    +string status\n    +string payment_platform\n    +chatObjects() MorphMany\n  }\n  class Proof {\n    +string status\n    +datetime deadline\n    +reviewedBy() BelongsTo\n  }\n  class WalletEntry {\n    +decimal amount\n    +string type\n    +string idempotency_key\n  }\n  Chat \"1\" o-- \"many\" ChatParticipant\n  Chat \"1\" o-- \"many\" ChatObject\n  Chat \"1\" o-- \"many\" ChatFlag\n  Chat \"1\" o-- \"many\" Message\n  ChatController ..> Chat : operates on\n  ChatObject ..> Payment : morphs to\n  ChatObject ..> Booking : morphs to\n  Booking \"1\" --> \"1\" Payment\n  Booking \"1\" --> \"many\" Proof",
+      "index": [
+        {
+          "id": "CL01",
+          "name": "Chat",
+          "uc": [
+            "UC-7",
+            "UC-8",
+            "UC-9",
+            "UC-21",
+            "UC-22",
+            "UC-27",
+            "UC-28",
+            "UC-35"
+          ],
+          "spec": [
+            "§2",
+            "§10",
+            "§11",
+            "§12",
+            "§15",
+            "§16"
+          ],
+          "todo": [
+            "F07",
+            "F08",
+            "F09",
+            "F11",
+            "CHAT-1"
+          ]
+        },
+        {
+          "id": "CL02",
+          "name": "ChatParticipant",
+          "uc": [
+            "UC-8",
+            "UC-21",
+            "UC-27",
+            "UC-35"
+          ],
+          "spec": [
+            "§10",
+            "§15"
+          ],
+          "todo": [
+            "CHAT-1"
+          ]
+        },
+        {
+          "id": "CL03",
+          "name": "ChatObject",
+          "uc": [
+            "UC-8",
+            "UC-7"
+          ],
+          "spec": [
+            "§10",
+            "§7",
+            "§15",
+            "§17"
+          ],
+          "todo": [
+            "CHAT-1",
+            "CHAT-2",
+            "CHAT-3"
+          ]
+        },
+        {
+          "id": "CL04",
+          "name": "ChatFlag",
+          "uc": [
+            "UC-7",
+            "UC-22",
+            "UC-35"
+          ],
+          "spec": [
+            "§2",
+            "§10",
+            "§15"
+          ],
+          "todo": [
+            "F07",
+            "F09",
+            "CHAT-1"
+          ]
+        },
+        {
+          "id": "CL05",
+          "name": "Message",
+          "uc": [
+            "UC-8",
+            "UC-9"
+          ],
+          "spec": [
+            "§10"
+          ],
+          "todo": [
+            "F08"
+          ]
+        },
+        {
+          "id": "CL06",
+          "name": "ChatController",
+          "uc": [
+            "UC-8",
+            "UC-9",
+            "UC-21",
+            "UC-28",
+            "UC-35",
+            "UC-22",
+            "UC-23",
+            "UC-27"
+          ],
+          "spec": [
+            "§10",
+            "§12",
+            "§17",
+            "§16"
+          ],
+          "todo": [
+            "F08",
+            "F09",
+            "F11",
+            "CHAT-2",
+            "CHAT-4",
+            "WALK-1"
+          ]
+        },
+        {
+          "id": "CL07",
+          "name": "Booking",
+          "uc": [
+            "UC-10",
+            "UC-15",
+            "UC-33",
+            "UC-34",
+            "UC-36",
+            "UC-40",
+            "UC-7"
+          ],
+          "spec": [
+            "§4",
+            "§5",
+            "§6",
+            "§7",
+            "§15",
+            "§10"
+          ],
+          "todo": [
+            "F06"
+          ]
+        },
+        {
+          "id": "CL08",
+          "name": "Payment",
+          "uc": [
+            "UC-4",
+            "UC-5",
+            "UC-6",
+            "UC-7",
+            "UC-10",
+            "UC-17",
+            "UC-25",
+            "UC-26",
+            "UC-32",
+            "UC-33",
+            "UC-34",
+            "UC-35",
+            "UC-27"
+          ],
+          "spec": [
+            "§2",
+            "§6",
+            "§7",
+            "§8",
+            "§15",
+            "§16",
+            "§10"
+          ],
+          "todo": [
+            "F07",
+            "F10",
+            "F15"
+          ]
+        },
+        {
+          "id": "CL09",
+          "name": "Proof",
+          "uc": [
+            "UC-6",
+            "UC-7",
+            "UC-16",
+            "UC-33",
+            "UC-34",
+            "UC-35",
+            "UC-36",
+            "UC-40"
+          ],
+          "spec": [
+            "§4",
+            "§7",
+            "§15"
+          ],
+          "todo": [
+            "F07",
+            "CHAT-3"
+          ]
+        },
+        {
+          "id": "CL10",
+          "name": "WalletEntry",
+          "uc": [
+            "UC-5",
+            "UC-10",
+            "UC-11",
+            "UC-26",
+            "UC-32"
+          ],
+          "spec": [
+            "§6",
+            "§8",
+            "§15",
+            "§16"
+          ],
+          "todo": [
+            "F10",
+            "F15"
+          ]
+        }
+      ]
     }
   },
   "todos": [
@@ -2632,7 +4807,24 @@
       "status": "done",
       "tags": [
         "F01"
-      ]
+      ],
+      "specs": [
+        "§1",
+        "§14"
+      ],
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-33",
+        "UC-34"
+      ],
+      "flow": [],
+      "er": [
+        "ER01",
+        "ER20",
+        "ER02",
+        "ER03"
+      ],
+      "classes": []
     },
     {
       "id": "F02",
@@ -2641,7 +4833,22 @@
       "tags": [
         "F02"
       ],
-      "note": "Cableado de colaboradores del lado proveedor: diferido."
+      "note": "Cableado de colaboradores del lado proveedor: diferido.",
+      "specs": [
+        "§3",
+        "§14"
+      ],
+      "ucs": [
+        "UC-19",
+        "UC-20"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER03",
+        "ER18"
+      ],
+      "classes": []
     },
     {
       "id": "F03",
@@ -2649,7 +4856,23 @@
       "status": "done",
       "tags": [
         "F03"
-      ]
+      ],
+      "specs": [
+        "§5"
+      ],
+      "ucs": [
+        "UC-1"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL01",
+        "FL02"
+      ],
+      "er": [
+        "ER07",
+        "ER09"
+      ],
+      "classes": []
     },
     {
       "id": "F04",
@@ -2657,7 +4880,25 @@
       "status": "done",
       "tags": [
         "F04"
-      ]
+      ],
+      "specs": [
+        "§4",
+        "§5"
+      ],
+      "ucs": [
+        "UC-2"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL02",
+        "FL03"
+      ],
+      "er": [
+        "ER04",
+        "ER05",
+        "ER06"
+      ],
+      "classes": []
     },
     {
       "id": "F05",
@@ -2666,7 +4907,23 @@
       "tags": [
         "F05"
       ],
-      "note": "Falta quitar el form '+ Ad Space' y subir creativo por-ad."
+      "note": "Falta quitar el form '+ Ad Space' y subir creativo por-ad.",
+      "specs": [
+        "§5",
+        "§4"
+      ],
+      "ucs": [
+        "UC-3"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL04"
+      ],
+      "er": [
+        "ER06",
+        "ER07"
+      ],
+      "classes": []
     },
     {
       "id": "F06",
@@ -2674,6 +4931,25 @@
       "status": "done",
       "tags": [
         "F06"
+      ],
+      "specs": [
+        "§5"
+      ],
+      "ucs": [
+        "UC-15"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL07",
+        "FL09",
+        "FL08"
+      ],
+      "er": [
+        "ER10",
+        "ER06"
+      ],
+      "classes": [
+        "CL07"
       ]
     },
     {
@@ -2682,6 +4958,34 @@
       "status": "done",
       "tags": [
         "F07"
+      ],
+      "specs": [
+        "§7",
+        "§10"
+      ],
+      "ucs": [
+        "UC-6",
+        "UC-7",
+        "UC-16"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL13",
+        "FL14",
+        "FL18",
+        "FL19"
+      ],
+      "er": [
+        "ER17",
+        "ER11",
+        "ER12",
+        "ER14"
+      ],
+      "classes": [
+        "CL09",
+        "CL08",
+        "CL01",
+        "CL04"
       ]
     },
     {
@@ -2691,7 +4995,29 @@
       "tags": [
         "F08"
       ],
-      "note": "Recorrido humano (Messages) pendiente para cerrar."
+      "note": "Recorrido humano (Messages) pendiente para cerrar.",
+      "specs": [
+        "§10"
+      ],
+      "ucs": [
+        "UC-8",
+        "UC-9",
+        "UC-21"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL19"
+      ],
+      "er": [
+        "ER12",
+        "ER15",
+        "ER16"
+      ],
+      "classes": [
+        "CL01",
+        "CL06",
+        "CL05"
+      ]
     },
     {
       "id": "F09",
@@ -2700,7 +5026,31 @@
       "tags": [
         "F09"
       ],
-      "note": "Unificado en el primitivo chat; recorrido pendiente."
+      "note": "Unificado en el primitivo chat; recorrido pendiente.",
+      "specs": [
+        "§10",
+        "§11"
+      ],
+      "ucs": [
+        "UC-9",
+        "UC-21",
+        "UC-22"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL19",
+        "FL20"
+      ],
+      "er": [
+        "ER12",
+        "ER15",
+        "ER14"
+      ],
+      "classes": [
+        "CL01",
+        "CL04",
+        "CL06"
+      ]
     },
     {
       "id": "F10",
@@ -2708,6 +5058,30 @@
       "status": "done",
       "tags": [
         "F10"
+      ],
+      "specs": [
+        "§8"
+      ],
+      "ucs": [
+        "UC-17",
+        "UC-25",
+        "UC-26"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL16",
+        "FL17",
+        "FL21",
+        "FL22"
+      ],
+      "er": [
+        "ER11",
+        "ER21",
+        "ER19"
+      ],
+      "classes": [
+        "CL08",
+        "CL10"
       ]
     },
     {
@@ -2716,6 +5090,22 @@
       "status": "pending",
       "tags": [
         "F11"
+      ],
+      "specs": [
+        "§12"
+      ],
+      "ucs": [
+        "UC-28"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER12",
+        "ER15"
+      ],
+      "classes": [
+        "CL01",
+        "CL06"
       ]
     },
     {
@@ -2724,7 +5114,20 @@
       "status": "pending",
       "tags": [
         "F12"
-      ]
+      ],
+      "specs": [
+        "§12"
+      ],
+      "ucs": [
+        "UC-30"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER22",
+        "ER10"
+      ],
+      "classes": []
     },
     {
       "id": "F13",
@@ -2732,7 +5135,22 @@
       "status": "pending",
       "tags": [
         "F13"
-      ]
+      ],
+      "specs": [
+        "§13"
+      ],
+      "ucs": [
+        "UC-14",
+        "UC-38"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER09",
+        "ER07",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "F14",
@@ -2741,7 +5159,23 @@
       "tags": [
         "F14"
       ],
-      "note": "Matriz base hecha; overlay por-cuenta pendiente."
+      "note": "Matriz base hecha; overlay por-cuenta pendiente.",
+      "specs": [
+        "§14",
+        "§2"
+      ],
+      "ucs": [
+        "UC-30",
+        "UC-20"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER20",
+        "ER18",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "F15",
@@ -2749,6 +5183,25 @@
       "status": "deferred",
       "tags": [
         "F15"
+      ],
+      "specs": [
+        "§6"
+      ],
+      "ucs": [
+        "UC-5"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL05"
+      ],
+      "er": [
+        "ER10",
+        "ER11",
+        "ER21"
+      ],
+      "classes": [
+        "CL08",
+        "CL10"
       ]
     },
     {
@@ -2757,7 +5210,23 @@
       "status": "deferred",
       "tags": [
         "F16"
-      ]
+      ],
+      "specs": [
+        "§7"
+      ],
+      "ucs": [
+        "UC-18",
+        "UC-24"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL12"
+      ],
+      "er": [
+        "ER10",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "F17",
@@ -2765,7 +5234,20 @@
       "status": "deferred",
       "tags": [
         "F17"
-      ]
+      ],
+      "specs": [
+        "§9"
+      ],
+      "ucs": [
+        "UC-12"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER07",
+        "ER23"
+      ],
+      "classes": []
     },
     {
       "id": "CHAT-1",
@@ -2775,6 +5257,27 @@
         "F08",
         "F09",
         "§10"
+      ],
+      "specs": [
+        "§10"
+      ],
+      "ucs": [
+        "UC-8",
+        "UC-9"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER12",
+        "ER13",
+        "ER14",
+        "ER15"
+      ],
+      "classes": [
+        "CL01",
+        "CL02",
+        "CL03",
+        "CL04"
       ]
     },
     {
@@ -2784,6 +5287,24 @@
       "tags": [
         "§10",
         "§17"
+      ],
+      "specs": [
+        "§10",
+        "§17"
+      ],
+      "ucs": [
+        "UC-8",
+        "UC-9"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER12",
+        "ER13"
+      ],
+      "classes": [
+        "CL06",
+        "CL03"
       ]
     },
     {
@@ -2793,6 +5314,27 @@
       "tags": [
         "F07",
         "§10"
+      ],
+      "specs": [
+        "§7",
+        "§10"
+      ],
+      "ucs": [
+        "UC-7",
+        "UC-16"
+      ],
+      "suggestedUcs": [],
+      "flow": [
+        "FL19"
+      ],
+      "er": [
+        "ER12",
+        "ER13",
+        "ER17"
+      ],
+      "classes": [
+        "CL03",
+        "CL09"
       ]
     },
     {
@@ -2801,6 +5343,21 @@
       "status": "done",
       "tags": [
         "§10"
+      ],
+      "specs": [
+        "§10"
+      ],
+      "ucs": [
+        "UC-8",
+        "UC-9"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER12"
+      ],
+      "classes": [
+        "CL06"
       ]
     },
     {
@@ -2809,7 +5366,17 @@
       "status": "done",
       "tags": [
         "docs"
-      ]
+      ],
+      "specs": [
+        "§19"
+      ],
+      "ucs": [],
+      "suggestedUcs": [
+        "UC-33"
+      ],
+      "flow": [],
+      "er": [],
+      "classes": []
     },
     {
       "id": "WALK-1",
@@ -2818,7 +5385,82 @@
       "tags": [
         "F08",
         "F09"
+      ],
+      "specs": [
+        "§10"
+      ],
+      "ucs": [
+        "UC-9",
+        "UC-21"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER12",
+        "ER15"
+      ],
+      "classes": [
+        "CL06"
       ]
     }
-  ]
+  ],
+  "lineage": {
+    "suggestedUcProposals": [
+      {
+        "for": "§0",
+        "title": "Reader understands the kanban + todo status legend",
+        "note": "meta — dashboard notation, no canonical UC; suggest only"
+      },
+      {
+        "for": "§1",
+        "title": "New reader grasps the marketplace + the five system roles",
+        "note": "foundational overview exercised by all journeys; suggest, don't create"
+      },
+      {
+        "for": "§11",
+        "title": "Reader follows the tickets->chat merge and where Support powers live",
+        "note": "merged pointer into §10; closest real UCs are UC-22/UC-23/UC-24"
+      },
+      {
+        "for": "§15",
+        "title": "Engineer works against the authoritative table list",
+        "note": "infra schema; underpins every UC, none specific"
+      },
+      {
+        "for": "§16",
+        "title": "Engineer honours the integrity invariants",
+        "note": "infra invariants (ledger/concurrency/chat access/RBAC); no single UC"
+      },
+      {
+        "for": "§17",
+        "title": "Engineer navigates the LIVE vs PLANNED endpoint map",
+        "note": "infra route map; cross-cuts all UCs"
+      },
+      {
+        "for": "§18",
+        "title": "Dev sets up the stack and runs the project",
+        "note": "meta dev-setup / implementation-status; no domain UC"
+      },
+      {
+        "for": "§19",
+        "title": "Reader uses the UC index, alert schema and journeys",
+        "note": "meta — this section IS the UC catalogue; not itself a UC target"
+      },
+      {
+        "for": "§20",
+        "title": "Reader tracks owner revisions (latest-wins) and build phases",
+        "note": "meta roadmap/known-gaps; no domain UC"
+      },
+      {
+        "for": "F01",
+        "title": "User authenticates and receives their role's permissions",
+        "note": "auth+roles todo; foundational, no canonical UC in §19"
+      },
+      {
+        "for": "DASH-1",
+        "title": "Stakeholder browses the interactive design dashboard",
+        "note": "docs deliverable; no domain UC"
+      }
+    ]
+  }
 }
