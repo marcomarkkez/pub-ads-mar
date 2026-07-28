@@ -217,3 +217,14 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .link-chip:hover { border-color: var(--accent); background: var(--accent-weak); }
 .todo-row { cursor: pointer; border-radius: 8px; }
 .todo-row:hover, .todo-row:focus { background: var(--surface-2); outline: none; }
+
+/* ---- lineage: impact chips + diagram highlight ---- */
+.impact-head { margin-top: 18px; }
+.link-chip.suggested { border-style: dashed; opacity: .9; }
+.hl-target { filter: drop-shadow(0 0 6px rgba(245,158,11,.9)); }
+.hl-target rect, .hl-target polygon, .hl-target path, .hl-target circle, .hl-target ellipse {
+  stroke: #f59e0b !important; stroke-width: 3px !important;
+}
+.hl-target text, text.hl-target, tspan.hl-target { fill: #b45309 !important; font-weight: 700 !important; }
+@keyframes hlpulse { 0%,100% { filter: drop-shadow(0 0 4px rgba(245,158,11,.6)); } 50% { filter: drop-shadow(0 0 10px rgba(245,158,11,1)); } }
+.hl-target { animation: hlpulse 1.2s ease-in-out 2; }

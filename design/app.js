@@ -91,6 +91,8 @@
     // drawer close + delegated cross-link navigation (chips carry data-goto-type/id)
     els.drawer.addEventListener("click", function (e) {
       if (e.target.hasAttribute("data-close")) return closeDrawer();
+      var el = e.target.closest ? e.target.closest("[data-el-view]") : null;
+      if (el) { closeDrawer(); location.hash = el.getAttribute("data-el-view") + "/" + el.getAttribute("data-el-id"); return; }
       var chip = e.target.closest ? e.target.closest("[data-goto-type]") : null;
       if (chip) { goto(chip.getAttribute("data-goto-type"), chip.getAttribute("data-goto-id")); }
     });
@@ -180,6 +182,11 @@
     var slash = raw.indexOf("/");
     var head = slash === -1 ? raw : raw.slice(0, slash);
     var id = slash === -1 ? "" : decodeURIComponent(raw.slice(slash + 1));
+    var diagViews = { flow: 1, er: 1, classes: 1 };
+    if (diagViews[head] && id) {
+      state.pendingHighlight = { view: head, id: id };
+      return setView(head);
+    }
     var itemViews = { spec: "specs", todo: "todos", uc: "stories" };
     if (itemViews[head] && id) {
       setView(itemViews[head]);
@@ -202,6 +209,35 @@
     state.data.userStories.forEach(function (u) { storyById[u.id] = u; });
     state.data.todos.forEach(function (t) { if (t.id) todoById[t.id] = t; });
     state._ix = { specBySec: specBySec, specsByFeat: specsByFeat, specById: specById, storyById: storyById, todoById: todoById };
+
+    // diagram-element indexes by id (for the "Impacto" chips + highlight)
+    var dg = state.data.diagrams || {};
+    state._flowById = {}; (((dg.flow || {}).index) || []).forEach(function (n) { state._flowById[n.id] = n; });
+    state._erById = {};   (((dg.er || {}).index) || []).forEach(function (n) { state._erById[n.id] = n; });
+    state._clsById = {};  (((dg.classes || {}).index) || []).forEach(function (n) { state._clsById[n.id] = n; });
+  }
+
+  /* ---------------- Impacto (Flow/ER/Classes) chips for a drawer ---------------- */
+  function elChips(label, view, ids, byId, labelFn) {
+    if (!ids || !ids.length) return "";
+    return '<h4>' + esc(label) + '</h4><div class="rel-list">' + ids.map(function (id) {
+      var n = byId[id];
+      return '<button type="button" class="link-chip" data-el-view="' + view + '" data-el-id="' + esc(id) + '">' +
+        esc(n ? labelFn(n) : id) + '</button>';
+    }).join("") + '</div>';
+  }
+  function impactBlock(item) {
+    var parts = [];
+    parts.push(elChips("Flow", "flow", item.flow, state._flowById, function (n) { return n.id + " · " + n.label; }));
+    parts.push(elChips("ER", "er", item.er, state._erById, function (n) { return n.id + " · " + n.name; }));
+    parts.push(elChips("Clases", "classes", item.classes, state._clsById, function (n) { return n.id + " · " + n.name; }));
+    if (item.suggestedUcs && item.suggestedUcs.length) {
+      parts.push('<h4>UC sugeridas</h4><div class="rel-list">' + item.suggestedUcs.map(function (id) {
+        return '<button type="button" class="link-chip suggested" data-goto-type="story" data-goto-id="' + esc(id) + '">' + esc(id) + ' · sugerida</button>';
+      }).join("") + '</div>');
+    }
+    var html = parts.join("");
+    return html ? '<h4 class="impact-head">Impacto (gráficos)</h4>' + html : "";
   }
 
   function baseKeys(type, item) {
@@ -562,9 +598,34 @@
       mermaid.render(id, dg.def).then(function (res) {
         host.innerHTML = res.svg;
         if (res.bindFunctions) res.bindFunctions(host);
+        maybeHighlight(host, key);
       }).catch(function (e) { host.innerHTML = diagramErr(e, dg.def); });
     } catch (e) {
       host.innerHTML = diagramErr(e, dg.def);
+    }
+  }
+  // Highlight the pending element (FL/ER/CL) after a diagram renders, then scroll to it.
+  function maybeHighlight(host, view) {
+    var h = state.pendingHighlight;
+    if (!h || h.view !== view) return;
+    state.pendingHighlight = null;
+    var target = null;
+    if (view === "flow") {
+      target = host.querySelector('[id*="' + h.id + '"]'); // mermaid flow node id contains FLxx
+    } else {
+      var meta = view === "er" ? state._erById[h.id] : state._clsById[h.id];
+      var name = meta && meta.name ? meta.name.toLowerCase() : null;
+      if (name) {
+        var texts = host.querySelectorAll("text, .nodeLabel, tspan");
+        for (var i = 0; i < texts.length && !target; i++) {
+          var tc = (texts[i].textContent || "").trim().toLowerCase();
+          if (tc === name || tc.indexOf(name) !== -1) target = texts[i].closest("g") || texts[i];
+        }
+      }
+    }
+    if (target) {
+      target.classList.add("hl-target");
+      try { target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" }); } catch (e) { /* noop */ }
     }
   }
   function diagramErr(e, def) {
@@ -641,6 +702,7 @@
     }
     parts.push(relChips("User Stories", "story", related(s, "spec", "story"), storyLabel));
     parts.push(relChips("Todos", "todo", related(s, "spec", "todo"), todoLabel));
+    parts.push(impactBlock(s));
     if (s.body) {
       parts.push('<h4>Details</h4><div class="prose">' + esc(s.body) + '</div>');
     }
@@ -656,6 +718,7 @@
     if (u.detail) parts.push('<div class="prose">' + esc(u.detail) + '</div>');
     parts.push(relChips("Specs", "spec", related(u, "story", "spec"), specLabel));
     parts.push(relChips("Todos", "todo", related(u, "story", "todo"), todoLabel));
+    parts.push(impactBlock(u));
     openDrawer(u.id + " · " + (u.title || ""), parts.join(""), "uc/" + encodeURIComponent(u.id));
   }
 
@@ -668,6 +731,7 @@
     if (t.note) parts.push('<p class="prose" style="color:var(--muted)">' + esc(t.note) + '</p>');
     parts.push(relChips("Specs", "spec", related(t, "todo", "spec"), specLabel));
     parts.push(relChips("User Stories", "story", related(t, "todo", "story"), storyLabel));
+    parts.push(impactBlock(t));
     openDrawer((t.id ? t.id + " · " : "") + (t.title || "Todo"), parts.join(""), t.id ? "todo/" + encodeURIComponent(t.id) : null);
   }
 
