@@ -620,9 +620,13 @@
       var name = meta && meta.name ? meta.name.toLowerCase() : null;
       if (name) {
         var texts = host.querySelectorAll("text, .nodeLabel, tspan");
-        for (var i = 0; i < texts.length && !target; i++) {
-          var tc = (texts[i].textContent || "").trim().toLowerCase();
-          if (tc === name || tc.indexOf(name) !== -1) target = texts[i].closest("g") || texts[i];
+        var k;
+        // pass 1: EXACT text match (the entity/class title); pass 2: contains (fallback)
+        for (k = 0; k < texts.length && !target; k++) {
+          if ((texts[k].textContent || "").trim().toLowerCase() === name) target = texts[k].closest("g") || texts[k];
+        }
+        for (k = 0; k < texts.length && !target; k++) {
+          if ((texts[k].textContent || "").toLowerCase().indexOf(name) !== -1) target = texts[k].closest("g") || texts[k];
         }
       }
     }
