@@ -51,4 +51,17 @@
 <!-- Mermaid: prefer a LOCAL vendored copy (works when the CDN is blocked); fall back to the CDN. -->
 <script src="vendor/mermaid.min.js"
         onerror="this.remove();var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';document.head.appendChild(s);"></script>
-<script src="app.js"></script>
+<script>
+  /* Codespaces' port-forward proxy caches static assets HARD — a stale app.js is why new
+     features don't appear even after a hard-refresh/incognito. Load app.js (and re-load
+     styles.css) with a unique query so the proxy can't serve a cached copy. design.json is
+     cache-busted the same way inside app.js's fetch. */
+  (function () {
+    var t = "?t=" + Date.now();
+    var css = document.querySelector('link[rel="stylesheet"]');
+    if (css) css.href = "styles.css" + t;
+    var s = document.createElement("script");
+    s.src = "app.js" + t;
+    document.body.appendChild(s);
+  })();
+</script>

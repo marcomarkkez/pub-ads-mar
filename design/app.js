@@ -131,7 +131,7 @@
 
   /* ---------------- data load ---------------- */
   function load() {
-    fetch("design.json", { cache: "no-store" })
+    fetch("design.json?t=" + Date.now(), { cache: "no-store" })
       .then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status + " " + r.statusText);
         return r.json();
