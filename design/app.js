@@ -614,19 +614,26 @@
     state.pendingHighlight = null;
     var target = null;
     if (view === "flow") {
-      target = host.querySelector('[id*="' + h.id + '"]'); // mermaid flow node id contains FLxx
+      // Mermaid names the NODE group "…flowchart-FLxx-N" and EDGES "…L_FLaa_FLxx_0".
+      // A bare "[id*=FLxx]" matches an edge first (edges come first in the DOM) and the
+      // highlight then lands on a <path> with no child shape → nothing paints. Pin the node.
+      target = host.querySelector('.node[id*="' + h.id + '"]') ||
+               host.querySelector('[id*="flowchart-' + h.id + '"]') ||
+               host.querySelector('[id*="' + h.id + '"]');
     } else {
       var meta = view === "er" ? state._erById[h.id] : state._clsById[h.id];
       var name = meta && meta.name ? meta.name.toLowerCase() : null;
       if (name) {
         var texts = host.querySelectorAll("text, .nodeLabel, tspan");
         var k;
+        // Climb to the NODE group (holds the shape): class diagrams nest the label in a
+        // foreignObject so closest("g") stops at a shapeless ".label" — .node has the rect.
         // pass 1: EXACT text match (the entity/class title); pass 2: contains (fallback)
         for (k = 0; k < texts.length && !target; k++) {
-          if ((texts[k].textContent || "").trim().toLowerCase() === name) target = texts[k].closest("g") || texts[k];
+          if ((texts[k].textContent || "").trim().toLowerCase() === name) target = texts[k].closest(".node") || texts[k].closest("g") || texts[k];
         }
         for (k = 0; k < texts.length && !target; k++) {
-          if ((texts[k].textContent || "").toLowerCase().indexOf(name) !== -1) target = texts[k].closest("g") || texts[k];
+          if ((texts[k].textContent || "").toLowerCase().indexOf(name) !== -1) target = texts[k].closest(".node") || texts[k].closest("g") || texts[k];
         }
       }
     }
