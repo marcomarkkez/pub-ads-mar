@@ -560,7 +560,9 @@ money **FLAGS** that Payments executes → §8 (UC-22 flag, UC-25/UC-26 execute)
 chat; the opener (or Admin) "closes" it.
 
 == 12. Admin: Moderation, Freeze, Audit, Configurations ==  [F11,F12]
-kanban: `status:backlog` · `weight:L` · `impacts:F08,F10,F13` · `deps:F09` · `ids:AD-oversight-03,AU-log-01,CF-config-01`
+kanban: `status:wip` · `weight:L` · `impacts:F08,F10,F13` · `deps:F09` · `ids:AD-oversight-03,AU-log-01,CF-config-01`
+<!-- [owner 2026-07-29] F11 (Admin oversight / eagle-eye · UC-28) CLOSED as done: OversightController (GET /admin/oversight/chats + /{chat}, read-only/incognito, unmasked) + admin/oversight frontend + ChatAclMatrixTest (6 tests green, full suite 44 passed). §12 stays wip until F12 (config · UC-30). Untracked admin scope suggested only (design.json lineage.suggestedTodoProposals): UC-29 moderation takedown/freeze (routes designed in §17, not built), UC-31 audit log, UC-32 payout-stop/clawback. -->
+
 
 Admin is the **eagle-eye** role: reads EVERYTHING (every chat — one primitive, §10 — plus the audit
 log, users, RBAC). Chat oversight is ONE screen `GET /admin/oversight/chats` with filters
@@ -964,6 +966,10 @@ Every user story / case / journey carries a stable **UC-N** code (backend functi
 UC they satisfy — e.g. `design.md UC-7`; chat/dispute/payment UCs are keyed in
 `scratchpad/uc-index.md`). `UC-N — title — primary spec §`:
 
+<!-- [owner 2026-07-29] Promoted two suggested proposals to canonical UCs: F01→UC-41 (actor USER, since every role is a type of user; ACCOUNTS stays reserved for multi-user accounts) and §11→UC-42 (actor CLIENT). UC-42 is framed around user SUCCESS with the unified chat UX, not the tickets→chat merge history. The remaining infra/meta proposals (§0,§1,§15–§20,DASH-1) stay 'suggested' — their actors are docs readers / engineers, not platform users, so they are not user stories. -->
+USER (cross-cutting — every role is a type of user)
+- UC-41 — User signs in and the platform grants exactly their role's capabilities (RBAC-scoped workspace; failed login is clear & non-leaky) — §1, §14
+
 CLIENT
 - UC-1 — Client searches & multi-selects spaces on the map — §5
 - UC-2 — Client organizes campaign / adset / ads from the backlog — §4, §5
@@ -977,6 +983,7 @@ CLIENT
 - UC-10 — Client cancels a booking (refund per policy) — §8
 - UC-11 — Client views wallet & withdraws — §8
 - UC-12 — Client rates a provider (AFTER-MVP) — §9
+- UC-42 — User resolves everything in one seamless conversation — no juggling tickets vs chat (one uniform chat UI; Support, and Payments when money is involved, join the same thread) — §10, §11
 
 PROVIDER
 - UC-13 — Provider lists a space & declares specs — §4, §5

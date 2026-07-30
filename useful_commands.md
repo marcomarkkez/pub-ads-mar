@@ -41,6 +41,28 @@ docker compose exec db psql -U postgres -d pub_ads_mar
 docker compose exec frontend npx ng generate component my-comp
 ```
 
+## Python helpers (MVP init + dashboard)
+
+```bash
+# Self-healing DB seed — run from the repo root. Idempotent: only reseeds when the
+# DB is empty, otherwise just clears caches. Fixes the "credentials incorrect" login
+# error that appears when the container starts with an empty database.
+python3 mvp-init.py
+
+# Force a clean wipe + reseed (migrate:fresh --seed), regardless of current state
+python3 mvp-init.py --fresh
+
+# Seed without the 3-chat dispute demo (DisputeDemoSeeder)
+python3 mvp-init.py --no-dispute
+
+# Serve the design dashboard over HTTP (design/design.html fetches design.json, so it
+# MUST be served — opening it as a file:// URL blocks the fetch). Then open
+# http://localhost:8080/design.html
+cd design && python3 -m http.server 8080
+```
+
+After `mvp-init.py` you can log in at the SPA with any demo account below (password `password`).
+
 ## Legacy: Bare-metal start (no Docker)
 
 ```bash
