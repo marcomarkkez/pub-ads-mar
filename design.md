@@ -130,7 +130,15 @@ collaborator points to **account_id** (never a campaign or space) and, per role,
 across ALL of that account's campaigns/spaces. Enforced by a SEPARATE per-account RBAC grant
 overlay (`account_grants`) evaluated AFTER the global role matrix, scoped so grants never leak
 across accounts. The account owner can see any conversation a collaborator has. (DB:
-`collaborators` table, `unique(account_id, email)`; campaign_id→account_id migration PENDING.)
+`collaborators` table, `unique(account_id, email)`.)
+<!-- [owner 2026-08-01] APPROVED, build next: a REAL `accounts` table is created (it did not exist —
+§3 always prescribed it). Direction: `users.account_id` → FK `accounts` (NOT accounts.owner_user_id),
+so several owner-users can later share one account with NO schema change. Every user gets an account
+at registration. Collaborators link to `accounts.id` (collaborators.campaign_id is DROPPED).
+BILLING is also account-scoped (invoices/payments hang off the account, not the campaign).
+Existing rows are throwaway test data — edit them directly, no elaborate dedupe.
+The `account_grants` RBAC overlay stays a LATER task. -->
+
 
 Client-side and provider-side are TWO SEPARATE ecosystems with DIFFERENT subrole sets; the
 sets share NO names and a subrole on one side is unrelated to the other.
@@ -510,6 +518,21 @@ auto-attached as evidence); a button on an invoice → **Support** with the paym
 attaches itself so the counterparty knows what the conversation is about. **Payments and Admin are
 INTERNAL**: a client can **NEVER** contact them directly — they only talk to **Support**, or are **added**
 to an existing conversation when the context requires it (Payments to a money chat, Admin as read-only oversight).
+
+**Which object routes to whom.** [owner 2026-08-01] The counterparty follows WHO IS RESPONSIBLE for the
+object. A `space` is the PROVIDER's (they own and operate the physical asset), so asking about a space
+goes to that provider — the only path to a provider. Everything else the client owns alone, or is
+shared, goes to **Support**, who may then pull the provider in if warranted (Support decides, not the UI):
+
+| Object | Responsible | Chat goes to |
+|---|---|---|
+| `space` (published listing) | Provider | **Provider** |
+| `campaign` | Client alone | Support |
+| `adset` | Client alone (a grouping label) | Support |
+| `ad` | Client's creative, shown on a provider's space | **Support** (Support may add the provider) |
+| `booking` | Client + Provider (the contract) | **Support** first |
+| `proof` | Provider uploads, client reviews | **Support** (a rejection opens the UC-7 dispute) |
+| `payment` / `invoice` | Support-fronted, Payments behind | Support (Payments via the internal chat) |
 
 **Flags — zero..many, with history.** A chat carries ZERO or MANY flags. A flag =
 `{ type, reason, active, created_by, superseded_at }`, `type ∈ {payment_held, refund, payout_hold,
@@ -969,6 +992,7 @@ UC they satisfy — e.g. `design.md UC-7`; chat/dispute/payment UCs are keyed in
 <!-- [owner 2026-07-29] Promoted two suggested proposals to canonical UCs: F01→UC-41 (actor USER, since every role is a type of user; ACCOUNTS stays reserved for multi-user accounts) and §11→UC-42 (actor CLIENT). UC-42 is framed around user SUCCESS with the unified chat UX, not the tickets→chat merge history. The remaining infra/meta proposals (§0,§1,§15–§20,DASH-1) stay 'suggested' — their actors are docs readers / engineers, not platform users, so they are not user stories. -->
 USER (cross-cutting — every role is a type of user)
 - UC-41 — User signs in and the platform grants exactly their role's capabilities (RBAC-scoped workspace; failed login is clear & non-leaky) — §1, §14
+- UC-43 — Every screen and endpoint authorizes by the OWNERSHIP CHAIN (user → account → campaign → adset → ad; space → provider account). A break anywhere returns 404, never 403. Cross-account moves are refused; same-account moves carry their bookings. — §21, §14
 
 CLIENT
 - UC-1 — Client searches & multi-selects spaces on the map — §5
@@ -1157,6 +1181,47 @@ Roadmap, per-feature build order, and the live code-vs-design gap list are track
 UI wiring; PHASE 2 = Support edit-any + audit log, Admin eagle-eye; PHASE 3 (deferred) = strikes,
 ratings, notifications, escrow/pre-pay, media-spec validator, moderation, invoice line-items.
 
+
+== 21. Object Ownership & Access Chain (guardrails) ==  [F01,F14]
+kanban: `status:backlog` · `weight:M` · `impacts:F02,F04,F05,F11` · `deps:F01` · `ids:SEC-chain-01`
+
+[owner 2026-08-01] APPROVED. Every screen and endpoint authorizes by the OWNERSHIP CHAIN, never by
+the parent alone. (UC-43.)
+
+**The chain:** `user → account → campaign → adset → ad`; a `space` hangs off the PROVIDER's account.
+Access requires the WHOLE chain to belong to the caller's account, plus the caller's role/subrole.
+
+**Rules:**
+1. Nested route bindings are ALWAYS scoped (`->scopeBindings()`) PLUS an explicit
+   `abort_unless($child->parent_id === $parent->id, 404)` in each method. Verifying only the parent
+   (e.g. "the campaign is mine") is NOT enough — that was the IDOR found on
+   `/client/campaigns/{c}/adsets/{a}` and `/ads/{ad}`.
+2. **404, never 403**, for an object outside the caller's account — a 403 confirms the object exists
+   and leaks its existence.
+3. **Moves** (see the table) are allowed WITHIN one account, across campaigns and adsets; they are
+   forbidden across accounts. A move carries its dependents: moving a booked ad updates
+   `bookings.adset_id` (and `campaign_id`) in the SAME transaction.
+4. **INVARIANT — every ad has a `space_id`.** A space-less ad has nobody to pay and nowhere to send
+   the files, so it can never be booked. Any UI that mints one is a bug (see §5, ad origin): the
+   "type a name + pick a media type + upload" form must NOT exist — ads come from booking a space or
+   from moving one in from the backlog.
+5. `account_grants` (per-account RBAC overlay) is evaluated AFTER the global role matrix; grants never
+   leak across accounts. (Later task.)
+
+**Move matrix:**
+| Move | Allowed | Guardrail |
+|---|---|---|
+| ad → another adset, SAME campaign | YES | same `account_id` |
+| ad → adset of ANOTHER campaign, same account | YES | same `account_id` |
+| ad → backlog (becomes orphan) | YES | same `account_id` |
+| adset → another campaign, same account | YES | same `account_id` |
+| ad / adset → anything of ANOTHER account | NO — 404 | different account |
+
+**Adset deletion** — an adset is only a GROUPING label, so deleting it must NOT destroy ads:
+`ads.adset_id` migrates from `cascadeOnDelete` to **`nullOnDelete`**. On delete the client is asked
+where the ads go: MOVE them to another adset, or LEAVE them orphaned. Orphaned ≠ stopped — anything
+already paid keeps running; an orphan is just harder to find for further actions (an unpaid one
+simply never ran, like an abandoned shopping cart).
 
 == Lineage ID Registry (mirror of design/design.json — design.json is authoritative) ==
 kanban: `status:done` · `weight:S` · `impacts:all` · `deps:-` · `ids:-`

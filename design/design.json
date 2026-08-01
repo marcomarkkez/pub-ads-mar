@@ -173,7 +173,8 @@
       "kind": "feature",
       "ucs": [
         "UC-19",
-        "UC-20"
+        "UC-20",
+        "UC-43"
       ],
       "suggestedUcs": [],
       "flow": [],
@@ -905,6 +906,46 @@
       ],
       "flow": [],
       "er": [],
+      "classes": []
+    },
+    {
+      "id": "21",
+      "title": "Object Ownership & Access Chain (guardrails)",
+      "features": [
+        "F01",
+        "F14"
+      ],
+      "kanban": {
+        "status": "backlog",
+        "weight": "M",
+        "impacts": [
+          "F02",
+          "F04",
+          "F05",
+          "F11"
+        ],
+        "deps": [
+          "F01"
+        ],
+        "ids": [
+          "SEC-chain-01"
+        ]
+      },
+      "summary": "Authorize by the full ownership chain; 404 not 403; scoped nested bindings; same-account moves only; every ad has a space.",
+      "body": "The chain: user -> account -> campaign -> adset -> ad; space hangs off the provider's account.\n\n1. Nested bindings ALWAYS scoped (->scopeBindings()) PLUS explicit abort_unless(child.parent_id === parent.id, 404).\n2. 404, never 403, for objects outside the caller's account.\n3. Moves allowed WITHIN an account across campaigns/adsets; forbidden across accounts; a move carries dependents (bookings.adset_id/campaign_id updated in the same transaction).\n4. INVARIANT: every ad has a space_id. Any UI minting a space-less ad is a bug.\n5. account_grants overlay evaluated AFTER the global role matrix (later task).\n\nAdset deletion: an adset is only a grouping label, so ads.adset_id moves from cascadeOnDelete to nullOnDelete. On delete the client chooses: move the ads to another adset, or leave them orphaned. Orphaned is not stopped - anything already paid keeps running.",
+      "ucs": [
+        "UC-43"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [
+        "ER01",
+        "ER03",
+        "ER04",
+        "ER05",
+        "ER06",
+        "ER20"
+      ],
       "classes": []
     }
   ],
@@ -1910,6 +1951,30 @@
         "CL05",
         "CL06"
       ]
+    },
+    {
+      "id": "UC-43",
+      "actor": "USER",
+      "title": "Every screen and endpoint authorizes by the ownership chain",
+      "sections": [
+        "§21",
+        "§14"
+      ],
+      "detail": "Access is granted only when the WHOLE chain belongs to the caller's account: user -> account -> campaign -> adset -> ad (a space hangs off the provider's account), plus the caller's role/subrole. Checking the parent alone is not enough - that is the IDOR where a client could open /client/campaigns/1/adsets/99 and read, rename or delete another account's adset. A break anywhere in the chain returns 404, never 403, so the existence of a foreign object is never leaked. Moves are allowed within one account across campaigns and adsets and carry their dependents (a booked ad's booking follows it); cross-account moves are refused. Every ad must have a space_id - a space-less ad has nobody to pay and nowhere to send files.",
+      "specs": [
+        "§21",
+        "§14"
+      ],
+      "flow": [],
+      "er": [
+        "ER01",
+        "ER03",
+        "ER04",
+        "ER05",
+        "ER06",
+        "ER20"
+      ],
+      "classes": []
     }
   ],
   "endpoints": [
