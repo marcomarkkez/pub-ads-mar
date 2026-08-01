@@ -1360,5 +1360,100 @@ prefixed `.patch` files the owner applies + pushes from their Codespace.
 - Then continue the review: F11 (admin oversight), F12 (config), F13 (notif/calendar), F14 (RBAC);
   plus the deferred code gaps: F05 ("+ Ad Space" removal + per-ad creative upload), F03 3-pane.
 
+## Session 29 - 2026-07-16 → 2026-08-01
+
+### Summary
+One very long session (30 days, ~3.2k model calls). Four arcs: (1) finished the **F07 dispute
+code** and unified **chats/objects/flags** into ONE primitive; (2) settled the **entry-point rule**
+for chat counterparties; (3) built the **interactive design dashboard** (`design/`) and a
+**lineage** system (FL/ER/CL ids); (4) stood up a **3-agent team** whose review caught a real
+**IDOR**, which produced the new **§21 + UC-43**. Delivery stayed patch-based (`pNN.patch`);
+the last applied patch is **p61**.
+
+### Chat unification & entry-point routing (F08/F09, §10)
+- ONE chat primitive: chats + participants + objects + flags; tickets retired. Nature is DERIVED
+  from anchors, never a stored enum shown to users (`chatTitle()` renders "Chat con soporte").
+- **KEY DECISION [owner 2026-07-25]:** a chat's counterparty is decided by **WHERE the client opens
+  it**, NEVER inferred from the attached object's owner. Messages tab / ad-adset-campaign object →
+  **Support**; the provider's published listing → that **Provider** (the ONLY path — providers have
+  no public profile); Billing → Support-fronted with the payment attached, Payments looped in via
+  the internal chat. Counterparties are NOT fixed at creation (Support/Payments can join later).
+- **KEY DECISION [owner 2026-08-01]:** which object routes to whom (table in §10) — `space` →
+  Provider; `campaign`/`adset`/`ad`/`booking`/`proof`/`payment` → **Support**, who may pull the
+  provider in. Support decides, not the UI.
+- Shipped: global "Soporte" navbar button, per-space "Mensaje al proveedor", `ChatController@store`
+  routing by `target`, proof shown inline in chat. 44 backend tests green (164 assertions).
+
+### Design dashboard + lineage (`design/`)
+- `design.html` + `app.js` (vanilla IIFE) + `styles.css` + `design.json` (data) + vendored mermaid.
+  Views: Specs (list/kanban toggle), consolidated Todos, Flow, ER, Classes, User Stories; friendly
+  deep-link URLs (`#spec/10`, `#uc/UC-9`, `#flow/FL07`) and cross-links between specs⇄stories⇄todos.
+- **Lineage**: stable ids — flow `FL01–FL22` (+ edges & decision branches), ER `ER01–ER23`,
+  classes `CL01–CL10`; specs/UCs/todos gained `flow`/`er`/`classes` refs rendered as "Impacto" chips
+  that deep-link and highlight the element.
+- **RULE the owner set:** lineage metadata is **REFERENCE ONLY** — never regenerate or redesign the
+  diagrams from it. Graphs are not wired to each other.
+- **RULE:** never fabricate a canonical UC/spec/todo. Where none fits, `suggested` only. 9 infra/meta
+  UC proposals + 3 todo proposals (UC-29/31/32) are parked awaiting the owner.
+- Promoted two suggestions the owner approved: **UC-41** (actor `USER`, sign-in grants role
+  capabilities) and **UC-42** (actor `CLIENT`, one seamless conversation instead of tickets-vs-chat).
+
+### Agent team + the IDOR it caught
+- `.claude/agents/`: `plan-opus48` (plan, read-only), `build-opus5` (build), `review-opus5` (review).
+  Model pinning lives in the frontmatter; the Agent tool's inline `model` cannot distinguish 4.8/5.
+- The review of the adset-detail build (p60) found: **IDOR** — `/client/campaigns/{c}/adsets/{a}`
+  and `/ads/{ad}` verify the campaign is yours but NOT that the child belongs to it, so a client
+  could read/rename/DELETE another account's adset (cascading to its ads+proofs). **p60 was
+  rejected, not shipped.** It also replicated the space-less-ad form that §5 calls a bug.
+
+### Owner decisions captured today (§21, §3) — APPROVED, NOT YET BUILT
+- **NEW §21 "Object Ownership & Access Chain" + UC-43**: authorize by the full chain
+  user→account→campaign→adset→ad (space → provider account); `scopeBindings()` + explicit
+  `abort_unless(child.parent_id === parent.id, 404)`; **404 never 403**; moves allowed only within
+  one account (carrying `bookings.adset_id`); **INVARIANT: every ad has a `space_id`**.
+- **Adset deletion**: an adset is only a grouping label → `ads.adset_id` goes
+  `cascadeOnDelete` → **`nullOnDelete`**. Ads survive as orphans; client chooses move-or-orphan.
+  Orphaned ≠ stopped — anything already paid keeps running.
+- **A REAL `accounts` table is created** (§3 always prescribed it; it never existed).
+  `users.account_id` → FK `accounts` (this direction, so owner-users can share an account later).
+  Collaborators AND billing are account-scoped; `collaborators.campaign_id` is dropped. Existing
+  rows are throwaway test data. `account_grants` overlay stays a later task.
+
+### Pitfalls Hit
+- **Emoji inside an Angular `{{ }}` binding renders EMPTY** (silent parse fail). Cost a long
+  misdiagnosis (blamed cache, then the container). FIX: `@if/@else` with static text.
+- **Codespaces' port-forward proxy caches static assets hard** — a stale `app.js` survived hard
+  refresh AND incognito. FIX: cache-bust `app.js`/`styles.css`/`design.json` with `?t=Date.now()`.
+  Side effect: an injected script runs AFTER `DOMContentLoaded`, so boot must not rely on the event.
+- **Mermaid highlight**: `[id*="FL07"]` matches an **edge** (`L_FL06_FL07_0`) before the node —
+  the highlight landed on a bare `<path>` with no child shape, so nothing painted. FIX: pin
+  `.node[id*=…]`. Class labels live in a `foreignObject`, so `closest("g")` stops at a shapeless
+  `.label` — climb to `.closest(".node")`. Verified in headless Chromium instead of guessing.
+- **Empty DB after a container restart** → "The provided credentials are incorrect". FIX:
+  `mvp-init.py` (self-healing seed) + an UNCONDITIONAL reseed reminder in the patch instructions.
+- **Patch filenames with hyphens get mangled on paste** and break `git apply` — use `pNN.patch`.
+- **Session length is the token sink**: 1.03B cache-read tokens over 30 days ≈ 326k re-read per
+  call; the 07-28 peak was 143M in a day. Switching models mid-session invalidates the whole prompt
+  cache (a cache is per-model) and forces an expensive re-write. FIX: a fresh session per feature.
+
+### Open Questions for Next Session
+- **Q32 — the IDOR fix is approved but NOT built.** §21/UC-43 is task 1: scoped bindings + explicit
+  parent checks + the move guardrails + the `space_id` invariant, with tests.
+- **Q33 — `ad`/`booking`/`proof` route to Support "for now"**; the owner expects Support may later
+  add the provider to an `ad` thread. Revisit when Support tooling grows.
+- **Q34 — the space-less-ad form still ships** in `campaign-detail.component.ts` (pre-existing,
+  §5 calls it a bug); it must be removed when §21's invariant is enforced.
+- **Q35 — WALK-1 (human Messages walkthrough) is still `pending`**, so F08/F09 remain
+  `in_progress` and §10 stays `wip`. The guion exists (C1–C6).
+- **Q36 — F11 was marked `done` on test evidence, but its human UI walkthrough (O1–O7) was never
+  run.** The owner flagged this; consider `review` until the walkthrough happens.
+- Parked: 9 suggested UC proposals (infra/meta) + 3 suggested todos (UC-29 moderation, UC-31 audit
+  log, UC-32 clawback) await an owner call.
+
+### Note on the record
+Q26–Q31 (opened in Session 18) were **closed in Session 19** by the O1–O24 owner decisions
+(clawback, config effect on in-flight bookings, cross-queue precedence, re-upload bound, SMS
+provider); the re-upload loop itself was later removed entirely in Session 28's F07 work.
+
 <!-- Add new sessions above this line -->
 
