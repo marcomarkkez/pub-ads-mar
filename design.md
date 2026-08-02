@@ -875,8 +875,10 @@ Integrity rules (terse; most are AFTER-MVP — build when their subsystem ships)
 - **AFTER-MVP:** `display_start` stored timestamp for proof crons; per-person `chat_participants`
   as the sole membership source (retire the side-anchor columns); DB-level audit immutability
   (INSERT-only + trigger); strikes decoupled from notifications + reversible.
-- **NOTE:** `proofs.status` is currently a SUPERSET (legacy `pending_review/approved/rejected` +
-  B9 `client_accepted/client_rejected`) until the deprecated Payments proof-review is removed.
+- **NOTE:** `proofs.status` is still a SUPERSET (legacy `pending_review/approved/rejected` + B9
+  `client_accepted/client_rejected`). The Payments proof-review that wrote `approved`/`rejected`
+  was removed 2026-08-02, so those two values are now written by nothing — collapsing the enum is
+  a follow-up (it needs a data migration for rows already carrying them).
 
 == 17. Backend Endpoint Map ==  [infra]
 kanban: `status:review` · `weight:S` · `impacts:all` · `deps:-` · `ids:-`
@@ -928,7 +930,9 @@ Support (role:support, prefix /support):
 Payments (role:payments, prefix /payments):
   GET /dashboard · GET /payments · GET /payments/{p} · POST /…/approve · POST /…/reject
   POST /…/refund · POST /…/payout/release · POST /…/payout/hold — money moves (idempotent, → wallet)
-  GET /proofs · POST /proofs/{proof}/approve · POST /…/reject — ⚠ VIOLATES B9, REMOVE (Payments must not review proof content)
+  (no proof routes — REMOVED 2026-08-02. Payments must not review proof CONTENT: the verdict is
+   the client's, POST /client/proofs/{proof}/accept|reject. §2 keeps Payments 👁 on Proof, not ✏,
+   so `payments.proofs.update` was revoked with the routes.)
 
 Shared — Chats (any authenticated; ONE primitive — §10; nature + ACL DERIVED from participants+objects):
   GET,POST /chats — list caller's chats (derived queue) / open a chat. COUNTERPARTY is set by the ENTRY POINT
@@ -962,7 +966,7 @@ Notifications: dispatcher + GET /notifications · POST /notifications/{n}/read
 Proof-deadline engine + strikes: cron (day3/4 reminders, day5 auto-cancel+refund+strike); strikes table + provider-dashboard counter
 
 Compliance (arch/design/cases → backend):
-- CONTRADICTS canon (fix LIVE code): Payments proof approve/reject/index (B9 — remove);
+- CONTRADICTS canon (fix LIVE code): ~~Payments proof approve/reject/index (B9)~~ FIXED 2026-08-02;
   collaborators campaign-scoped (→ account_id, both sides); bookings.status not canonical enum;
   provider booking PUT bare confirm/cancel (→ Approve/Reject, reason optional); hard DELETE with
   no guardrails.

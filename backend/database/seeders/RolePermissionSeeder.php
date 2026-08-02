@@ -77,7 +77,10 @@ class RolePermissionSeeder extends Seeder
 
             'payments' => [
                 'payments' => ['read', 'update', 'refund'],
-                'proofs'   => ['read', 'update'],
+                // B9 · §2 gives Payments 👁 on Proof, NOT ✏: it inspects a proof to
+                // understand a hold, and never reviews its content. `update` removed
+                // together with the /payments/proofs routes (2026-08-02).
+                'proofs'   => ['read'],
                 'bookings' => ['read'],
                 'invoices' => ['read'],
                 // Payments reads + posts ONLY in the internal Support↔Payments chat

@@ -20,7 +20,6 @@ use App\Http\Controllers\Client\WalletController;
 use App\Http\Controllers\Manager\UserController;
 use App\Http\Controllers\Payments\DashboardController as PaymentsDashboardController;
 use App\Http\Controllers\Payments\PaymentController;
-use App\Http\Controllers\Payments\ProofReviewController;
 use App\Http\Controllers\Provider\BookingController as ProviderBookingController;
 use App\Http\Controllers\Provider\DashboardController;
 use App\Http\Controllers\Provider\ProofController;
@@ -210,9 +209,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('payments/{payment}/payout/release', [PaymentController::class, 'releasePayout'])->middleware('permission:payments,update');
         Route::post('payments/{payment}/payout/hold', [PaymentController::class, 'holdPayout'])->middleware('permission:payments,update');
 
-        Route::get('proofs', [ProofReviewController::class, 'index'])->middleware('permission:proofs,read');
-        Route::post('proofs/{proof}/approve', [ProofReviewController::class, 'approve'])->middleware('permission:proofs,update');
-        Route::post('proofs/{proof}/reject', [ProofReviewController::class, 'reject'])->middleware('permission:proofs,update');
+        // B9 · design.md §7/§17 — Payments does NOT review proof CONTENT. The
+        // proof verdict is the CLIENT's (POST /client/proofs/{proof}/accept|reject,
+        // ProofFlagController); Payments only reacts to it with money. The old
+        // GET /payments/proofs + approve/reject lived here in violation of that
+        // and are REMOVED (2026-08-02), along with the payments.proofs.update
+        // permission. Payments keeps proofs.read — §2 gives it 👁, not ✏.
     });
 
     // ── Shared routes — Chats (any authenticated user) ──────────────

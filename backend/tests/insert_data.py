@@ -574,14 +574,16 @@ def main():
 
     print(f"  Created {tickets_created} tickets, {conversations_created} conversations")
 
-    # ── Payments team actions ────────────────────────────────
-    print(f"\n[9/9] Payments team: approving payments & proofs...")
+    # ── Payments team + client proof verdicts ────────────────
+    # design.md §7 (B9): Payments approves PAYMENTS. The proof verdict belongs to
+    # the CLIENT — accepting is what makes a payout releasable. The old
+    # /payments/proofs/{id}/approve path was a B9 violation and is gone.
+    print(f"\n[9/9] Payments approve payments; clients accept proofs...")
     payments_token = login("payments@pubads.test")
     payments_approved = 0
-    proofs_approved = 0
+    proofs_accepted = 0
 
     if payments_token:
-        # Approve some payments
         _, pay_list = api("GET", "/payments/payments", token=payments_token)
         if pay_list and "data" in pay_list:
             for p in pay_list["data"]:
@@ -589,15 +591,19 @@ def main():
                     api("POST", f"/payments/payments/{p['id']}/approve", token=payments_token)
                     payments_approved += 1
 
-        # Approve some proofs
-        _, proof_list = api("GET", "/payments/proofs", token=payments_token)
-        if proof_list and isinstance(proof_list, list):
-            for pr in proof_list:
-                if pr.get("status") == "pending" and random.random() < 0.7:
-                    api("POST", f"/payments/proofs/{pr['id']}/approve", token=payments_token)
-                    proofs_approved += 1
+    # Clients accept ~70% of the proofs on their own bookings.
+    for ctoken in client_tokens:
+        _, bookings = api("GET", "/client/bookings", token=ctoken)
+        if not bookings or not isinstance(bookings, list):
+            continue
 
-    print(f"  Approved {payments_approved} payments, {proofs_approved} proofs")
+        for b in bookings:
+            for pr in b.get("proofs") or []:
+                if pr.get("status") == "pending_review" and random.random() < 0.7:
+                    api("POST", f"/client/proofs/{pr['id']}/accept", token=ctoken)
+                    proofs_accepted += 1
+
+    print(f"  Approved {payments_approved} payments, clients accepted {proofs_accepted} proofs")
 
     # ── Summary ──────────────────────────────────────────────
     print("\n" + "=" * 60)
@@ -614,7 +620,7 @@ def main():
     print(f"  Tickets:        {tickets_created}")
     print(f"  Conversations:  {conversations_created}")
     print(f"  Payments approved: {payments_approved}")
-    print(f"  Proofs approved:   {proofs_approved}")
+    print(f"  Proofs accepted:   {proofs_accepted}  (by the client — B9)")
     print("=" * 60)
 
     return 0

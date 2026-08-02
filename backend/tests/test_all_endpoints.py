@@ -637,14 +637,23 @@ def main():
     api("GET", "/payments/payments", token=provider1_token, expect_status=403)
 
     # =========================================================
-    # 20. PAYMENTS: Proof Review
+    # 20. PAYMENTS: no proof-CONTENT review (B9)
     # =========================================================
-    print("\n--- PAYMENTS: Proof Review ---")
+    print("\n--- PAYMENTS: proof content review is GONE (B9) ---")
 
-    api("GET", "/payments/proofs", token=payments_token)
+    # design.md §7/§17: the proof verdict is the CLIENT's; Payments only reacts
+    # to it with money. These routes were removed on 2026-08-02 — assert they
+    # stay gone, so nobody reintroduces the violation by accident.
+    api("GET", "/payments/proofs", token=payments_token, expect_status=404)
 
     if proof_id:
-        api("POST", f"/payments/proofs/{proof_id}/approve", token=payments_token, expect_status=200)
+        api("POST", f"/payments/proofs/{proof_id}/approve", token=payments_token, expect_status=404)
+        api("POST", f"/payments/proofs/{proof_id}/reject", token=payments_token, expect_status=404)
+
+    # The verdict that DOES exist — POST /client/proofs/{proof}/accept|reject —
+    # is owner-scoped, and the proof above belongs to whichever client booked
+    # provider1's space, so it is not assertable from here. Its coverage lives in
+    # the PHPUnit feature suite, not in this smoke script.
 
     # =========================================================
     # 21. CONVERSATIONS
