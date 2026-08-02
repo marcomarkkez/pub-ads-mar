@@ -73,7 +73,7 @@ class BacklogController extends Controller
     }
 
     /**
-     * C03 + design.md §21 rule 3 (move matrix): bulk-move ads into an adset.
+     * C03 + design.json §21 rule 3 (move matrix): bulk-move ads into an adset.
      *
      * Allowed WITHIN one account, across campaigns and adsets; forbidden across
      * accounts (404, never 403 — a 403 would confirm the object exists). The move

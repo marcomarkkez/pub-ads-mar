@@ -575,7 +575,7 @@ def main():
     print(f"  Created {tickets_created} tickets, {conversations_created} conversations")
 
     # ── Payments team + client proof verdicts ────────────────
-    # design.md §7 (B9): Payments approves PAYMENTS. The proof verdict belongs to
+    # design.json §7 (B9): Payments approves PAYMENTS. The proof verdict belongs to
     # the CLIENT — accepting is what makes a payout releasable. The old
     # /payments/proofs/{id}/approve path was a B9 violation and is gone.
     print(f"\n[9/9] Payments approve payments; clients accept proofs...")

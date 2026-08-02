@@ -8,7 +8,7 @@ import { NotificationService } from '../../../core/services/notification.service
 import { AuthService } from '../../../core/services/auth.service';
 import { Chat, activeFlags, displayChatStatus, chatTitle } from '../../../core/models';
 
-// UC-8/UC-9 · design.md §10/§17 — the single Messages surface for ALL roles.
+// UC-8/UC-9 · design.json §10/§17 — the single Messages surface for ALL roles.
 // GET /chats returns the caller's chats (Support's list is its DERIVED queue).
 @Component({
   selector: 'app-chat-list',
@@ -20,7 +20,7 @@ import { Chat, activeFlags, displayChatStatus, chatTitle } from '../../../core/m
       <a routerLink="/messages/new" class="btn btn-primary new-btn">Open a chat</a>
     </div>
 
-    <!-- 'Naturaleza' is a STAFF/oversight classification (design.md §10/§12): it exists for
+    <!-- 'Naturaleza' is a STAFF/oversight classification (design.json §10/§12): it exists for
          ACL branching + the admin eagle-eye filter, NOT as a user-facing control here. Each
          role's list already contains ONLY the chats assigned to it, so the sole list filter
          is Estado. Nature filtering lives in the admin's /admin/oversight/chats view. -->

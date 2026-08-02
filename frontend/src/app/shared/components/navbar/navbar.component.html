@@ -4,7 +4,7 @@
   </div>
 
   <div class="navbar-end">
-    <!-- UC-9 · design.md §10 — GLOBAL 'contact support' entry point (near the user icon):
+    <!-- UC-9 · design.json §10 — GLOBAL 'contact support' entry point (near the user icon):
          opens a Support chat (objectless). Only client/provider contact support; staff don't. -->
     @if (role() === 'client' || role() === 'provider') {
       <a routerLink="/messages/new" class="support-link" title="Contactar soporte">💬 Soporte</a>

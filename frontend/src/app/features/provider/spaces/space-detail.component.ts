@@ -21,7 +21,7 @@ import { Space, SpacePhoto } from '../../../core/models';
         <h1>{{ space()!.name }}</h1>
         <div class="header-actions">
           <a [routerLink]="['/provider/spaces', space()!.id, 'edit']" class="btn">Edit</a>
-          <!-- design.md §10 — "contact support" is simply "open a chat" (object-attached) -->
+          <!-- design.json §10 — "contact support" is simply "open a chat" (object-attached) -->
           <a routerLink="/messages/new"
             [queryParams]="{ object_type: 'space', object_id: space()!.id, subject: 'Issue with space: ' + space()!.name }"
             class="btn">💬 Open a chat</a>

@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * design.md §10/§11/§15 — tickets + ticket_messages are RETIRED (2026-07-17 merge).
+ * design.json §10/§11/§15 — tickets + ticket_messages are RETIRED (2026-07-17 merge).
  * A "ticket" is now just a chat with a Support participant; ticketable → chat_objects;
  * is_internal notes → staff-only chats + kind=system messages.
  */

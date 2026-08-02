@@ -5,7 +5,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
 
-// UC-31 · design.md §12/§17 — the immutable audit log, Admin read-only.
+// UC-31 · design.json §12/§17 — the immutable audit log, Admin read-only.
 // GET /admin/audit with ?target_type ?target_id ?actor_id ?action.
 // There is nothing to click but filters: the log is append-only, so this screen
 // has no edit, no delete and no reply. Same posture as the oversight screen.

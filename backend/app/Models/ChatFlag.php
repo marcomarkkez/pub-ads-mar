@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * UC-7/UC-22 · design.md §10/§15 — a volatile human annotation on a chat, with
+ * UC-7/UC-22 · design.json §10/§15 — a volatile human annotation on a chat, with
  * history (supersede-in-place). A flag NEVER grants access; the money STATE stays
  * on payments.status. Support RAISES money flags; Payments EXECUTES via §8 routes.
  */

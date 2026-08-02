@@ -1,16 +1,16 @@
-// UC-8/UC-9 · design.md §10 — the ONE chat primitive (replaces Conversation + Ticket).
+// UC-8/UC-9 · design.json §10 — the ONE chat primitive (replaces Conversation + Ticket).
 // A chat's nature is DERIVED (never a column) from participants + objects + flags.
 
-/** Attachable object kinds (design.md §10 — zero..many polymorphic attachments). */
+/** Attachable object kinds (design.json §10 — zero..many polymorphic attachments). */
 export type ChatObjectType = 'ad' | 'adset' | 'campaign' | 'space' | 'payment' | 'booking';
 
 /** Persisted chat state; the user-facing UI collapses this to Abierto/Cerrado. */
 export type ChatStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 
-/** Participant side (design.md §10 — access is by MEMBERSHIP, never a flag). */
+/** Participant side (design.json §10 — access is by MEMBERSHIP, never a flag). */
 export type ChatSide = 'client' | 'provider' | 'support' | 'payments' | 'admin';
 
-/** Flag types (design.md §10 — volatile human annotations; money STATE stays on payments.status). */
+/** Flag types (design.json §10 — volatile human annotations; money STATE stays on payments.status). */
 export type ChatFlagType =
   | 'payment_held'
   | 'refund'
@@ -19,7 +19,7 @@ export type ChatFlagType =
   | 'mismatch'
   | string;
 
-/** Derived nature, sent by the server for labels/filters — NEVER persisted (design.md §10). */
+/** Derived nature, sent by the server for labels/filters — NEVER persisted (design.json §10). */
 export type ChatNature =
   | 'client_provider'
   | 'support_client'
@@ -39,7 +39,7 @@ export interface ChatParticipant {
   user?: { id: number; name: string; role: string };
 }
 
-/** A proof preview the server hydrates onto a chat object (design.md §7 — dispute subject). */
+/** A proof preview the server hydrates onto a chat object (design.json §7 — dispute subject). */
 export interface ChatObjectProof {
   id: number;
   media_type: string;   // 'image' | 'video' | …
@@ -97,7 +97,7 @@ export interface Chat {
   messages_count?: number;
 }
 
-/** design.md §10 — the ONLY user-facing state legend. */
+/** design.json §10 — the ONLY user-facing state legend. */
 export function displayChatStatus(status: ChatStatus | string | undefined): 'Abierto' | 'Cerrado' {
   return status === 'closed' ? 'Cerrado' : 'Abierto';
 }
@@ -108,7 +108,7 @@ export function activeFlags(chat: Pick<Chat, 'flags'> & { active_flags?: ChatFla
 }
 
 /**
- * design.md §10 — user-facing chat title DERIVED from nature. A client/provider chat
+ * design.json §10 — user-facing chat title DERIVED from nature. A client/provider chat
  * with support reads "Chat con soporte" (never the internal nature enum or "Chat #id").
  */
 export function chatTitle(chat: Chat): string {

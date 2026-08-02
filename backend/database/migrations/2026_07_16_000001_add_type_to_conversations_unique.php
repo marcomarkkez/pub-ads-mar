@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * design.md §7/§10/§11: a single space+client can now carry MORE than one thread
+ * design.json §7/§10/§11: a single space+client can now carry MORE than one thread
  * (the direct client↔provider chat PLUS the Support-anchored dispute threads:
  * internal / support_client / support_provider). The old unique(space_id,
  * client_user_id) blocked that — widen it to include `type`.

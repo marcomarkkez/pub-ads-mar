@@ -8,7 +8,7 @@ use App\Models\Campaign;
 use Illuminate\Http\Request;
 
 /**
- * design.md §21 (UC-43) — Object Ownership & Access Chain.
+ * design.json §21 (UC-43) — Object Ownership & Access Chain.
  *
  * Every screen and endpoint authorizes by the WHOLE chain
  * (`user -> account -> campaign -> adset -> ad`), never by the parent alone.

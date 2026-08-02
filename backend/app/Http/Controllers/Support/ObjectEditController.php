@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * design.md §11 / §17 (UC-23) — Support edits any NON-money object, audited.
+ * design.json §11 / §17 (UC-23) — Support edits any NON-money object, audited.
  *
  * `PUT /support/{spaces|ads|users|bookings|collaborators}/{id}`
  *
@@ -173,7 +173,7 @@ class ObjectEditController extends Controller
 
         if ($money !== []) {
             throw new RuntimeException(
-                'Support has no money authority (design.md §1): refusing to edit '
+                'Support has no money authority (design.json §1): refusing to edit '
                 . implode(', ', $money) . '. Raise a flag for Payments instead.'
             );
         }

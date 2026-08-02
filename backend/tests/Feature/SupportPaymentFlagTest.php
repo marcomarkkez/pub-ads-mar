@@ -10,7 +10,7 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * UC-22 · design.md §10 — Support RAISES money flags on a chat (Payments executes
+ * UC-22 · design.json §10 — Support RAISES money flags on a chat (Payments executes
  * the money via the §8 routes). A flag is an annotation with history: changing it
  * supersedes the prior one and writes a system message. A flag NEVER moves money
  * and NEVER grants access.

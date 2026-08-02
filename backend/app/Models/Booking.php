@@ -63,7 +63,7 @@ class Booking extends Model
         return $this->hasMany(Proof::class);
     }
 
-    // UC-7 · design.md §10 — chats this booking is attached to (dispute chats).
+    // UC-7 · design.json §10 — chats this booking is attached to (dispute chats).
     public function chatObjects(): MorphMany
     {
         return $this->morphMany(ChatObject::class, 'objectable');

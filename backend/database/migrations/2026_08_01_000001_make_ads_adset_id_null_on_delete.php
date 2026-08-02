@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * design.md §21 — an adset is only a GROUPING label, so deleting it must NOT
+ * design.json §21 — an adset is only a GROUPING label, so deleting it must NOT
  * destroy its ads. `ads.adset_id` moves from `cascadeOnDelete` (set by
  * 2026_06_13_000020) to `nullOnDelete`: on delete the ads survive as backlog
  * orphans in their campaign.

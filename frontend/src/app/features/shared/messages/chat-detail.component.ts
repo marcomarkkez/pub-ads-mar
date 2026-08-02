@@ -12,7 +12,7 @@ import {
 } from '../../../core/models';
 import { ObjectPickerComponent, PickedObject } from './object-picker.component';
 
-// UC-8/UC-9/UC-21/UC-22 · design.md §10/§17 — chat detail: participants, attached OBJECTS,
+// UC-8/UC-9/UC-21/UC-22 · design.json §10/§17 — chat detail: participants, attached OBJECTS,
 // active FLAGS, state as Abierto/Cerrado, messages, and role actions
 // (Support: join/flag/resolve · opener: close).
 @Component({
@@ -72,7 +72,7 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
                   <button type="button" class="link-btn" (click)="detachObject(o)">Quitar</button>
                 }
               </div>
-              <!-- UC-7 · design.md §7 — show the related PROOF inline so Support can see the
+              <!-- UC-7 · design.json §7 — show the related PROOF inline so Support can see the
                    evidence without leaving the chat (image/video + status + open link). -->
               @if (o.object?.proof; as pf) {
                 <div class="object-proof">

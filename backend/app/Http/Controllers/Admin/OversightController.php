@@ -9,7 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * UC-28 · design.md §10/§12 — the ONE eagle-eye chat oversight screen
+ * UC-28 · design.json §10/§12 — the ONE eagle-eye chat oversight screen
  * (GET /admin/oversight/chats). Read-only + incognito: Admin observes EVERY chat
  * (incl. closed, full unmasked history) silently — never posts as a ghost (R1).
  * Replaces the two former oversight views (conversations + tickets).

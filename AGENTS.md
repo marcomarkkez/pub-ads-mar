@@ -14,7 +14,7 @@ Patterns the owner explicitly praised and wants repeated — a "do more of this"
   flagged this instinct as repeat-worthy (2026-07-17). Generalizes to: prefer one primitive +
   attributes over N near-duplicate primitives; fewer tables/endpoints/screens, more filters.
 - **Timestamp every decision change** (owner, 2026-07-17). When a decision is set or changed,
-  stamp it `[owner YYYY-MM-DD]` in design.md and commit the design change FIRST (before the code),
+  stamp it `[owner YYYY-MM-DD]` in design/design.json and commit the design change FIRST (before the code),
   so the decision history is reviewable in git and `latest-decision-wins` resolves by date.
 
 ## Quick Reference

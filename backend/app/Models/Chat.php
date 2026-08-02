@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * UC-8/UC-9/UC-21/UC-28 · design.md §10/§15/§16 — the ONE communication primitive.
+ * UC-8/UC-9/UC-21/UC-28 · design.json §10/§15/§16 — the ONE communication primitive.
  * A "ticket" = a chat with a Support participant. Nature is DERIVED (never a column)
  * from participants+objects+flags. Access is by MEMBERSHIP/role, NEVER by a flag.
  */
@@ -102,7 +102,7 @@ class Chat extends Model
     // ── Derived nature (§10/§16) — NEVER persisted ──────────────────────────
 
     /**
-     * UC-28 · design.md §10/§16 — derive the chat's nature from its side anchors.
+     * UC-28 · design.json §10/§16 — derive the chat's nature from its side anchors.
      * Support/Payments presence is role-derived at request time; the anchors alone
      * distinguish the four kinds, which is exactly what the ACL + PII policy need.
      */
@@ -138,7 +138,7 @@ class Chat extends Model
     // ── ACL core (§10/§16; chat-acl-security-review R1-R9) ───────────────────
 
     /**
-     * UC-8/UC-9/UC-21/UC-27 · design.md §10/§16 — read/post gate. TRUE iff the user
+     * UC-8/UC-9/UC-21/UC-27 · design.json §10/§16 — read/post gate. TRUE iff the user
      * holds a live participant row OR belongs to a participating ACCOUNT with a
      * chat-capable subrole. A flag NEVER grants access (R1/R2/R7/R8 fixes baked in):
      *  - CLIENT   → the client side (owner or any client collaborator; installator DENIED).
@@ -213,7 +213,7 @@ class Chat extends Model
     // ── Visibility scope for the list (index) ────────────────────────────────
 
     /**
-     * UC-8/UC-9/UC-27 · design.md §10 — the chats a user may see in their Messages
+     * UC-8/UC-9/UC-27 · design.json §10 — the chats a user may see in their Messages
      * list. Mirrors userCanAccess() as a query. Admin lists via oversight, not here.
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder

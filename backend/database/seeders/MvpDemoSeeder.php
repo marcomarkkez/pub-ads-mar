@@ -142,7 +142,7 @@ class MvpDemoSeeder extends Seeder
             }
         }
 
-        // ── Chats: a "ticket" is just a chat with a Support participant (design.md §10) ──
+        // ── Chats: a "ticket" is just a chat with a Support participant (design.json §10) ──
         $firstAd = Ad::where('campaign_id', $camp1->id)->first();
         $firstSpaceP2 = $p2Spaces->first();
 

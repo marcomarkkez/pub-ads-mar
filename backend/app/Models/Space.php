@@ -65,7 +65,7 @@ class Space extends Model
         return $this->hasMany(Ad::class);
     }
 
-    // UC-8 · design.md §10 — chats this space is attached to (space is now just one
+    // UC-8 · design.json §10 — chats this space is attached to (space is now just one
     // possible chat_object; the old space_id anchor on conversations is retired).
     public function chatObjects(): MorphMany
     {

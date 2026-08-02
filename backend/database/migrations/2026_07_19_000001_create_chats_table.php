@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * UC-8/UC-9 · design.md §10/§15 — the ONE communication primitive `chats`.
+ * UC-8/UC-9 · design.json §10/§15 — the ONE communication primitive `chats`.
  * A "ticket" is just a chat with a Support participant; nature is DERIVED from
  * participants+objects+flags, never a `type` column. NO space_id, NO unique.
  */

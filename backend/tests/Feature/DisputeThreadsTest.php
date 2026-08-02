@@ -12,7 +12,7 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * UC-7 · design.md §7/§10 — when the client rejects the proof, the payout is HELD
+ * UC-7 · design.json §7/§10 — when the client rejects the proof, the payout is HELD
  * and THREE dispute chats auto-open (Support↔Client / ↔Provider / ↔Payments), each
  * anchored to the held payment+booking with a payment_held flag, visible only to
  * Support + the one relevant counterparty.

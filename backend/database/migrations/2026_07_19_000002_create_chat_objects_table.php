@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * UC-8 · design.md §10/§15 — polymorphic N attachments on a chat
+ * UC-8 · design.json §10/§15 — polymorphic N attachments on a chat
  * (Ad|Adset|Campaign|Space|Payment|Booking). Replaces the old single space_id
  * anchor AND the retired `ticketable`. Attaching is OWNERSHIP-CHECKED (R2/§16).
  */

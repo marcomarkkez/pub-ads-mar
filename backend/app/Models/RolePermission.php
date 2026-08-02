@@ -34,13 +34,13 @@ class RolePermission extends Model
         'bookings',
         'payments',
         'proofs',
-        // design.md §10 — ONE `chats` resource; `tickets` + `conversations` retired.
+        // design.json §10 — ONE `chats` resource; `tickets` + `conversations` retired.
         'chats',
         'invoices',
         'collaborators',
         'configurations',
         'dashboard',
-        // design.md §12 (UC-31) — read-only for Admin; the log is append-only.
+        // design.json §12 (UC-31) — read-only for Admin; the log is append-only.
         'audit',
     ];
 

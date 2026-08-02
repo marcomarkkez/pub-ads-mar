@@ -11,7 +11,7 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * UC-27 · design.md §8/§10 — Payments sees WHY money is held: the dispute chats (with
+ * UC-27 · design.json §8/§10 — Payments sees WHY money is held: the dispute chats (with
  * their active payment_held flag) ride along on the payment as chat_objects. Money ops
  * stay idempotent.
  */

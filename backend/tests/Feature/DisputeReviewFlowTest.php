@@ -11,7 +11,7 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * UC-6/UC-7 · design.md §7/§8/§10 — the client proof review drives the money.
+ * UC-6/UC-7 · design.json §7/§8/§10 — the client proof review drives the money.
  *  - accept  -> proof client_accepted, payment held, payout releasable.
  *  - reject  -> payout held + payment_held flag + 3 dispute chats.
  * Release is gated on the client having accepted.

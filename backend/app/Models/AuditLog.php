@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * design.md §12 (UC-31) — immutable, append-only audit log.
+ * design.json §12 (UC-31) — immutable, append-only audit log.
  *
  * Every staff action that carries ✏ or $ in the §2 matrix writes one row here,
  * in the SAME transaction as the state change it records. Admin reads it

@@ -38,7 +38,7 @@ class Payment extends Model
     }
 
     /**
-     * UC-7/UC-27 · design.md §10 — chats this payment is attached to (dispute /
+     * UC-7/UC-27 · design.json §10 — chats this payment is attached to (dispute /
      * internal Support↔Payments chats). This is how Payments sees WHY money is held
      * and what Support requested — the retired `tickets` morphMany is now chat_objects.
      */

@@ -10,7 +10,7 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * B9 · design.md §7/§17 — Payments does NOT review proof CONTENT.
+ * B9 · design.json §7/§17 — Payments does NOT review proof CONTENT.
  *
  * §2 gives Payments 👁 on Proof, not ✏: it may look at the proof behind a held
  * payout, but the verdict is the CLIENT's (POST /client/proofs/{proof}/accept

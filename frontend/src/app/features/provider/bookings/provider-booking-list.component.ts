@@ -67,7 +67,7 @@ import { Booking } from '../../../core/models';
                     </span>
                   </td>
                   <td class="actions">
-                    <!-- design.md §5 [F06]: provider acts with Approve or Reject (reason OPTIONAL); no counter-offers. -->
+                    <!-- design.json §5 [F06]: provider acts with Approve or Reject (reason OPTIONAL); no counter-offers. -->
                     @if (rejectingId() === booking.id) {
                       <input type="text" class="reject-reason" [(ngModel)]="rejectReason"
                              name="rejectReason" placeholder="Reason (optional)" />
@@ -204,7 +204,7 @@ export class ProviderBookingListComponent implements OnInit {
     });
   }
 
-  // design.md §5 [F06]: Reject with an OPTIONAL reason.
+  // design.json §5 [F06]: Reject with an OPTIONAL reason.
   openReject(booking: Booking): void {
     this.rejectingId.set(booking.id);
     this.rejectReason = '';

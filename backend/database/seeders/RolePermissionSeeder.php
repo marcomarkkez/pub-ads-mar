@@ -12,7 +12,7 @@ class RolePermissionSeeder extends Seeder
         RolePermission::truncate();
 
         $permissions = [
-            // design.md §10/§17 — ONE `chats` resource (tickets + conversations retired).
+            // design.json §10/§17 — ONE `chats` resource (tickets + conversations retired).
             'client' => [
                 'campaigns'     => ['create', 'read', 'update', 'delete'],
                 'adsets'        => ['create', 'read', 'update', 'delete'],

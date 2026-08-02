@@ -8,7 +8,7 @@ import { NotificationService } from '../../../core/services/notification.service
 import { Chat, ChatObjectType } from '../../../core/models';
 import { ObjectPickerComponent, PickedObject } from './object-picker.component';
 
-// UC-9 · design.md §10/§17 — "contact support" is simply "open a chat" (objectless or
+// UC-9 · design.json §10/§17 — "contact support" is simply "open a chat" (objectless or
 // object-attached via the two dropdowns). POST /chats, then POST /chats/{c}/objects if needed.
 @Component({
   selector: 'app-chat-new',
@@ -77,7 +77,7 @@ export class ChatNewComponent implements OnInit {
   locked = signal(false);
   submitting = signal(false);
   error = signal('');
-  // UC-8/UC-9 · design.md §10 — the ENTRY POINT sets the counterparty. 'provider' arrives only
+  // UC-8/UC-9 · design.json §10 — the ENTRY POINT sets the counterparty. 'provider' arrives only
   // from a published listing (space attached); everything else is 'support'.
   target: 'support' | 'provider' = 'support';
 

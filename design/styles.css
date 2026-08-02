@@ -228,3 +228,16 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .hl-target text, text.hl-target, tspan.hl-target { fill: #b45309 !important; font-weight: 700 !important; }
 @keyframes hlpulse { 0%,100% { filter: drop-shadow(0 0 4px rgba(245,158,11,.6)); } 50% { filter: drop-shadow(0 0 10px rgba(245,158,11,1)); } }
 .hl-target { animation: hlpulse 1.2s ease-in-out 2; }
+
+/* ---------- Sprint view (folded in from mvp-sprint.json) ---------- */
+.sprint { padding: 4px 2px 40px; max-width: 1100px; }
+.sprint h3 { margin: 26px 0 10px; font-size: 15px; }
+.sprint .prose { white-space: pre-wrap; line-height: 1.6; }
+.sprint-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sprint-item {
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--muted);
+  border-radius: 6px; padding: 8px 12px; font-size: 13px; line-height: 1.5;
+}
+.sprint-item.is-built   { border-left-color: #22c55e; }
+.sprint-item.is-partial { border-left-color: #f59e0b; }
+.sprint-item.is-missing { border-left-color: #94a3b8; }

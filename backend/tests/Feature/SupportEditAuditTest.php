@@ -16,7 +16,7 @@ use RuntimeException;
 use Tests\TestCase;
 
 /**
- * design.md §11 / §12 — UC-23 (Support edits any NON-money object, audited)
+ * design.json §11 / §12 — UC-23 (Support edits any NON-money object, audited)
  * and UC-31 (the immutable audit log).
  *
  * The two rules these defend:

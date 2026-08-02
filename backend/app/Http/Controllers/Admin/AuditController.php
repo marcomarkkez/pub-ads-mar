@@ -8,7 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * design.md §12 (UC-31) — `GET /admin/audit`.
+ * design.json §12 (UC-31) — `GET /admin/audit`.
  *
  * Read-only by construction: this controller exposes no write verb, and the
  * model refuses updates and deletes anyway. §2 gives Admin 👁 read-all on the

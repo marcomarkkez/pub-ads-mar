@@ -14,7 +14,7 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * design.md §10/§16 + chat-acl-security-review R1-R9 — the ACL invariants that the
+ * design.json §10/§16 + chat-acl-security-review R1-R9 — the ACL invariants that the
  * unified chat model must hold: Admin never posts (R1); installators are DENIED
  * (R4); closed chats are not user-reopenable + history hidden (R3); nature is derived;
  * a flag NEVER grants access.
@@ -114,7 +114,7 @@ class ChatAclMatrixTest extends TestCase
             ->assertJsonFragment(['body' => 'secret history']);
     }
 
-    /** design.md §10/§16 — nature is DERIVED from the side anchors, never a column. */
+    /** design.json §10/§16 — nature is DERIVED from the side anchors, never a column. */
     public function test_nature_is_derived_from_anchors(): void
     {
         $client = User::factory()->create(['role' => 'client']);
@@ -126,7 +126,7 @@ class ChatAclMatrixTest extends TestCase
         $this->assertSame(Chat::NATURE_INTERNAL, Chat::create(['opened_by_user_id' => $provider->id])->deriveNature());
     }
 
-    /** design.md §16 — a flag NEVER grants access, and flipping it changes no ACL cell. */
+    /** design.json §16 — a flag NEVER grants access, and flipping it changes no ACL cell. */
     public function test_a_flag_never_grants_access(): void
     {
         $client = User::factory()->create(['role' => 'client']);

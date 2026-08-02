@@ -21,13 +21,13 @@ export class SidebarComponent {
   role = this.auth.userRole;
   menuOpen = false;
 
-  // design.md §10 — ONE "Messages" area for ALL roles; no separate Support/Tickets menu.
+  // design.json §10 — ONE "Messages" area for ALL roles; no separate Support/Tickets menu.
   navItems = computed<NavItem[]>(() => {
     const role = this.role();
     switch (role) {
       case 'client':
         return [
-          // design.md §1/§13: the client has NO dashboard — lands on the Spaces map.
+          // design.json §1/§13: the client has NO dashboard — lands on the Spaces map.
           { label: 'Explore Spaces', icon: '🗺️', route: '/client/spaces' },
           { label: 'Campaigns', icon: '📢', route: '/client/campaigns' },
           { label: 'Bookings', icon: '📅', route: '/client/bookings' },
@@ -48,9 +48,9 @@ export class SidebarComponent {
           { label: 'Dashboard', icon: '📊', route: '/dashboard' },
           { label: 'Users', icon: '👥', route: '/admin/users' },
           { label: 'Permissions', icon: '🔐', route: '/admin/permissions' },
-          // design.md §12 — admin's Messages surface is the read-only oversight screen.
+          // design.json §12 — admin's Messages surface is the read-only oversight screen.
           { label: 'Messages', icon: '💬', route: '/admin/oversight' },
-          // design.md §12 (UC-31) — the append-only log; Admin is its only reader.
+          // design.json §12 (UC-31) — the append-only log; Admin is its only reader.
           { label: 'Audit Log', icon: '📜', route: '/admin/audit' },
           { label: 'Configurations', icon: '⚙️', route: '/admin/config' },
         ];

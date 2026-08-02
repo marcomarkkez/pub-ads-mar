@@ -16,7 +16,7 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * design.md §21 / UC-43 — Object Ownership & Access Chain.
+ * design.json §21 / UC-43 — Object Ownership & Access Chain.
  *
  * Every endpoint authorizes by the WHOLE chain (user -> campaign -> adset -> ad),
  * never by the parent alone. The IDOR these cover: a caller passing their OWN

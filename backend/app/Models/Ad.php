@@ -60,7 +60,7 @@ class Ad extends Model
         return $this->hasMany(Proof::class);
     }
 
-    // UC-8 · design.md §10 — chats this ad is attached to (replaces retired tickets).
+    // UC-8 · design.json §10 — chats this ad is attached to (replaces retired tickets).
     public function chatObjects(): MorphMany
     {
         return $this->morphMany(ChatObject::class, 'objectable');

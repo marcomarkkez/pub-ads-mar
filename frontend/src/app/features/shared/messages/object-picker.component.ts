@@ -14,7 +14,7 @@ export interface PickedObject {
 
 interface ObjOption { id: number; name?: string; label?: string; }
 
-// UC-8 · design.md §10 — attach an object via TWO dropdowns (object type → the object,
+// UC-8 · design.json §10 — attach an object via TWO dropdowns (object type → the object,
 // e.g. Ads → "My Ad #1"). Attaching is ownership-checked server-side.
 @Component({
   selector: 'app-object-picker',

@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * design.md §12 (UC-31) — the immutable audit log.
+ * design.json §12 (UC-31) — the immutable audit log.
  *
  * Append-only: one row per action of ANY role, carrying actor, target,
  * before/after and a timestamp. There is no `updated_at` on purpose — a row

@@ -13,7 +13,7 @@ class PaymentController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // UC-27 · design.md §10/§8 — load the dispute chats (with their active flags)
+        // UC-27 · design.json §10/§8 — load the dispute chats (with their active flags)
         // this payment is attached to, so Payments sees WHY money is held.
         $query = Payment::with(['booking.client', 'booking.space', 'approvedBy', 'chatObjects.chat.activeFlags']);
 

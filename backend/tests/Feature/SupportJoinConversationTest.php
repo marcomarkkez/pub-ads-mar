@@ -11,7 +11,7 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * UC-21 · design.md §10 — when Support JOINS a client↔provider chat it is announced
+ * UC-21 · design.json §10 — when Support JOINS a client↔provider chat it is announced
  * (system message + announced participant) and PII masking RELAXES for the chat.
  * Support cannot read the chat until it joins.
  */

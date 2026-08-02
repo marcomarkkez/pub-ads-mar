@@ -6,7 +6,7 @@ import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
 import { Chat, ChatMessage, activeFlags, displayChatStatus } from '../../../core/models';
 
-// UC-28 · design.md §10/§12/§17 — Admin chat oversight: ONE read-only/incognito screen over
+// UC-28 · design.json §10/§12/§17 — Admin chat oversight: ONE read-only/incognito screen over
 // the unified chat primitive. GET /admin/oversight/chats (+ /{chat}), filter bar
 // (nature/flag/object/status/participant). Admin never posts; only write-power is reopen.
 @Component({
@@ -21,7 +21,7 @@ import { Chat, ChatMessage, activeFlags, displayChatStatus } from '../../../core
       </header>
       <p class="oversight__note">Read-only view of EVERY chat (one primitive — §10). Admin observes silently.</p>
 
-      <!-- Filter bar: nature / flag / object / status / participant (design.md §12) -->
+      <!-- Filter bar: nature / flag / object / status / participant (design.json §12) -->
       <div class="filters">
         <select [(ngModel)]="fNature">
           <option value="">Nature: all</option>

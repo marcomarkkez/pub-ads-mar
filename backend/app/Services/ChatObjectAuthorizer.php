@@ -12,7 +12,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * UC-8 · design.md §10/§16 (R2) — the ownership guard for attaching objects to a
+ * UC-8 · design.json §10/§16 (R2) — the ownership guard for attaching objects to a
  * chat. A client/provider may attach only THEIR OWN objects; Support/Payments/Admin
  * may attach any. A chat must never expose an object its attacher could not see.
  */

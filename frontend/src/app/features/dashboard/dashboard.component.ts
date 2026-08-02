@@ -76,7 +76,7 @@ interface StatCard { label: string; value: string; sub?: string; }
             </a>
           }
           @case ('support') {
-            <!-- design.md §10 — Support works chats via the shared Messages surface -->
+            <!-- design.json §10 — Support works chats via the shared Messages surface -->
             <a routerLink="/messages" class="action-card">
               <span class="action-icon">💬</span>
               <span class="action-label">Messages</span>

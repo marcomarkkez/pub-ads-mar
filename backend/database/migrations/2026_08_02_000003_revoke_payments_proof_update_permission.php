@@ -5,7 +5,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * B9 · design.md §7/§17 — Payments must not review proof CONTENT.
+ * B9 · design.json §7/§17 — Payments must not review proof CONTENT.
  *
  * The `/payments/proofs` approve/reject routes are gone; this revokes the
  * permission that backed them, so the capability disappears from the RBAC

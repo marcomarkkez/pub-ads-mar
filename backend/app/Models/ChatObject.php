@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Str;
 
 /**
- * UC-8 · design.md §10/§15 — a polymorphic object attached to a chat
+ * UC-8 · design.json §10/§15 — a polymorphic object attached to a chat
  * (Ad|Adset|Campaign|Space|Payment|Booking). Attaching is OWNERSHIP-CHECKED in the
  * controller (R2/§16): a chat never exposes an object its attacher couldn't see.
  */
@@ -21,7 +21,7 @@ class ChatObject extends Model
         'attached_by_user_id',
     ];
 
-    // UC-8 · design.md §17 — the API contract exposes the SHORT type alias + a human
+    // UC-8 · design.json §17 — the API contract exposes the SHORT type alias + a human
     // label + a compact preview, not the raw polymorphic columns (FQCN + numeric id).
     protected $appends = ['object_type', 'object_id', 'label', 'object'];
 
@@ -47,7 +47,7 @@ class ChatObject extends Model
     }
 
     /**
-     * UC-7/UC-8 · design.md §7/§10 — compact preview so chat members (esp. Support in a
+     * UC-7/UC-8 · design.json §7/§10 — compact preview so chat members (esp. Support in a
      * dispute) can SEE the object without leaving the chat: name + the related PROOF media
      * (image/video/link) when the object is a Booking (or a Payment's booking). Access is
      * already gated by chat membership, so no extra leak — the proof is the dispute subject.

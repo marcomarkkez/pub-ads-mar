@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * UC-22 · design.md §10/§16 — add OR change a flag. On change the current same-type
+ * UC-22 · design.json §10/§16 — add OR change a flag. On change the current same-type
  * active flag is superseded (active=false, superseded_at set), the new one created,
  * and a kind=system message records it. A flag NEVER grants access; the money STATE
  * stays on payments.status — Support RAISES money flags, Payments EXECUTES via §8.

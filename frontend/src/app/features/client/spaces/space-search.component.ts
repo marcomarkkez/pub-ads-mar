@@ -228,7 +228,7 @@ const SPACE_ICON_SELECTED = L.divIcon({
                   style="width:100%;margin-top:8px;">
                   @if (isInSelection(space)) { ✓ En la selección } @else { ➕ Añadir a la selección }
                 </button>
-                <!-- design.md §10 (UC-8) — the ONLY path to a provider chat: from a published
+                <!-- design.json §10 (UC-8) — the ONLY path to a provider chat: from a published
                      listing, carrying the space as context. -->
                 <button type="button" class="btn"
                   (click)="$event.stopPropagation(); messageProvider(space)"
@@ -483,7 +483,7 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * UC-8 · design.md §10 — open a client↔provider inquiry FROM this published listing (the ONLY
+   * UC-8 · design.json §10 — open a client↔provider inquiry FROM this published listing (the ONLY
    * path to a provider). Sends target=provider + the space as context; the backend anchors the
    * provider from the space, so the client never needs the provider's identity up front.
    */

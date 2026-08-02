@@ -4,9 +4,9 @@ Instructions and context for Claude AI agents working on this project.
 
 ## Project Overview
 
-Web-based advertising spaces marketplace built with **Laravel 12** (API backend) and **Angular 18** (frontend). Five system roles (`client | provider | admin | support | payments`) plus per-account collaborator subroles. **Everything canonical — roles, specs, decisions, schema, routes, the role/object graph, and user stories — lives in [design.md](design.md), the SINGLE design doc. Not duplicated here.** In short: clients create campaigns with geolocated adsets and ads and book provider spaces; providers post spaces; admin/support/payments staff run operations.
+Web-based advertising spaces marketplace built with **Laravel 12** (API backend) and **Angular 18** (frontend). Five system roles (`client | provider | admin | support | payments`) plus per-account collaborator subroles. **Everything canonical — roles, specs, decisions, schema, routes, the role/object graph, and user stories — lives in [design/design.json](design/design.json), the SINGLE design source. Not duplicated here.** In short: clients create campaigns with geolocated adsets and ads and book provider spaces; providers post spaces; admin/support/payments staff run operations.
 
-**See [design.md](design.md) for full folder structure, database schema, API routes, data flow, dev commands, specs, user stories, and implementation status.**
+**See [design/design.json](design/design.json) for full folder structure, database schema, API routes, data flow, dev commands, specs, user stories, and implementation status — and [design/README.md](design/README.md) for how to read it (or run the dashboard: `cd design && python3 -m http.server 8080`).**
 
 ---
 
@@ -16,23 +16,25 @@ Web-based advertising spaces marketplace built with **Laravel 12** (API backend)
 - Write clear commit messages
 - Test changes before committing
 - Always append a new entry to `history.md` at the end of each session
-- **Generate FEWER documents (owner rule, 2026-06-26, hardened 2026-06-27).** design.md is the
-  SINGLE canonical home — schema, routes, specs, decisions, user stories, and the role/object
-  graph all live there as sections (ARCHITECTURE.md / cases.md / platform-graph.md were merged
-  into it and DELETED 2026-06-27). Do NOT create a new `.md` file — not even for a new topic or section: if it
-  fits in design.md (and it almost always does), add a section there. Actionable work goes in the
-  todos JSON (`.claude/todos/`). EVERYTHING ELSE — analyses, audits, reports, summaries, answers —
-  is printed in the Claude UI chat, NOT written to a file, unless the owner explicitly asks for a
-  file. Temporary working files must be folded into design.md/todos and deleted once consumed.
+- **Generate FEWER documents (owner rule, 2026-06-26; hardened 2026-06-27; ONE FILE since
+  2026-08-02).** `design/design.json` is the SINGLE canonical home — schema, routes, specs,
+  decisions, user stories, the role/object graph AND the sprint backlog all live there
+  (ARCHITECTURE.md / cases.md / platform-graph.md merged in and DELETED 2026-06-27; **design.json
+  and .claude/todos/mvp-sprint.json merged in and DELETED 2026-08-02**). Do NOT create a new
+  `.md` or todos file — not even for a new topic: if it fits in design.json (and it almost always
+  does), add it there. EVERYTHING ELSE — analyses, audits, reports, summaries, answers — is
+  printed in the Claude UI chat, NOT written to a file, unless the owner explicitly asks for one.
+  Temporary working files must be folded into design.json and deleted once consumed.
 
 ## Working Method — feature-by-feature MVP review (owner rule, 2026-07-10)
 
 Too much time was lost on definitions that never got acted on. From now on we
 review the product **one feature at a time**, driving to a deployable MVP:
 
-- **Enumerate every feature** and keep them ordered in the todos JSON
-  (`.claude/todos/`) and mirrored to the relevant `design.md` section. `design.md`
-  is the single canonical spec (there is no ARCHITECTURE.md).
+- **Enumerate every feature** and keep them ordered in `design/design.json` — `todos[]`
+  for the Fxx index, `mvpSprint.specBacklog` for the granular tasks — alongside the spec
+  section they belong to. `design.json` is the single canonical spec: there is no
+  ARCHITECTURE.md, no design.md, and no `.claude/todos/` any more (all folded in).
 - **MVP bias: functional over precise.** Shipping something that runs beats a
   perfect spec. **No feature is in a client's or architect's request backlog**,
   so we are free to decide. If a feature question is simple, RESOLVE IT NOW with
@@ -40,7 +42,7 @@ review the product **one feature at a time**, driving to a deployable MVP:
 - **Only escalate real forks:** ask the owner ONLY when a feature is genuinely
   ambiguous or when two features clash with each other. Otherwise decide and move.
 - **Per feature:** if doubts/clashes → ask; else resolve + mark the feature's
-  status in the todos + update `design.md` if needed, then report the NEXT
+  status in `design.json` (`todos[]` / `mvpSprint`) + update its spec if needed, then report the NEXT
   feature in the list so the owner can review, correct, or skip to the next.
 - Latest owner instruction on a topic wins over any earlier spec.
 
@@ -48,7 +50,8 @@ review the product **one feature at a time**, driving to a deployable MVP:
 
 | File | Purpose |
 |------|---------|
-| `design.md` | THE single canonical doc — overview, roles, specs, decisions, schema, API/endpoint map, role/object graph, dev commands, status, AND the verbose user stories (§19). Absorbed ARCHITECTURE.md + cases.md + platform-graph.md (deleted 2026-06-27). |
+| `design/design.json` | THE single canonical source — overview, roles, specs, decisions, schema, API/endpoint map, role/object graph, dev commands, status, the user stories (§19) AND the build backlog. Absorbed ARCHITECTURE.md + cases.md + platform-graph.md (deleted 2026-06-27), then design.md + `.claude/todos/mvp-sprint.json` (deleted 2026-08-02). See `design/README.md` for how to read it. |
+| `design/design.html` | Dashboard over that data — `cd design && python3 -m http.server 8080`. |
 | `history.md` | Session diary — append entries, never delete |
 | `claude.md` | This file — agent instructions |
 | `install_beads.md` | Guide for installing the `bd` task CLI |
@@ -74,7 +77,7 @@ review the product **one feature at a time**, driving to a deployable MVP:
 
 Five system roles — `client`, `provider`, `admin`, `support`, `payments` — plus per-account
 **collaborator subroles** (installator / publicist / manager). The canonical role + permission
-spec and the collaborator model live in **[design.md](design.md)** (§Roles, §Collaborator Roles);
+spec and the collaborator model live in **[design.json](design.json)** (§Roles, §Collaborator Roles);
 they are not duplicated here to avoid drift.
 
 ---
@@ -151,7 +154,7 @@ The `skill-creator` tool is also installed locally at `.agents/skills/skill-crea
 
 ## Implementation Status
 
-See [design.md](design.md) §18 (System & Dev → Implementation status) for the full table.
+See [design.json](design.json) §18 (System & Dev → Implementation status) for the full table.
 
 **Completed:** Full backend API — Laravel scaffold, PostgreSQL DB, Sanctum auth, CORS, 14 migrations, 11 models, RoleMiddleware, 14 controllers, 49 routes, demo seeders, storage link. All endpoints tested and working.
 
@@ -210,14 +213,14 @@ The `pg_hba.conf` for PG 17 (`C:\Program Files\PostgreSQL\17\data\pg_hba.conf`) 
 
 ## Learnings / Common Mistakes
 
-- **Timestamp every DECISION change.** Whenever the owner sets or changes a decision, record it inline with a dated marker `[owner YYYY-MM-DD]` in design.md (and history.md / todos) and commit it, so `latest-decision-wins` can be resolved by DATE and the git history shows WHEN each call was made. The owner asked for this explicitly (2026-07-17): persist design decisions first (committed) so they're reviewable in git before the code lands. Same rule in AGENTS.md.
+- **Timestamp every DECISION change.** Whenever the owner sets or changes a decision, record it inline with a dated marker `[owner YYYY-MM-DD]` in design.json (and history.md / todos) and commit it, so `latest-decision-wins` can be resolved by DATE and the git history shows WHEN each call was made. The owner asked for this explicitly (2026-07-17): persist design decisions first (committed) so they're reviewable in git before the code lands. Same rule in AGENTS.md.
 
 - **Windows `NUL` vs bash `/dev/null`:** On Windows with bash shell, never redirect to `NUL` — bash treats it as a literal filename and creates a `nul` file. Always use `/dev/null` instead.
 - **Skill files go in `.agents/skills/`**, not the project root. If `.skill` files appear in the root, move them to `.agents/skills/`.
-- **Don't create files in the project root** unless they're documented in design.md. Keep the root clean.
+- **Don't create files in the project root** unless they're documented in design.json. Keep the root clean.
 - **Beads `bd.exe` needs the sqlite backend here, not dolt.** The installed `bd.exe` (v0.49.3 dev) was built without CGO, so it CANNOT open the dolt backend ("dolt backend requires CGO"). It only worked while a background daemon (sqlite-backed, over a socket) was alive; once that daemon dies, direct CLI calls fall through to dolt and fail. Fix applied 2026-06-13: re-init to sqlite (`metadata.json` backend=sqlite; `bd init --backend sqlite`). Old dolt store is in `.beads-backup-20260613/`. Invoke as `/mnt/c/Users/mucho/go/bin/bd.exe --db .beads/beads.db ...` (it's a Windows binary, not on the WSL PATH).
 - **Never run parallel agents that WRITE files while the user has files open in the IDE.** The first MVP build workflow ran parallel implementers in the same working tree; they wrote files the user had open → "content is newer" save conflicts, AND 4 packets failed mid-run. Rule: for code-mutating agent work, write SEQUENTIALLY (one area at a time), keep a change log (`.claude/mvp-changelog.md`) for surgical rollback, and have the user close affected tabs first.
-- **OneDrive sync causes transient `ENOENT`/"file modified since read" on edits.** The repo lives under OneDrive; edits to large files (e.g. `design.md`) intermittently report `ENOENT` even though they LAND — and a blind retry can apply the edit TWICE (duplicate blocks). Rule: after an `ENOENT` on an edit, `grep -c` the inserted text before retrying; don't blindly re-edit.
+- **OneDrive sync causes transient `ENOENT`/"file modified since read" on edits.** The repo lives under OneDrive; edits to large files (e.g. `design.json`) intermittently report `ENOENT` even though they LAND — and a blind retry can apply the edit TWICE (duplicate blocks). Rule: after an `ENOENT` on an edit, `grep -c` the inserted text before retrying; don't blindly re-edit.
 - **Patch-transport workflow (git push is blocked in the Claude session).** Claude commits locally and hands the user a `.patch` to apply in their Codespace. Two failure modes bit us and are now guarded:
   1. **`git add -A` swallowed the `.patch` file** — twice a commit contained ONLY `Fxx.patch` (178 lines) and none of the code, because `git apply` silently failed and `git add -A` grabbed the patch file. FIX: `*.patch` is now git-ignored (root `.gitignore`), so a stray patch can never be committed again. Apply procedure: `git apply X.patch` → **check `git status` shows the CODE files** → `git commit`. If status shows only the `.patch`, the apply failed — re-run with `git apply --3way X.patch`.
   2. **Don't send a partial patch and then keep coding and send another for the same feature.** It creates ambiguity about which file to apply (the user applied the older `F09-support-join.patch` join-only file). RULE: finish ALL of a feature's changes FIRST, then hand over ONE complete, clearly-named patch. If a superseding patch is unavoidable, say explicitly "DELETE the previous patch, use only this one."
@@ -242,9 +245,9 @@ The `pg_hba.conf` for PG 17 (`C:\Program Files\PostgreSQL\17\data\pg_hba.conf`) 
   Both were right about their own branch and wrong about the repo, because neither said which branch it was standing on. Root cause: `mvp-build` (trunk, 80 commits ahead) and `k1fgt8` (3 commits) both fork from `main` at `8d6dc17` and never merged, so the SAME problem — the Codespaces CORS/login fix — got solved twice, two different ways (`k1fgt8`: `env.json` + `envsubst` + fetch-before-bootstrap; `mvp-build`: nginx resolves the backend per request). RULES: (1) **`mvp-build` is trunk.** It drifted 80 commits ahead of `main` while `main` stayed the default branch; that was reconciled on 2026-08-01 and the two now match — verify with `git rev-list --left-right --count origin/main...origin/mvp-build` (expect `0 0`) rather than assuming either way. (2) Before claiming a file/commit/section is missing, run `git log --oneline origin/<branch> -- <path>` or `git branch -r --contains <sha>` and **quote the command with its output**. (3) Name the branch in the claim itself.
 
 - **Postgres must be running for backend verification.** Bare-metal PG17 on port 5434 (or Docker on 5435) is often down in a fresh WSL shell; `php artisan migrate` then fails with `SQLSTATE[08006] Connection refused`. Start PG/Docker before runtime checks; static checks (`php -l`, `ng build`) work without it.
-- **Don't impose constraints stricter than the agreed decision.** If a decision says a field is OPTIONAL, do NOT add a `required`/422 guard for it (e.g. provider rejection_reason was decided optional; adding a "reason required" check was wrong and made us re-decide a settled thing). Before adding any validation/guard, re-read the relevant design.md/decision and match it EXACTLY — over-constraining causes "running in circles."
-- **Spec traceability — annotate code with the spec it implements.** Every file / class / method that implements a design.md behavior MUST carry a short comment naming the spec it satisfies, e.g. `// design.md §B9 — client proof accept/reject gates payout` or `@implements design.md "Proof of Display"`. This keeps code↔design compliance checkable at a glance. Applies to new code and to code you touch.
-- **Momentum over perfection — soft vs hard stops (owner working style).** The owner wants forward progress, not 100% compliance. Resolve ambiguous/"soft" logic conflicts yourself by **latest-decision-wins** (the most recently edited doc / newest owner message overrides older text) or by best-guess of the most sensible scenario, and KEEP BUILDING. Only stop to ask on a **HARD stopper**: something you genuinely cannot infer, or a destructive/irreversible/outward-facing action. Target ~**90% doc compliance** (design.md), not 100% — decisions have changed over time, so some older doc text is intentionally stale. The owner reviews the running app and prunes features afterward. Don't create new planning docs unless asked; edit design.md / todos in place.
+- **Don't impose constraints stricter than the agreed decision.** If a decision says a field is OPTIONAL, do NOT add a `required`/422 guard for it (e.g. provider rejection_reason was decided optional; adding a "reason required" check was wrong and made us re-decide a settled thing). Before adding any validation/guard, re-read the relevant design.json/decision and match it EXACTLY — over-constraining causes "running in circles."
+- **Spec traceability — annotate code with the spec it implements.** Every file / class / method that implements a design.json behavior MUST carry a short comment naming the spec it satisfies, e.g. `// design.json §B9 — client proof accept/reject gates payout` or `@implements design.json "Proof of Display"`. This keeps code↔design compliance checkable at a glance. Applies to new code and to code you touch.
+- **Momentum over perfection — soft vs hard stops (owner working style).** The owner wants forward progress, not 100% compliance. Resolve ambiguous/"soft" logic conflicts yourself by **latest-decision-wins** (the most recently edited doc / newest owner message overrides older text) or by best-guess of the most sensible scenario, and KEEP BUILDING. Only stop to ask on a **HARD stopper**: something you genuinely cannot infer, or a destructive/irreversible/outward-facing action. Target ~**90% doc compliance** (design.json), not 100% — decisions have changed over time, so some older doc text is intentionally stale. The owner reviews the running app and prunes features afterward. Don't create new planning docs unless asked; edit design.json / todos in place.
 - **Permission changes need a CACHE BUST + a real re-seed — tests passing ≠ app working.** `PermissionMiddleware` reads `RolePermission::getCachedPermissions($role)` which is `Cache::remember(..., 60 min)` on the `database` cache store. Symptom that bit us: all F07-F10 automated tests GREEN (they use a fresh `array` cache + reseed per test), but the live app returned **"Forbidden. You do not have permission"** for `payments` and `support` on their own menus. Two independent causes stacked: (a) the permission cache was stale (old/empty set, 60-min TTL) — the seeder DOES call `RolePermission::clearCache()` at the end, but a belt-and-suspenders `php artisan cache:clear` is the reliable fix; (b) a first `db:seed --class=RolePermissionSeeder` had **not actually persisted** payments/support rows to `pub_ads_mar` (a later `--force` reseed showed `payments|10, support|7`). RULE after ANY permission/seed edit: `docker compose exec backend php artisan db:seed --class=RolePermissionSeeder --force` **then** `php artisan cache:clear`, then hard-reload. DIAGNOSE cleanly, don't guess: `php artisan db:show` (which DB is artisan really on?) + `psql -d pub_ads_mar -c "select role,count(*) from role_permissions group by role;"` (is the DATA there?) — that pair distinguishes wrong-DB vs missing-data vs stale-cache in one shot. Screenshots of the browser Forbidden add no signal; ask for the TERMINAL text.
 - **Codespace container runs the code the tests prove, not necessarily the DB state you assume.** `docker compose exec backend php artisan test` runs against `pub_ads_mar_testing` (phpunit forces it) and reseeds per test — so green tests prove the CONTAINER CODE is current but say NOTHING about the live `pub_ads_mar` app DB. Verify runtime state against `pub_ads_mar` directly (psql / db:show), separately from the test run.
 - **"The provided credentials are incorrect" on login = the DB is EMPTY or partially seeded, not a password bug.** Symptom (2026-07-18): every login (client2, client1, all roles) failed with that message after a container/volume reset. Root cause: `App\Models\User::count()` was `0` — the DB had been wiped and never reseeded (Codespace containers lose DB state on restart). DIAGNOSE FIRST, don't guess the password: `php artisan tinker --execute="echo App\Models\User::count();"` — if `0`, nothing is seeded. FIX: `php artisan migrate:fresh --seed` (runs `DatabaseSeeder` → creates ALL 7 demo users inline: admin/support/payments/provider1/provider2/client1/client2, each pw `password`, then calls `RolePermissionSeeder`) → `php artisan cache:clear` → optionally `db:seed --class=DisputeDemoSeeder`. CRITICAL: **`DisputeDemoSeeder` alone only creates client1/provider1/support/payments** — NOT client2/provider2/admin — so seeding *only* that seeder leaves those logins broken. Always run the full `--seed` first. (Note: `migrate:fresh --seed` output only lists sub-seeders invoked via `->call()` — you'll see `RolePermissionSeeder` but NOT the inline `User::create` calls; that's expected, the users ARE created.) **The DB is wiped on EVERY Codespace container restart — INDEPENDENT of what a patch touches.** The durable fix is the repo-root **`mvp-init.py`** (owner asked for it 2026-07-25): a self-healing, idempotent script that reseeds ONLY if the DB is empty, clears the permission cache, and loads the dispute demo. RULE (UNCONDITIONAL — do NOT gate it on "the patch touches backend" or "the instructions include tests"; that gating was the 2026-07-25 miss on p40/p41/p42): **EVERY set of patch-apply instructions ends with the login-readiness line below**, even for doc-only or frontend-only patches, because a restart between patches empties the DB regardless.

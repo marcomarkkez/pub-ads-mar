@@ -64,16 +64,16 @@ export const routes: Routes = [
           { path: 'users/:id', loadComponent: () => import('./features/admin/users/user-form.component').then(m => m.UserFormComponent) },
           { path: 'permissions', loadComponent: () => import('./features/admin/permissions/permissions-editor.component').then(m => m.PermissionsEditorComponent) },
           { path: 'oversight', loadComponent: () => import('./features/admin/oversight/oversight.component').then(m => m.OversightComponent) },
-          // UC-31 · design.md §12 — the immutable audit log (read-only).
+          // UC-31 · design.json §12 — the immutable audit log (read-only).
           { path: 'audit', loadComponent: () => import('./features/admin/audit/audit-log.component').then(m => m.AuditLogComponent) },
           { path: 'config', loadComponent: () => import('./features/admin/config/config.component').then(m => m.ConfigComponent) },
         ],
       },
 
       // Support has NO dedicated routes — Support acts on chats via the shared /messages
-      // surface (design.md §10/§17); the old /support/tickets area is retired.
+      // surface (design.json §10/§17); the old /support/tickets area is retired.
 
-      // Payments routes — proof-review REMOVED (design.md B9: Payments must not review proof content)
+      // Payments routes — proof-review REMOVED (design.json B9: Payments must not review proof content)
       {
         path: 'payments',
         canActivate: [roleGuard('payments')],
@@ -82,7 +82,7 @@ export const routes: Routes = [
         ],
       },
 
-      // Shared Messages — the ONE chat surface for ALL roles (design.md §10/§17; UC-8, UC-9)
+      // Shared Messages — the ONE chat surface for ALL roles (design.json §10/§17; UC-8, UC-9)
       { path: 'messages', loadComponent: () => import('./features/shared/messages/chat-list.component').then(m => m.ChatListComponent) },
       { path: 'messages/new', loadComponent: () => import('./features/shared/messages/chat-new.component').then(m => m.ChatNewComponent) },
       { path: 'messages/:id', loadComponent: () => import('./features/shared/messages/chat-detail.component').then(m => m.ChatDetailComponent) },

@@ -36,7 +36,7 @@ class DashboardController extends Controller
         $revenueHeld = (float) $payQuery(['held']);
         $revenueRefunded = (float) $payQuery(['refunded']);
 
-        // UC-8 · design.md §10 — unread across the provider's chats.
+        // UC-8 · design.json §10 — unread across the provider's chats.
         $unreadMessages = Chat::where('provider_user_id', $user->id)
             ->withCount(['messages as unread_count' => function ($q) use ($user) {
                 $q->where('sender_user_id', '!=', $user->id)->where('is_read', false);

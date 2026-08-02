@@ -10,7 +10,7 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * UC-8 · design.md §10 — in a client↔provider chat the booked/attached space's OWN
+ * UC-8 · design.json §10 — in a client↔provider chat the booked/attached space's OWN
  * address is whitelisted (the parties need it), while any OTHER street address is masked.
  */
 class PiiWhitelistTest extends TestCase

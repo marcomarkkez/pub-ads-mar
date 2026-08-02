@@ -8,7 +8,7 @@ use App\Models\Space;
 use App\Models\User;
 
 /**
- * UC-8/UC-21 · design.md §10 [F08] — render-time PII masking.
+ * UC-8/UC-21 · design.json §10 [F08] — render-time PII masking.
  *
  * Non-destructive: messages.body is persisted RAW by the chat controllers. This
  * service masks phone / email / URL / street-address occurrences only when a
@@ -70,7 +70,7 @@ class PiiMaskingService
     }
 
     /**
-     * UC-21 · design.md §10/§16 — a chat is "relaxed" (no masking) when it is a
+     * UC-21 · design.json §10/§16 — a chat is "relaxed" (no masking) when it is a
      * staff-only chat (derived nature != client↔provider) OR once Support joins the
      * client↔provider chat (announced). Derived from participants/anchors, NOT a flag.
      */

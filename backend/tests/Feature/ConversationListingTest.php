@@ -10,7 +10,7 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * UC-8/UC-9/UC-27 · design.md §10 — GET /chats lists each side's OWN chats (derived
+ * UC-8/UC-9/UC-27 · design.json §10 — GET /chats lists each side's OWN chats (derived
  * membership), never the other side's dispute chat nor the internal Support↔Payments
  * chat. Support sees its derived queue; a client opens a chat, staff do not (via this route).
  */
@@ -85,7 +85,7 @@ class ConversationListingTest extends TestCase
     }
 
     /**
-     * UC-8/UC-9 · design.md §10 — the ENTRY POINT sets the counterparty, NOT the attached object.
+     * UC-8/UC-9 · design.json §10 — the ENTRY POINT sets the counterparty, NOT the attached object.
      * A client attaching a space as CONTEXT (no target) stays a Support chat; only target=provider
      * (opened from a published listing) pulls the provider in.
      */

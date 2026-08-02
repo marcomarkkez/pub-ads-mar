@@ -51,7 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('campaigns/{campaign}', [CampaignController::class, 'update'])->middleware('permission:campaigns,update');
         Route::delete('campaigns/{campaign}', [CampaignController::class, 'destroy'])->middleware('permission:campaigns,delete');
 
-        // Adsets + Ads — design.md §21 (UC-43): nested bindings are ALWAYS scoped, so
+        // Adsets + Ads — design.json §21 (UC-43): nested bindings are ALWAYS scoped, so
         // a child is resolved THROUGH its parent and a foreign id 404s at the router.
         // The controllers re-check each link explicitly on top of this.
         Route::scopeBindings()->group(function () {
@@ -156,7 +156,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('permissions/{role}', [PermissionController::class, 'update']);
         Route::patch('permissions/{role}/{resource}', [PermissionController::class, 'updateResource']);
 
-        // UC-28 · design.md §10/§12/§17 — ONE eagle-eye chat oversight (read-only,
+        // UC-28 · design.json §10/§12/§17 — ONE eagle-eye chat oversight (read-only,
         // incognito). Replaces the retired /oversight/{conversations,tickets} views.
         Route::get('oversight/chats', [OversightController::class, 'chats'])->middleware('permission:chats,read');
         Route::get('oversight/chats/{chat}', [OversightController::class, 'chat'])->middleware('permission:chats,read');
@@ -164,7 +164,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // UC-28 · Admin's only chat write-power: reopen a closed chat for investigation.
         Route::post('chats/{chat}/reopen', [ChatController::class, 'reopen']);
 
-        // UC-31 · design.md §12/§17 — the immutable audit log, Admin read-only.
+        // UC-31 · design.json §12/§17 — the immutable audit log, Admin read-only.
         // There is no write verb here by design: entries are written by the actions
         // themselves, in their own transaction.
         Route::get('audit', [AuditController::class, 'index'])->middleware('permission:audit,read');
@@ -179,11 +179,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // [todo B8] Support stats dashboard (role-gated only — see note in admin block).
         Route::get('dashboard', [SupportDashboardController::class, 'index']);
 
-        // design.md §10/§17: Support acts on chats via the shared /chats map
+        // design.json §10/§17: Support acts on chats via the shared /chats map
         // (join/flag/resolve/close). The old /tickets, /conversations/{c}/join and
         // /payments/{p}/flag-* routes are RETIRED into the ONE chat primitive.
 
-        // UC-23 · design.md §11/§17 — edit-any-NON-money object, audited.
+        // UC-23 · design.json §11/§17 — edit-any-NON-money object, audited.
         // Money objects (payments, invoices, wallet entries) have NO route here:
         // Support flags, Payments executes (§8). Money-determining FIELDS are
         // excluded inside the controller.
@@ -209,7 +209,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('payments/{payment}/payout/release', [PaymentController::class, 'releasePayout'])->middleware('permission:payments,update');
         Route::post('payments/{payment}/payout/hold', [PaymentController::class, 'holdPayout'])->middleware('permission:payments,update');
 
-        // B9 · design.md §7/§17 — Payments does NOT review proof CONTENT. The
+        // B9 · design.json §7/§17 — Payments does NOT review proof CONTENT. The
         // proof verdict is the CLIENT's (POST /client/proofs/{proof}/accept|reject,
         // ProofFlagController); Payments only reacts to it with money. The old
         // GET /payments/proofs + approve/reject lived here in violation of that
@@ -218,7 +218,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ── Shared routes — Chats (any authenticated user) ──────────────
-    // design.md §10/§17 — the ONE communication primitive. Nature + ACL DERIVED from
+    // design.json §10/§17 — the ONE communication primitive. Nature + ACL DERIVED from
     // participants+objects (never a `type` column, never a flag). Admin never posts
     // here (read-only/incognito via /admin/oversight/chats — R1); admin holds only
     // chats.read, so the create-gated mutations 403 for admin at the middleware.

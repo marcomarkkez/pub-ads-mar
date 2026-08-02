@@ -641,7 +641,7 @@ def main():
     # =========================================================
     print("\n--- PAYMENTS: proof content review is GONE (B9) ---")
 
-    # design.md §7/§17: the proof verdict is the CLIENT's; Payments only reacts
+    # design.json §7/§17: the proof verdict is the CLIENT's; Payments only reacts
     # to it with money. These routes were removed on 2026-08-02 — assert they
     # stay gone, so nobody reintroduces the violation by accident.
     api("GET", "/payments/proofs", token=payments_token, expect_status=404)

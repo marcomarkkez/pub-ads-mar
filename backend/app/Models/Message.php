@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * UC-8/UC-9 · design.md §10 — a message on a chat. kind=system records origin and
+ * UC-8/UC-9 · design.json §10 — a message on a chat. kind=system records origin and
  * every transformation (flag change, support join, object attach/detach, resolve/close).
  */
 class Message extends Model

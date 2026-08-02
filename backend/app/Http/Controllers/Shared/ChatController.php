@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * UC-8/UC-9/UC-21 · design.md §10/§16/§17 — the ONE Messages surface. Nature + ACL
+ * UC-8/UC-9/UC-21 · design.json §10/§16/§17 — the ONE Messages surface. Nature + ACL
  * are DERIVED from participants+objects (never a `type` column, never a flag).
  * Admin never reaches this controller (read-only/incognito via oversight — R1).
  */
@@ -56,7 +56,7 @@ class ChatController extends Controller
             'object_type' => 'nullable|in:ad,adset,campaign,space,payment,booking',
             'object_id' => 'nullable|integer',
             'provider_id' => 'nullable|exists:users,id',
-            // UC-8/UC-9 · design.md §10 — the ENTRY POINT sets the counterparty (support = default;
+            // UC-8/UC-9 · design.json §10 — the ENTRY POINT sets the counterparty (support = default;
             // provider only from a published listing). Billing routes to support (option B).
             'target' => 'nullable|in:support,provider',
             'body' => 'nullable|string|max:5000',
@@ -82,7 +82,7 @@ class ChatController extends Controller
 
         if ($user->isClient()) {
             $clientId = $user->id;
-            // UC-8/UC-9 · design.md §10 — the ENTRY POINT sets the counterparty, NOT the attached
+            // UC-8/UC-9 · design.json §10 — the ENTRY POINT sets the counterparty, NOT the attached
             // object. Default = Support (support_client); the object is context only and does NOT
             // pull in the provider. A provider inquiry is reached ONLY from a published listing,
             // which sends target=provider (+ the space object, or an explicit provider_id).
@@ -137,7 +137,7 @@ class ChatController extends Controller
         }
 
         // A closed chat's history is hidden from normal users (visible to Admin via
-        // oversight only; Admin never reaches this controller) — design.md §10.
+        // oversight only; Admin never reaches this controller) — design.json §10.
         if ($chat->isClosed()) {
             return response()->json([
                 'data' => [
@@ -179,7 +179,7 @@ class ChatController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        // A closed chat is read-only — users open a NEW chat instead (design.md §10).
+        // A closed chat is read-only — users open a NEW chat instead (design.json §10).
         if ($chat->isClosed()) {
             return response()->json(['message' => 'This chat is closed.'], 422);
         }
@@ -192,7 +192,7 @@ class ChatController extends Controller
     }
 
     /**
-     * UC-21 · design.md §10 — Support joins a client↔provider chat: creates an
+     * UC-21 · design.json §10 — Support joins a client↔provider chat: creates an
      * announced support participant, stamps support_joined_at (PII relax) and writes
      * a system message. Idempotent. role:support (Admin never joins — incognito).
      */
@@ -220,7 +220,7 @@ class ChatController extends Controller
         return response()->json(['data' => $this->decorate($chat->fresh())]);
     }
 
-    /** UC-22/UC-23 · design.md §10 — Support marks the chat resolved (did its part). */
+    /** UC-22/UC-23 · design.json §10 — Support marks the chat resolved (did its part). */
     public function resolve(Request $request, Chat $chat): JsonResponse
     {
         $user = $request->user();
@@ -239,7 +239,7 @@ class ChatController extends Controller
     }
 
     /**
-     * UC-8/UC-9 · design.md §10 — close a chat. The OPENER confirms it is solved;
+     * UC-8/UC-9 · design.json §10 — close a chat. The OPENER confirms it is solved;
      * a staff force-close is an Admin-style override that writes a system event.
      */
     public function close(Request $request, Chat $chat): JsonResponse
@@ -268,7 +268,7 @@ class ChatController extends Controller
     }
 
     /**
-     * UC-28 · design.md §10 — reopen a closed chat. ADMIN ONLY (investigation);
+     * UC-28 · design.json §10 — reopen a closed chat. ADMIN ONLY (investigation);
      * users open a NEW chat instead. Gated by role:admin at the route.
      */
     public function reopen(Request $request, Chat $chat): JsonResponse
@@ -293,7 +293,7 @@ class ChatController extends Controller
     {
         $chat->loadMissing(['client', 'provider', 'activeFlags', 'objects.objectable', 'participants.user']);
         $chat->setAttribute('nature', $chat->deriveNature());
-        // UI collapses states to Abierto/Cerrado (design.md §10).
+        // UI collapses states to Abierto/Cerrado (design.json §10).
         $chat->setAttribute('ui_status', $chat->isClosed() ? 'Cerrado' : 'Abierto');
 
         return $chat;

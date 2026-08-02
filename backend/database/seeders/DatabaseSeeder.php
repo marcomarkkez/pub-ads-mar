@@ -352,7 +352,7 @@ class DatabaseSeeder extends Seeder
             'due_at' => '2026-04-05',
         ]);
 
-        // ── Chats + Messages (design.md §10 — ONE primitive; space = a chat_object) ──
+        // ── Chats + Messages (design.json §10 — ONE primitive; space = a chat_object) ──
         $this->seedChat($client1, $provider1, $space1, [
             [$client1->id, 'Hola Roberto, me interesa el espectacular de Vasconcelos para marzo. ¿Está disponible del 15 al 30?', true],
             [$provider1->id, 'Hola Carlos, sí está disponible esas fechas. El precio es $2,500 MXN por día. ¿Deseas apartar?', true],
@@ -372,7 +372,7 @@ class DatabaseSeeder extends Seeder
         ]);
     }
 
-    /** design.md §10 — a client↔provider chat with the space attached and messages. */
+    /** design.json §10 — a client↔provider chat with the space attached and messages. */
     private function seedChat(User $client, User $provider, Space $space, array $messages): void
     {
         $chat = Chat::create([

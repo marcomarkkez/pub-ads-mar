@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     private const GRANTS = [
-        // Support — edit-any-NON-money object (design.md §11, UC-23).
+        // Support — edit-any-NON-money object (design.json §11, UC-23).
         ['support', 'users', 'update'],
         ['support', 'spaces', 'read'],
         ['support', 'spaces', 'update'],
@@ -29,7 +29,7 @@ return new class extends Migration
         ['support', 'collaborators', 'read'],
         ['support', 'collaborators', 'update'],
 
-        // Admin — the immutable audit log (design.md §12, UC-31).
+        // Admin — the immutable audit log (design.json §12, UC-31).
         ['admin', 'audit', 'read'],
     ];
 

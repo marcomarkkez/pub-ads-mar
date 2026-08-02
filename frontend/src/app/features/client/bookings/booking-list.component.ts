@@ -99,7 +99,7 @@ import { Booking, Proof } from '../../../core/models';
                         }
                       </div>
 
-                      <!-- design.md §7 [F07]: the CLIENT reviews the provider's proof -->
+                      <!-- design.json §7 [F07]: the CLIENT reviews the provider's proof -->
                       @if (proofOf(booking); as proof) {
                         <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
                           <span style="color:var(--text-muted);display:block;font-size:12px;margin-bottom:8px;">Proof of display</span>

@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * design.md §10/§15 — `conversations` is superseded by `chats` (2026-07-17 merge).
+ * design.json §10/§15 — `conversations` is superseded by `chats` (2026-07-17 merge).
  * OK to DROP old data (owner decision #10 — no data-preserving migration).
  */
 return new class extends Migration

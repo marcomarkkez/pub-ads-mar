@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * UC-21 · design.md §10/§15 — PER-PERSON membership table (owner chose the full
+ * UC-21 · design.json §10/§15 — PER-PERSON membership table (owner chose the full
  * table). Access is by MEMBERSHIP/role, never by a mutable flag. A Support join
  * writes an announced=true row; Admin silent entry is a forensic (announced=false)
  * row. Collaborator access is still derived from the account overlay at request time.

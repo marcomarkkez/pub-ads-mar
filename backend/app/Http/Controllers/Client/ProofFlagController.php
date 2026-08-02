@@ -16,7 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * UC-6/UC-7 · design.md §7/§10 — the CLIENT reviews the provider's proof of display.
+ * UC-6/UC-7 · design.json §7/§10 — the CLIENT reviews the provider's proof of display.
  *  - accept (UC-6) → payout becomes releasable (Payments releases manually).
  *  - reject (UC-7) → payout is HELD, a `payment_held` flag is raised on the internal
  *                    Support↔Payments chat, and THREE dispute chats auto-open
@@ -55,7 +55,7 @@ class ProofFlagController extends Controller
     }
 
     /**
-     * UC-7 · design.md §7/§10 — client rejects the proof: HOLD the payout and hand
+     * UC-7 · design.json §7/§10 — client rejects the proof: HOLD the payout and hand
      * the case to a 100%-human Support review by opening the three dispute chats.
      */
     public function reject(Request $request, Proof $proof): JsonResponse
@@ -82,7 +82,7 @@ class ProofFlagController extends Controller
     }
 
     /**
-     * UC-7 · design.md §7/§10 — open the three dispute chats (idempotent). Each is an
+     * UC-7 · design.json §7/§10 — open the three dispute chats (idempotent). Each is an
      * instance of the ONE chat primitive, anchored to the held payment+booking with a
      * `payment_held` flag + a system opener; they differ only by participant set:
      *   - internal          Support ↔ Payments  (both anchors null)

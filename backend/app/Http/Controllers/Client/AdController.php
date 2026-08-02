@@ -24,7 +24,7 @@ class AdController extends Controller
     }
 
     /**
-     * design.md §21 rule 4 — INVARIANT: every ad has a `space_id`. A space-less ad
+     * design.json §21 rule 4 — INVARIANT: every ad has a `space_id`. A space-less ad
      * has nobody to pay and nowhere to send the files, so it can never be booked.
      * `space_id` is therefore REQUIRED here; ads legitimately originate from
      * booking a space or from moving one in from the campaign backlog (§5).

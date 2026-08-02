@@ -8,7 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * UC-28-adjacent · design.md §10 — Support stats dashboard. A "ticket" is now a
+ * UC-28-adjacent · design.json §10 — Support stats dashboard. A "ticket" is now a
  * chat with a Support participant, so the queue is DERIVED: staff-facing chats
  * (nature != client↔provider) plus client↔provider chats Support has joined.
  */

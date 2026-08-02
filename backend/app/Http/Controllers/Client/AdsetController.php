@@ -65,7 +65,7 @@ class AdsetController extends Controller
     }
 
     /**
-     * design.md §21 — an adset is only a GROUPING label, so deleting it must NOT
+     * design.json §21 — an adset is only a GROUPING label, so deleting it must NOT
      * destroy its ads. The client says where the ads go:
      *
      *   - `move_ads_to` = another adset of the SAME campaign -> the ads move there;

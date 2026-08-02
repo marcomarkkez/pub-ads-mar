@@ -43,7 +43,7 @@ class Adset extends Model
         return $this->hasMany(Booking::class);
     }
 
-    // UC-8 · design.md §10 — chats this adset is attached to (replaces retired tickets).
+    // UC-8 · design.json §10 — chats this adset is attached to (replaces retired tickets).
     public function chatObjects(): MorphMany
     {
         return $this->morphMany(ChatObject::class, 'objectable');

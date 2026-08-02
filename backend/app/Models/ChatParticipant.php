@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * UC-21/UC-27 · design.md §10/§15 — PER-PERSON membership on a chat. Access is by
+ * UC-21/UC-27 · design.json §10/§15 — PER-PERSON membership on a chat. Access is by
  * MEMBERSHIP/role (never a flag). Support join = announced=true; Admin silent entry
  * is a forensic (announced=false) row.
  */

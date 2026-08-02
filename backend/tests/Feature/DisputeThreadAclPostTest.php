@@ -11,7 +11,7 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * UC-7 · design.md §7/§10 — the dispute chats accept POSTs only from the right
+ * UC-7 · design.json §7/§10 — the dispute chats accept POSTs only from the right
  * counterparty (+ Support), and PII is NOT masked on these staff-run chats. The
  * client↔provider chat still masks for the client.
  */

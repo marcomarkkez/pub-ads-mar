@@ -9,7 +9,7 @@ use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
 
 /**
- * design.md §8 [F10]: settled payments are terminal — a released/refunded payment
+ * design.json §8 [F10]: settled payments are terminal — a released/refunded payment
  * is never dragged back to held; and a refund credits the client's wallet.
  */
 class MoneyStateTest extends TestCase

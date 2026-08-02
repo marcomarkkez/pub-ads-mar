@@ -69,7 +69,7 @@ class User extends Authenticatable
         return $this->hasMany(Booking::class, 'client_user_id');
     }
 
-    // UC-8/UC-9 · design.md §10 — chats anchored on this user's client / provider side.
+    // UC-8/UC-9 · design.json §10 — chats anchored on this user's client / provider side.
     public function clientChats(): HasMany
     {
         return $this->hasMany(Chat::class, 'client_user_id');

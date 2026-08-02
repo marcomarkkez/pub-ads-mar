@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * UC-8/UC-9 · design.md §10/§15 — messages now belong to a `chat`, not a
+ * UC-8/UC-9 · design.json §10/§15 — messages now belong to a `chat`, not a
  * `conversation`. Drop the old FK, rename the column, and repoint it at `chats`.
  * Order matters: this runs BEFORE conversations is dropped.
  */

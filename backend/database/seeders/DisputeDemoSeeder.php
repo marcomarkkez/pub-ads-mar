@@ -15,7 +15,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * UC-7/UC-8/UC-9/UC-35 · design.md §7/§10 — a ready-made set of chats so a human can
+ * UC-7/UC-8/UC-9/UC-35 · design.json §7/§10 — a ready-made set of chats so a human can
  * walk the unified Chats/Objetos/Flags flow across roles. Produces:
  *  - a client↔provider chat (PII-masking demo);
  *  - an objectless client↔support chat (contact support, UC-9);

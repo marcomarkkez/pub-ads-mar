@@ -5,7 +5,7 @@
   // Tiny inline fixture — used ONLY as a smoke-test fallback if design.json cannot be fetched
   // while developing. The live path always fetches design.json (see load()).
   var FIXTURE = {
-    meta: { title: "PubAds — Design Dashboard (fixture)", source: "design.md", version: "0" },
+    meta: { title: "PubAds — Design Dashboard (fixture)", source: "design.json (fixture)", version: "0" },
     legend: {
       kanbanStatuses: [
         { key: "backlog", label: "Backlog", color: "#94a3b8" },
@@ -167,7 +167,7 @@
     var m = state.data.meta;
     els.brandTitle.textContent = m.title || "Design Dashboard";
     els.brandSub.textContent = (state.data.specs.length) + " specs · " + state.data.userStories.length + " stories";
-    els.metaLine.textContent = "source: " + (m.source || "design.md") +
+    els.metaLine.textContent = "source: " + (m.source || "design.json") +
       (m.version ? " · v" + m.version : "") + (m.generatedAt ? " · " + m.generatedAt : "");
     buildIndexes();
     navFromHash();
@@ -195,7 +195,7 @@
       setView(itemViews[head]);
       return goto(head === "uc" ? "story" : head, id); // opens the item's drawer
     }
-    var views = ["specs", "todos", "flow", "er", "classes", "stories"];
+    var views = ["specs", "todos", "flow", "er", "classes", "stories", "sprint"];
     setView(views.indexOf(head) !== -1 ? head : "specs");
   }
 
@@ -309,7 +309,7 @@
       if (b.getAttribute("data-view") === v) b.setAttribute("aria-selected", "true");
       else b.removeAttribute("aria-selected");
     });
-    var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories" };
+    var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories", sprint: "Sprint" };
     els.title.textContent = titles[v] || v;
     writeHash(v);
     render();
@@ -325,7 +325,48 @@
       case "er": return renderDiagram("er");
       case "classes": return renderDiagram("classes");
       case "stories": return renderStories();
+      case "sprint": return renderSprint();
     }
+  }
+
+  /* ---------------- Sprint view ----------------
+     The granular build backlog, folded in from the deleted
+     .claude/todos/mvp-sprint.json. Ids carry the `mvp-sprint:` prefix so their
+     provenance stays readable; `[built|partial|missing Pn]` is the status. */
+  function renderSprint() {
+    var ms = state.data.mvpSprint;
+    els.content.innerHTML = "";
+    if (!ms) { els.content.innerHTML = '<div class="empty">No <code>mvpSprint</code> block in design.json.</div>'; return; }
+
+    var box = document.createElement("div");
+    box.className = "sprint";
+    var html = '<p class="prose" style="color:var(--muted)">' + esc(ms.note || "") + '</p>';
+
+    if (ms.goal) html += '<h3>Goal</h3><p class="prose">' + esc(ms.goal) + '</p>';
+
+    var sb = ms.specBacklog || {};
+    if (sb.legend) html += '<h3>Backlog legend</h3><p class="prose" style="color:var(--muted)">' + esc(sb.legend) + '</p>';
+
+    var doms = sb.domains || {};
+    Object.keys(doms).forEach(function (dom) {
+      var lines = doms[dom] || [];
+      html += '<h3>' + esc(dom.replace(/_/g, " ")) + ' <span class="badge">' + lines.length + '</span></h3><ul class="sprint-list">';
+      lines.forEach(function (l) {
+        var m = /\[(built|partial|missing)\s/.exec(l);
+        var cls = m ? " is-" + m[1] : "";
+        html += '<li class="sprint-item' + cls + '">' + esc(l) + '</li>';
+      });
+      html += '</ul>';
+    });
+
+    if (ms.remaining && ms.remaining.length) {
+      html += '<h3>Remaining <span class="badge">' + ms.remaining.length + '</span></h3><ul class="sprint-list">';
+      ms.remaining.forEach(function (r) { html += '<li class="sprint-item">' + esc(r) + '</li>'; });
+      html += '</ul>';
+    }
+
+    box.innerHTML = html;
+    els.content.appendChild(box);
   }
 
   /* ---------------- helpers ---------------- */
@@ -544,7 +585,8 @@
     var items = state.data.todos.filter(function (t) {
       if (f.status && t.status !== f.status) return false;
       if (f.q) {
-        var hay = ((t.id || "") + " " + (t.title || "") + " " + (t.note || "") + " " + (t.tags || []).join(" ")).toLowerCase();
+        var hay = ((t.id || "") + " " + (t.title || "") + " " + (t.note || "") + " " +
+                   (t.mvpSprintNote || "") + " " + (t.tags || []).join(" ")).toLowerCase();
         if (hay.indexOf(f.q) === -1) return false;
       }
       return true;
@@ -743,6 +785,13 @@
     (t.tags || []).forEach(function (x) { parts.push('<span class="tag">' + esc(x) + '</span>'); });
     parts.push('</div>');
     if (t.note) parts.push('<p class="prose" style="color:var(--muted)">' + esc(t.note) + '</p>');
+    // Folded in from the deleted .claude/todos/mvp-sprint.json — the per-feature
+    // build log. It is the only place a feature's implementation history lives.
+    if (t.mvpSprintNote) {
+      parts.push('<h4>Feature review <span class="tag">' + esc(t.mvpSprintId || "mvp-sprint") + '</span>' +
+        (t.mvpSprintStatus ? ' <span class="tag">' + esc(t.mvpSprintStatus) + '</span>' : '') + '</h4>');
+      parts.push('<div class="prose">' + esc(t.mvpSprintNote) + '</div>');
+    }
     parts.push(relChips("Specs", "spec", related(t, "todo", "spec"), specLabel));
     parts.push(relChips("User Stories", "story", related(t, "todo", "story"), storyLabel));
     parts.push(impactBlock(t));

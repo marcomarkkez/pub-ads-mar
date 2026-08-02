@@ -11,7 +11,7 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * UC-27 · design.md §10/§16 — internal Support↔Payments chats (both anchors null)
+ * UC-27 · design.json §10/§16 — internal Support↔Payments chats (both anchors null)
  * use a membership/role-derived ACL: a client can NEVER fetch or post; support and
  * payments can.
  */

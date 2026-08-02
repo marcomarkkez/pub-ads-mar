@@ -49,7 +49,7 @@ class AuthorizationNegativeTest extends TestCase
     }
 
     /**
-     * R2 · design.md §16 — a client cannot attach ANOTHER account's private object
+     * R2 · design.json §16 — a client cannot attach ANOTHER account's private object
      * (ad/campaign) to a chat, which would leak that object back on show.
      */
     public function test_client_cannot_attach_a_foreign_private_object(): void

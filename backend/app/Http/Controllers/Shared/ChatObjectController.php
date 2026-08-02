@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * UC-8 · design.md §10/§16 (R2) — attach/detach polymorphic objects on a chat via
+ * UC-8 · design.json §10/§16 (R2) — attach/detach polymorphic objects on a chat via
  * the two-dropdown UI. Attach is OWNERSHIP-CHECKED: client/provider only own objects,
  * Support/Payments/Admin any. Each change writes a kind=system message.
  */

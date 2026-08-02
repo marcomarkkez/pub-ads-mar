@@ -229,7 +229,7 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
             }
 
             <!--
-              design.md §21 rule 4 / §5 (ad origin) — an ad ALWAYS carries a space_id:
+              design.json §21 rule 4 / §5 (ad origin) — an ad ALWAYS carries a space_id:
               a space-less ad has nobody to pay and nowhere to send the files, so it can
               never be booked. The old "name + media type + upload" form minted exactly
               that and has been removed. Ads enter an adset from the campaign backlog,
@@ -461,7 +461,7 @@ export class CampaignDetailComponent implements OnInit {
 
   /* ── Orphan backlog (C03) ── */
 
-  // design.md → Filters & backlog: move orphan spaces into a NEW adset
+  // design.json → Filters & backlog: move orphan spaces into a NEW adset
   // (adsetId omitted) or an EXISTING one (adsetId given).
   moveOrphansToAdset(adsetId: number | null = null): void {
     const ad_ids = this.orphans().map(a => a.id);
@@ -525,7 +525,7 @@ export class CampaignDetailComponent implements OnInit {
 
   /* ── Ads ── */
 
-  // design.md §21 rule 4 / §5 — `openAdForm`/`onFileSelected`/`addAd` used to mint a
+  // design.json §21 rule 4 / §5 — `openAdForm`/`onFileSelected`/`addAd` used to mint a
   // space-less ad from a name + media type + file. That origin is a bug: ads come
   // from booking a space or from moving one in from the campaign backlog, so the
   // form and its handlers were removed rather than patched.
