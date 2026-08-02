@@ -29,6 +29,19 @@ bd sync               # Sync with git
 
 ## Landing the Plane (Session Completion)
 
+> **OVERRIDE for Claude Code (web) sessions — owner rule, 2026-08-02.** Everything below (and the
+> identical beads-generated block further down) is written for a session that owns the remote. A
+> Claude Code web session does NOT: it holds the repo in READ scope, `git push` 403s, and it must
+> not commit locally either — a local commit only earns a stop-hook "Unverified" nag it can never
+> satisfy (no signing key in the container). In those sessions the deliverable replaces steps 4–6:
+>
+> ```bash
+> git add -A && git diff --cached --binary > pNN.patch && git reset
+> ```
+>
+> Hand over `pNN.patch` + a ready-to-paste commit message + the `python3 mvp-init.py` line, and let
+> the owner commit and push from their Codespace. See claude.md → Learnings for the full reasoning.
+
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
 
 **MANDATORY WORKFLOW:**
