@@ -241,3 +241,59 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .sprint-item.is-built   { border-left-color: #22c55e; }
 .sprint-item.is-partial { border-left-color: #f59e0b; }
 .sprint-item.is-missing { border-left-color: #94a3b8; }
+
+/* ---------------- Prompt tray (read-only citations for the prompt) ---------------- */
+.drawer-actions { margin-left: auto; display: flex; gap: 6px; flex: none; }
+.drawer-head .drawer-close { margin-left: 0; }
+
+.ghost-btn {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.ghost-btn:hover { color: var(--text); border-color: var(--accent); }
+.ghost-btn.on { background: var(--accent-weak); color: var(--accent); border-color: var(--accent); }
+.ghost-btn.ok { background: #22c55e; border-color: #22c55e; color: #fff; }
+
+/* the per-row "add to tray" affordance; stays out of the way until the row is hovered */
+.pin-btn {
+  flex: none; width: 22px; height: 22px; line-height: 1; border-radius: 6px; cursor: pointer;
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+  font: inherit; font-size: 12px; opacity: 0; transition: opacity .12s;
+}
+.spec-row:hover .pin-btn, .todo-row:hover .pin-btn, .card:hover .pin-btn,
+.spec-row:focus-within .pin-btn, .todo-row:focus-within .pin-btn, .card:focus-within .pin-btn,
+.pin-btn:focus-visible, .pin-btn.on { opacity: 1; }
+.pin-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pin-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.card-head .pin-btn { margin-left: auto; }
+
+/* Above the drawer (z-index 50): pinning several items means opening one, pinning it, opening
+   the next — the tray has to stay clickable while a drawer is on top of it. */
+.tray {
+  position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); bottom: 18px;
+  display: flex; align-items: center; gap: 10px; max-width: min(920px, calc(100vw - 32px));
+  padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface); box-shadow: 0 12px 34px rgba(8, 12, 20, .28);
+}
+.tray[hidden] { display: none; }
+.tray-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.tray-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.tray-chip {
+  font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  background: var(--accent-weak); color: var(--accent); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px 9px;
+}
+.tray-chip:hover { border-color: var(--accent); }
+.tray-primary {
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  background: var(--accent); color: #fff; border: 1px solid var(--accent);
+  border-radius: 8px; padding: 7px 12px;
+}
+.tray-primary:hover { filter: brightness(1.08); }
+.tray-primary.ok { background: #22c55e; border-color: #22c55e; }
+
+@media (max-width: 720px) {
+  .tray { left: 12px; right: 12px; transform: none; max-width: none; }
+  .tray-count { display: none; }
+}

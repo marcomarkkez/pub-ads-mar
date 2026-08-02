@@ -43,7 +43,8 @@
     storyQ: "",
     todoFilter: { status: null, q: "" },
     theme: null,          // null = system, "light", "dark"
-    renderedDiagrams: {}  // cache: view -> true
+    renderedDiagrams: {}, // cache: view -> true
+    tray: []              // prompt tray: collected citations (see refFor)
   };
 
   var DEFAULT_TODO_STATUSES = [
@@ -99,6 +100,20 @@
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") closeDrawer();
     });
+
+    // prompt tray
+    els.tray = $("tray");
+    els.trayN = $("tray-n");
+    els.trayChips = $("tray-chips");
+    $("tray-copy").addEventListener("click", function () { copyText(trayText(), this, "✓ Copiado"); });
+    $("tray-clear").addEventListener("click", trayClear);
+    $("drawer-copy").addEventListener("click", function () {
+      if (state.drawerRef) copyText(refText(state.drawerRef), this, "✓ Copiado");
+    });
+    $("drawer-pin").addEventListener("click", function () {
+      if (state.drawerRef) { trayToggle(state.drawerRef); syncDrawerPin(); }
+    });
+    trayRestore();
 
     initMermaid();
     load();
@@ -499,6 +514,7 @@
         (k && k.weight ? '<span class="weight-pill">' + esc(k.weight) + '</span>' : '') +
         (st ? '<span class="status-pill" style="background:' + esc(st.color) + '">' + esc(st.label) + '</span>' : '') +
       '</span>';
+    el.querySelector(".row-tags").appendChild(pinBtn("spec", s));
     el.addEventListener("click", function () { openSpec(s); });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSpec(s); } });
     return el;
@@ -541,6 +557,7 @@
       '</div>' +
       '<h3 style="font-size:13px">' + esc(s.title || "Untitled") + '</h3>' +
       '<div class="tags">' + (s.features || []).map(function (ft) { return '<span class="tag feat">' + esc(ft) + '</span>'; }).join('') + '</div>';
+    el.querySelector(".card-head").appendChild(pinBtn("spec", s));
     el.addEventListener("click", function () { openSpec(s); });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSpec(s); } });
     return el;
@@ -616,6 +633,7 @@
         (t.note ? '<span class="todo-note">' + esc(t.note) + '</span>' : '') +
       '</span>' +
       '<span class="todo-tags">' + (t.tags || []).map(function (x) { return '<span class="tag feat">' + esc(x) + '</span>'; }).join('') + '</span>';
+    el.querySelector(".todo-tags").appendChild(pinBtn("todo", t));
     el.addEventListener("click", function () { openTodo(t); });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openTodo(t); } });
     return el;
@@ -727,6 +745,7 @@
           '<span class="row-main"><span class="row-title">' + esc(u.title || "") + '</span>' +
           (u.detail ? '<span class="row-sub">' + esc(u.detail) + '</span>' : '') + '</span>' +
           '<span class="row-tags">' + (secs ? '<span class="tag">' + esc(secs) + '</span>' : '') + '</span>';
+        row.querySelector(".row-tags").appendChild(pinBtn("story", u));
         row.addEventListener("click", function () { openStory(u); });
         row.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openStory(u); } });
         g.appendChild(row);
@@ -762,7 +781,7 @@
     if (s.body) {
       parts.push('<h4>Details</h4><div class="prose">' + esc(s.body) + '</div>');
     }
-    openDrawer("§" + s.id + " · " + (s.title || "Untitled"), parts.join(""), "spec/" + encodeURIComponent(s.id));
+    openDrawer("§" + s.id + " · " + (s.title || "Untitled"), parts.join(""), "spec/" + encodeURIComponent(s.id), refFor("spec", s));
   }
 
   function openStory(u) {
@@ -775,7 +794,7 @@
     parts.push(relChips("Specs", "spec", related(u, "story", "spec"), specLabel));
     parts.push(relChips("Todos", "todo", related(u, "story", "todo"), todoLabel));
     parts.push(impactBlock(u));
-    openDrawer(u.id + " · " + (u.title || ""), parts.join(""), "uc/" + encodeURIComponent(u.id));
+    openDrawer(u.id + " · " + (u.title || ""), parts.join(""), "uc/" + encodeURIComponent(u.id), refFor("story", u));
   }
 
   function openTodo(t) {
@@ -795,7 +814,7 @@
     parts.push(relChips("Specs", "spec", related(t, "todo", "spec"), specLabel));
     parts.push(relChips("User Stories", "story", related(t, "todo", "story"), storyLabel));
     parts.push(impactBlock(t));
-    openDrawer((t.id ? t.id + " · " : "") + (t.title || "Todo"), parts.join(""), t.id ? "todo/" + encodeURIComponent(t.id) : null);
+    openDrawer((t.id ? t.id + " · " : "") + (t.title || "Todo"), parts.join(""), t.id ? "todo/" + encodeURIComponent(t.id) : null, refFor("todo", t));
   }
 
   function specLabel(s) { return "§" + s.id + " · " + (s.title || ""); }
@@ -807,10 +826,12 @@
     return { key: key, label: key || "—", color: "#94a3b8" };
   }
 
-  function openDrawer(title, html, hash) {
+  function openDrawer(title, html, hash, ref) {
     els.drawerTitle.textContent = title;
     els.drawerBody.innerHTML = html;
     els.drawer.hidden = false;
+    state.drawerRef = ref || null;
+    syncDrawerPin();
     if (hash) writeHash(hash);
     els.drawerBody.parentNode.querySelector(".drawer-close").focus();
   }
@@ -823,6 +844,152 @@
     if (els.drawer.hidden) return;
     els.drawer.hidden = true;
     writeHash(state.view); // drop the item id from the URL, keep the view
+  }
+
+  /* ---------------- Prompt tray ----------------
+     The dashboard is READ-ONLY: there is no server behind it and no edit mode, so nothing here
+     writes to design.json. What it CAN do is hand over an unambiguous citation — id, title, live
+     status and the jq path that locates the node — so a change can be requested in the prompt and
+     applied to the file in the repo. "Copiar ref" copies one item; the tray collects several. */
+
+  function refFor(type, item) {
+    var lines, k;
+    if (type === "spec") {
+      k = item.kanban || {};
+      lines = [
+        "§" + item.id + " · " + (item.title || "Untitled"),
+        "status: " + (k.status || "—") + (k.weight ? " · weight: " + k.weight : "") +
+          ((item.features || []).length ? " · features: " + item.features.join(", ") : ""),
+        "jq: '.specs[] | select(.id==\"" + item.id + "\")'"
+      ];
+    } else if (type === "story") {
+      lines = [
+        item.id + " · " + (item.title || ""),
+        (item.actor ? "actor: " + item.actor + " · " : "") +
+          "secciones: " + ((item.sections || []).join(", ") || "—"),
+        "jq: '.userStories[] | select(.id==\"" + item.id + "\")'"
+      ];
+    } else {
+      lines = [
+        (item.id ? item.id + " · " : "") + (item.title || "Todo"),
+        "status: " + (item.status || "—") +
+          ((item.tags || []).length ? " · tags: " + item.tags.join(", ") : "") +
+          (item.mvpSprintId ? " · mvp-sprint: " + item.mvpSprintId : ""),
+        item.id ? "jq: '.todos[] | select(.id==\"" + item.id + "\")'" : "jq: '.todos[] | select(.title==\"" + (item.title || "") + "\")'"
+      ];
+    }
+    return { key: type + "/" + (item.id || item.title || ""), type: type, label: lines[0], lines: lines };
+  }
+
+  function refText(r) {
+    return ["Contexto — design/design.json:", ""].concat(r.lines).concat(["", "Cambio solicitado: "]).join("\n");
+  }
+  function trayText() {
+    if (!state.tray.length) return "";
+    var out = ["Contexto — design/design.json (Design Dashboard):", ""];
+    state.tray.forEach(function (r, i) {
+      out.push((i + 1) + ". " + r.lines[0]);
+      for (var j = 1; j < r.lines.length; j++) out.push("   " + r.lines[j]);
+    });
+    out.push("", "Cambio solicitado: ");
+    return out.join("\n");
+  }
+
+  function trayIndex(key) {
+    for (var i = 0; i < state.tray.length; i++) if (state.tray[i].key === key) return i;
+    return -1;
+  }
+  function trayHas(key) { return trayIndex(key) !== -1; }
+  function trayToggle(ref) {
+    var i = trayIndex(ref.key);
+    if (i === -1) state.tray.push(ref); else state.tray.splice(i, 1);
+    trayChanged();
+  }
+  function trayClear() { state.tray = []; trayChanged(); }
+  function trayChanged() { traySave(); renderTray(); syncPins(); syncDrawerPin(); }
+
+  // sessionStorage keeps the tray across the hard reloads this dashboard needs (cache-busting).
+  function traySave() {
+    try { sessionStorage.setItem("pubads.tray", JSON.stringify(state.tray)); } catch (e) { /* private mode */ }
+  }
+  function trayRestore() {
+    try {
+      var raw = sessionStorage.getItem("pubads.tray");
+      if (raw) state.tray = JSON.parse(raw) || [];
+    } catch (e) { state.tray = []; }
+    renderTray();
+  }
+
+  function renderTray() {
+    if (!els.tray) return;
+    els.tray.hidden = state.tray.length === 0;
+    els.trayN.textContent = state.tray.length;
+    els.trayChips.innerHTML = "";
+    state.tray.forEach(function (r) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "tray-chip";
+      b.title = "Quitar de la bandeja";
+      b.textContent = r.lines[0].split(" · ")[0] + " ✕";
+      b.addEventListener("click", function () { trayToggle(r); });
+      els.trayChips.appendChild(b);
+    });
+  }
+
+  function pinBtn(type, item) {
+    var ref = refFor(type, item);
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "pin-btn" + (trayHas(ref.key) ? " on" : "");
+    b.setAttribute("data-ref", ref.key);
+    b.title = "Añadir a la bandeja para citarlo en el prompt";
+    b.textContent = trayHas(ref.key) ? "✓" : "＋";
+    b.addEventListener("click", function (e) { e.stopPropagation(); trayToggle(ref); });
+    return b;
+  }
+  function syncPins() {
+    document.querySelectorAll(".pin-btn").forEach(function (b) {
+      var on = trayHas(b.getAttribute("data-ref"));
+      b.classList.toggle("on", on);
+      b.textContent = on ? "✓" : "＋";
+    });
+  }
+  function syncDrawerPin() {
+    var b = $("drawer-pin");
+    if (!b) return;
+    var on = !!state.drawerRef && trayHas(state.drawerRef.key);
+    b.classList.toggle("on", on);
+    b.textContent = on ? "✓ En la bandeja" : "＋ Bandeja";
+  }
+
+  function copyText(text, btn, okLabel) {
+    if (!text) return;
+    var done = function () { flash(btn, okLabel || "✓ Copiado"); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { legacyCopy(text, done); });
+    } else {
+      legacyCopy(text, done);
+    }
+  }
+  // http:// port-forwards and older browsers have no async clipboard — fall back, then to manual.
+  function legacyCopy(text, done) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed"; ta.style.top = "-1000px";
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    if (ok) done(); else window.prompt("Copia manualmente (Ctrl+C):", text);
+  }
+  function flash(btn, label) {
+    if (!btn) return;
+    var prev = btn.textContent;
+    btn.textContent = label;
+    btn.classList.add("ok");
+    setTimeout(function () { btn.textContent = prev; btn.classList.remove("ok"); }, 1400);
   }
 
   /* ---------------- misc ---------------- */

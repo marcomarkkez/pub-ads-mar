@@ -57,3 +57,37 @@ Then open http://localhost:8080/design.html
 
 The theme button cycles system → light → dark. The UI files (`design.html`, `app.js`,
 `styles.css`) contain no baked-in data.
+
+### Editing the spec — the prompt tray
+
+The dashboard is **read-only**: it is three static files and a `fetch`, with no server behind
+it, so nothing in the UI can write back to `design.json`. Edits happen where the file lives —
+in the repo, through the prompt.
+
+What the UI does instead is hand over an unambiguous **citation** of whatever you are looking
+at, so you never have to describe it by hand:
+
+- **`＋`** on any spec row, kanban card, todo or user story adds it to the tray (bottom bar).
+- **`⧉ Copiar ref`** in the drawer copies just the open item.
+- **`⧉ Copiar para el prompt`** copies the whole tray.
+
+The copied block carries the id, the title, the *live* status/features and the `jq` path that
+locates the node, then leaves a `Cambio solicitado:` line for you to finish:
+
+```
+Contexto — design/design.json (Design Dashboard):
+
+1. §10 · Chats, Objetos & Flags
+   status: wip · weight: XL · features: F08, F09
+   jq: '.specs[] | select(.id=="10")'
+
+Cambio solicitado:
+```
+
+Paste it into the prompt, write the change after the colon, and the edit lands on the exact
+node — no ambiguity about *which* §10 or *which* UC. The tray survives reloads
+(`sessionStorage`) and stays clickable while a drawer is open, so you can collect several
+items across views before copying.
+
+`jq` is the standard command-line JSON tool (`apt install jq`) — the path is included so the
+same node can be inspected from a terminal: `jq '.specs[] | select(.id=="10")' design/design.json`.

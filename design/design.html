@@ -43,10 +43,23 @@
   <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
     <div class="drawer-head">
       <h2 id="drawer-title"></h2>
+      <div class="drawer-actions">
+        <button id="drawer-copy" class="ghost-btn" title="Copiar la referencia de este objeto">⧉ Copiar ref</button>
+        <button id="drawer-pin" class="ghost-btn" title="Añadir a la bandeja">＋ Bandeja</button>
+      </div>
       <button class="drawer-close" data-close aria-label="Close">✕</button>
     </div>
     <div id="drawer-body" class="drawer-body"></div>
   </div>
+</div>
+
+<!-- Prompt tray: the dashboard is READ-ONLY (no server, no edit mode). The tray collects
+     citations — id, title, live status, jq path — to paste into the prompt. -->
+<div id="tray" class="tray" hidden>
+  <span class="tray-count"><strong id="tray-n">0</strong> en la bandeja</span>
+  <span id="tray-chips" class="tray-chips"></span>
+  <button id="tray-copy" class="tray-primary" title="Copiar el bloque para pegarlo en el prompt">⧉ Copiar para el prompt</button>
+  <button id="tray-clear" class="ghost-btn" title="Vaciar la bandeja">Vaciar</button>
 </div>
 
 <!-- Mermaid: prefer a LOCAL vendored copy (works when the CDN is blocked); fall back to the CDN. -->
