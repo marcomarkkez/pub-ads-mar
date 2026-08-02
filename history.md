@@ -1455,5 +1455,78 @@ Q26–Q31 (opened in Session 18) were **closed in Session 19** by the O1–O24 o
 (clawback, config effect on in-flight bookings, cross-queue precedence, re-upload bound, SMS
 provider); the re-upload loop itself was later removed entirely in Session 28's F07 work.
 
+## Session 30 - 2026-08-01 → 2026-08-02
+
+### Summary
+Short session, three arcs: (1) closed **Q32** — built the §21/UC-43 ownership-chain fix that
+Session 29 approved but never shipped, closing **Q34** with it; (2) a git-hygiene cleanup that
+reconciled `main` with `mvp-build`, deleted the stale branches and rescued code that only lived on
+a doomed one; (3) two standing owner rules recorded in claude.md. Delivered as `p64` + `p65`.
+
+### Q32 / Q34 — §21 + UC-43 built (p64)
+- New `AuthorizesOwnershipChain` trait (`Http/Controllers/Concerns/`) — the ONE place the chain is
+  verified, used by the Adset/Ad/Backlog controllers. The ownership ROOT is isolated in a single
+  `ownsCampaign()` method, so the future real `accounts` table is a one-method change.
+- `routes/api.php`: the adsets+ads block is wrapped in `Route::scopeBindings()`, backed by explicit
+  `abort_unless(child.parent_id === parent.id, 404)` in the trait. **404, never 403.**
+  (`campaigns/{campaign}/adsets/move` sits outside the group and does not collide.)
+- `AdController`: `space_id` `nullable` → **`required`** on store and `sometimes` on update (it can
+  never be nulled) — §21's invariant that every ad has a space.
+- `BacklogController` move guardrails: every `ad_id` must resolve inside the caller's account and so
+  must the destination adset; `bookings.adset_id` is carried in the SAME transaction. Cross-campaign
+  within one account is ALLOWED (the move matrix); cross-account never is.
+- Adset deletion: migration `2026_08_01_000001` drops the FK and re-adds it `nullOnDelete`
+  (`2026_06_13_000020` had kept `cascadeOnDelete`); `destroy` accepts optional `move_ads_to`. An
+  adset is a grouping label — deleting it orphans its ads, it does not destroy them.
+- **Q34 closed**: the space-less "+ Ad Space" form is out of `campaign-detail.component.ts`,
+  replaced by a link into `/client/spaces` carrying `campaign` + `adset` query params.
+- `OwnershipChainTest` — 13 tests, including the two IDOR proofs (own campaign + foreign adset;
+  own chain + foreign ad) and the intra-account break (campaign B + adset of campaign A).
+- §21 moved `backlog` → **`wip`**, not `done`: the human UI walkthrough has not run (the same gap
+  Q36 flagged for F11).
+
+### Branch hygiene — the real problem, and what came out of it
+- The Codespaces CORS/login fix got solved TWICE on two divergent branches because `main` was the
+  default branch and 80 commits behind `mvp-build`, so fresh clones landed on stale code.
+  Now `main == mvp-build` (`rev-list --left-right --count` → `0 0`).
+- **Before deleting a branch, check what only lives there.** `ApiErrorCode.php` + `api-error.ts`
+  (plus the `bootstrap/app.php` renderers and the 401 login response) existed ONLY on
+  `claude/…-k1fgt8` at `ff98444`; cherry-picked into `mvp-build` and shipped inside p64. A branch is
+  the only home of its unmerged commits — deleting it deletes them.
+- **A branch-scoped fact is not a repo fact.** I reported "history.md ends at Session 18" without
+  naming the branch — true on `k1fgt8`, false for the repo; a parallel session made the mirror-image
+  error. Verify with `git cat-file -e`, `git branch -r --contains`, `git merge-base` and
+  `git rev-list --left-right --count` before stating anything as repo-wide.
+- Backups do NOT belong in branches when the commits already exist.
+
+### Owner rules recorded (claude.md, p65)
+- **Branches are per DEVELOPER, never per feature/task** — a branch identifies WHO is working, not
+  WHAT is being built. Applies to ALL sessions from here on. While in MVP mode (current, until
+  further notice) everything goes on `mvp-build`; no new branches unless explicitly necessary.
+- **In Claude Code (web) sessions: NEVER push, and never ask to.** Deliver `pNN.patch` plus a
+  ready-to-paste commit message. Note that `git commit -m "pNN"` squashes the patch's commits into
+  one, so per-commit messages are lost — the real description has to be in the suggested message.
+
+### Pitfalls Hit
+- **The push 403 is a token-SCOPE problem — not repo visibility, not the branch name.** Proven:
+  the repo was already `private: false`; `push --dry-run` to the designated branch 403s too;
+  `add_repo` with `access:"push"` returns `already_present`. Do NOT flip visibility or route around
+  the proxy to "fix" it (its own README says so).
+- **The stop-hook "Unverified commits" warning is unfixable in this container**:
+  `/home/claude/.ssh/commit_signing_key.pub` is **0 bytes**, so no signature is possible. The
+  committer email is already `noreply@anthropic.com`, so the suggested `--reset-author` adds nothing
+  — and on a commit authored by the owner it would DESTROY that authorship. Moot regardless: these
+  commits never leave the session, they travel as patches.
+- Postgres died twice mid-session (`SQLSTATE[08006] Connection refused`), once surfacing as 55
+  phantom test failures. `service postgresql start`, then re-run before believing any red suite.
+
+### Open Questions for Next Session
+- **Q37 — proofs still answer 403 where §21 rule 2 says 404.** `AuthorizationNegativeTest` asserts
+  403 for another client's proof; left untouched pending an owner call, since flipping it rewrites
+  an existing green test.
+- **Q38 — §21 stays `wip` until a human UI walkthrough runs**: create/move/delete adsets and ads,
+  confirm orphans survive, confirm nothing answers 403.
+- Q33, Q35, Q36 and Session 29's parked UC/todo proposals remain open.
+
 <!-- Add new sessions above this line -->
 
