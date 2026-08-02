@@ -396,6 +396,24 @@
     return Object.keys(set).sort();
   }
 
+  /* Cross-cutting groups (design.json .groups). A group spans specs + stories + todos, so it is
+     NOT part of the §/feature cross-link graph: it labels a WORK FRONT, not a dependency. */
+  function groupMeta(slug) {
+    var reg = ((state.data.groups || {}).registry) || [];
+    for (var i = 0; i < reg.length; i++) if (reg[i].slug === slug) return reg[i];
+    return { slug: slug, label: slug };
+  }
+  function groupChips(item) {
+    return (item.groups || []).map(function (g) {
+      var m = groupMeta(g);
+      return '<span class="tag group" title="' + esc(m.description || m.label) + '">' + esc(m.label) + '</span>';
+    }).join('');
+  }
+  /* Group slugs and labels join the free-text haystack so the existing search box filters by group. */
+  function groupHay(item) {
+    return (item.groups || []).map(function (g) { return g + " " + (groupMeta(g).label || ""); }).join(" ");
+  }
+
   /* ---------------- Specs view ---------------- */
   function renderSpecs() {
     var f = state.specFilter;
@@ -480,7 +498,8 @@
     if (f.status && (!s.kanban || s.kanban.status !== f.status)) return false;
     if (f.feature && (s.features || []).indexOf(f.feature) === -1) return false;
     if (f.q) {
-      var hay = (s.id + " " + (s.title || "") + " " + (s.summary || "") + " " + (s.body || "") + " " + (s.features || []).join(" ")).toLowerCase();
+      var hay = (s.id + " " + (s.title || "") + " " + (s.summary || "") + " " + (s.body || "") + " " +
+                 (s.features || []).join(" ") + " " + groupHay(s)).toLowerCase();
       if (hay.indexOf(f.q) === -1) return false;
     }
     return true;
@@ -510,6 +529,7 @@
         (s.summary ? '<span class="row-sub">' + esc(s.summary) + '</span>' : '') +
       '</span>' +
       '<span class="row-tags">' +
+        groupChips(s) +
         (s.features || []).map(function (ft) { return '<span class="tag feat">' + esc(ft) + '</span>'; }).join('') +
         (k && k.weight ? '<span class="weight-pill">' + esc(k.weight) + '</span>' : '') +
         (st ? '<span class="status-pill" style="background:' + esc(st.color) + '">' + esc(st.label) + '</span>' : '') +
@@ -530,7 +550,7 @@
       var inCol = state.data.specs.filter(function (s) {
         if (!s.kanban || s.kanban.status !== st.key) return false;
         if (q) {
-          var hay = (s.id + " " + (s.title || "") + " " + (s.features || []).join(" ")).toLowerCase();
+          var hay = (s.id + " " + (s.title || "") + " " + (s.features || []).join(" ") + " " + groupHay(s)).toLowerCase();
           if (hay.indexOf(q) === -1) return false;
         }
         return true;
@@ -556,7 +576,8 @@
         (s.kanban && s.kanban.weight ? '<span class="weight-pill" style="margin-left:auto">' + esc(s.kanban.weight) + '</span>' : '') +
       '</div>' +
       '<h3 style="font-size:13px">' + esc(s.title || "Untitled") + '</h3>' +
-      '<div class="tags">' + (s.features || []).map(function (ft) { return '<span class="tag feat">' + esc(ft) + '</span>'; }).join('') + '</div>';
+      '<div class="tags">' + groupChips(s) +
+        (s.features || []).map(function (ft) { return '<span class="tag feat">' + esc(ft) + '</span>'; }).join('') + '</div>';
     el.querySelector(".card-head").appendChild(pinBtn("spec", s));
     el.addEventListener("click", function () { openSpec(s); });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSpec(s); } });
@@ -603,7 +624,7 @@
       if (f.status && t.status !== f.status) return false;
       if (f.q) {
         var hay = ((t.id || "") + " " + (t.title || "") + " " + (t.note || "") + " " +
-                   (t.mvpSprintNote || "") + " " + (t.tags || []).join(" ")).toLowerCase();
+                   (t.mvpSprintNote || "") + " " + (t.tags || []).join(" ") + " " + groupHay(t)).toLowerCase();
         if (hay.indexOf(f.q) === -1) return false;
       }
       return true;
@@ -632,7 +653,8 @@
         '<span class="todo-title' + (done ? " is-done" : "") + '">' + (t.id ? '<span class="todo-id">' + esc(t.id) + '</span> ' : '') + esc(t.title || "") + '</span>' +
         (t.note ? '<span class="todo-note">' + esc(t.note) + '</span>' : '') +
       '</span>' +
-      '<span class="todo-tags">' + (t.tags || []).map(function (x) { return '<span class="tag feat">' + esc(x) + '</span>'; }).join('') + '</span>';
+      '<span class="todo-tags">' + groupChips(t) +
+        (t.tags || []).map(function (x) { return '<span class="tag feat">' + esc(x) + '</span>'; }).join('') + '</span>';
     el.querySelector(".todo-tags").appendChild(pinBtn("todo", t));
     el.addEventListener("click", function () { openTodo(t); });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openTodo(t); } });
@@ -725,7 +747,7 @@
     var groups = {};
     var order = [];
     state.data.userStories.forEach(function (u) {
-      var hay = (u.id + " " + (u.actor || "") + " " + (u.title || "") + " " + (u.detail || "")).toLowerCase();
+      var hay = (u.id + " " + (u.actor || "") + " " + (u.title || "") + " " + (u.detail || "") + " " + groupHay(u)).toLowerCase();
       if (q && hay.indexOf(q) === -1) return;
       var a = u.actor || "OTHER";
       if (!groups[a]) { groups[a] = []; order.push(a); }
@@ -744,7 +766,7 @@
           '<span class="row-id">' + esc(u.id) + '</span>' +
           '<span class="row-main"><span class="row-title">' + esc(u.title || "") + '</span>' +
           (u.detail ? '<span class="row-sub">' + esc(u.detail) + '</span>' : '') + '</span>' +
-          '<span class="row-tags">' + (secs ? '<span class="tag">' + esc(secs) + '</span>' : '') + '</span>';
+          '<span class="row-tags">' + groupChips(u) + (secs ? '<span class="tag">' + esc(secs) + '</span>' : '') + '</span>';
         row.querySelector(".row-tags").appendChild(pinBtn("story", u));
         row.addEventListener("click", function () { openStory(u); });
         row.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openStory(u); } });
@@ -765,6 +787,7 @@
       parts.push('<span class="status-pill" style="background:' + esc(st.color) + '">' + esc(st.label) + '</span>');
       if (k.weight) parts.push('<span class="weight-pill">weight ' + esc(k.weight) + '</span>');
     }
+    parts.push(groupChips(s));
     (s.features || []).forEach(function (ft) { parts.push('<span class="tag feat">' + esc(ft) + '</span>'); });
     parts.push('</div>');
 
@@ -787,6 +810,7 @@
   function openStory(u) {
     var parts = [];
     parts.push('<div class="meta-row">');
+    parts.push(groupChips(u));
     (u.sections || []).forEach(function (sec) { parts.push('<span class="tag">' + esc(sec) + '</span>'); });
     if (u.actor) parts.push('<span class="tag feat">' + esc(u.actor) + '</span>');
     parts.push('</div>');
@@ -801,6 +825,7 @@
     var st = todoStatusMeta(t.status);
     var parts = [];
     parts.push('<div class="meta-row"><span class="status-pill" style="background:' + esc(st.color) + '">' + esc(st.label) + '</span>');
+    parts.push(groupChips(t));
     (t.tags || []).forEach(function (x) { parts.push('<span class="tag">' + esc(x) + '</span>'); });
     parts.push('</div>');
     if (t.note) parts.push('<p class="prose" style="color:var(--muted)">' + esc(t.note) + '</p>');
@@ -878,6 +903,9 @@
         item.id ? "jq: '.todos[] | select(.id==\"" + item.id + "\")'" : "jq: '.todos[] | select(.title==\"" + (item.title || "") + "\")'"
       ];
     }
+    // The group goes in just above the jq path: it tells the prompt WHICH work front this belongs
+    // to, which is what makes a bare "§10" or "F09" unambiguous when several fronts touch the same spec.
+    if ((item.groups || []).length) lines.splice(lines.length - 1, 0, "grupo: " + item.groups.join(", "));
     return { key: type + "/" + (item.id || item.title || ""), type: type, label: lines[0], lines: lines };
   }
 

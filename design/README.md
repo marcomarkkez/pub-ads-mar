@@ -34,7 +34,31 @@ jq -r '.mvpSprint.specBacklog.domains | to_entries[] | .value[]' design/design.j
 | `diagrams` | flow / ER / classes (mermaid definitions) |
 | `todos[]` | the Fxx feature index, enriched with the mvp-sprint feature-review notes |
 | `lineage` | FL/ER/CL id registry + the parked UC/todo proposals |
+| `groups` | cross-cutting work fronts — the slug registry (membership lives on each object) |
 | `mvpSprint` | the granular build backlog, checklist, ui-phase history, session notes |
+
+### Groups — one work front across all three categories
+
+A spec (`§N`), a user story (`UC-N`) and a todo (`Fxx`) are three *kinds* of object, not three
+buckets of work. A **group** cuts across them: it answers "what are we working on right now".
+
+- The slug is declared once in `.groups.registry[]` (slug, label, description, date).
+- Membership lives in each object's own `groups: []` array — one source of truth, and an object can
+  belong to several fronts.
+- It is a separate field from `todos[].tags` on purpose: those tags (`F08`, `§10`, …) feed the
+  dashboard's cross-link graph, and a work-front slug dropped in there would wire every object in
+  the front to every other one.
+
+```bash
+# everything in a front, whatever kind of object it is
+jq '[.specs[],.userStories[],.todos[]]
+    | map(select((.groups//[]) | index("mensajeria-soporte"))) | map(.id)' design/design.json
+```
+
+In the dashboard the group shows as a filled pill on kanban cards, spec rows, todo rows, story rows
+and in every drawer, and the slug is searchable in all four views — typing `mensajeria-soporte` in
+any search box narrows that view to the front. The copied prompt reference carries a `grupo:` line
+too, so a pasted `§10` is unambiguous even when several fronts touch the same spec.
 
 ## Dashboard
 

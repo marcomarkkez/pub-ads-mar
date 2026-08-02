@@ -112,6 +112,9 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .tags { display: flex; gap: 5px; flex-wrap: wrap; }
 .tag { font-size: 10.5px; padding: 2px 7px; border-radius: 6px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); font-weight: 600; }
 .tag.feat { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+/* Cross-cutting work front (design.json .groups). Deliberately unlike .tag.feat: a group is not a
+   §/F code, it is the answer to "what are we working on right now", so it reads as a filled pill. */
+.tag.group { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); text-transform: none; }
 .status-pill { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; margin-left: auto; }
 .weight-pill { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--border); color: var(--text); }
 

@@ -69,6 +69,17 @@
       }
     ]
   },
+  "groups": {
+    "convention": "Etiqueta transversal: agrupa specs, user stories y todos que forman UN frente de trabajo, por encima de las categorias nativas (§ spec, UC historia, F/CHAT/WALK todo). Slug kebab-case, sin acentos. La pertenencia vive en el array `groups` de cada objeto — este registro solo define el slug, para que no haya dos fuentes de verdad. Un objeto puede estar en varios grupos. Consulta: jq '[.specs[],.userStories[],.todos[]] | map(select((.groups//[]) | index(\"mensajeria-soporte\"))) | map(.id)' design/design.json",
+    "registry": [
+      {
+        "slug": "mensajeria-soporte",
+        "label": "Mensajeria y soporte",
+        "added": "2026-08-02",
+        "description": "Frente de trabajo activo: el chat unificado (un solo primitivo chats/objetos/flags/participantes), el enmascarado de PII, y Soporte-como-chat tras retirar el sistema de tickets. Cruza §10 (+§11, fusionada en §10) con F08, F09, CHAT-1..4 y WALK-1."
+      }
+    ]
+  },
   "specs": [
     {
       "id": "1",
@@ -504,6 +515,9 @@
         "F08",
         "F09"
       ],
+      "groups": [
+        "mensajeria-soporte"
+      ],
       "kanban": {
         "status": "wip",
         "weight": "XL",
@@ -561,6 +575,9 @@
       "title": "(merged into §10)",
       "features": [
         "F09"
+      ],
+      "groups": [
+        "mensajeria-soporte"
       ],
       "kanban": {
         "status": "wip",
@@ -1140,6 +1157,9 @@
         "§7",
         "§10"
       ],
+      "groups": [
+        "mensajeria-soporte"
+      ],
       "flow": [
         "FL14",
         "FL18",
@@ -1169,6 +1189,9 @@
       "specs": [
         "§10"
       ],
+      "groups": [
+        "mensajeria-soporte"
+      ],
       "flow": [
         "FL01",
         "FL07"
@@ -1196,6 +1219,9 @@
       "detail": "From the Messages tab or an ad/adset/campaign object the counterparty is Support (support_client); the object rides along as context and does NOT pull in the provider. A Billing-opened chat is Support-fronted with the payment/invoice attached, and Payments is looped in via the internal Support<->Payments chat — Payments never faces the client directly. 'Contact support' is simply 'open a chat'.",
       "specs": [
         "§10"
+      ],
+      "groups": [
+        "mensajeria-soporte"
       ],
       "flow": [],
       "er": [
@@ -1454,6 +1480,9 @@
       "specs": [
         "§10"
       ],
+      "groups": [
+        "mensajeria-soporte"
+      ],
       "flow": [
         "FL19"
       ],
@@ -1479,6 +1508,9 @@
       "specs": [
         "§7",
         "§10"
+      ],
+      "groups": [
+        "mensajeria-soporte"
       ],
       "flow": [
         "FL18",
@@ -1591,6 +1623,9 @@
       "specs": [
         "§10"
       ],
+      "groups": [
+        "mensajeria-soporte"
+      ],
       "flow": [
         "FL19",
         "FL20"
@@ -1618,6 +1653,9 @@
       "specs": [
         "§10",
         "§12"
+      ],
+      "groups": [
+        "mensajeria-soporte"
       ],
       "flow": [],
       "er": [
@@ -1968,6 +2006,9 @@
       "specs": [
         "§10",
         "§11"
+      ],
+      "groups": [
+        "mensajeria-soporte"
       ],
       "flow": [
         "FL19"
@@ -5170,6 +5211,9 @@
       "tags": [
         "F08"
       ],
+      "groups": [
+        "mensajeria-soporte"
+      ],
       "note": "Recorrido humano (Messages) pendiente para cerrar.",
       "specs": [
         "§10"
@@ -5203,6 +5247,9 @@
       "status": "in_progress",
       "tags": [
         "F09"
+      ],
+      "groups": [
+        "mensajeria-soporte"
       ],
       "note": "Unificado en el primitivo chat; recorrido pendiente.",
       "specs": [
@@ -5463,6 +5510,9 @@
         "F09",
         "§10"
       ],
+      "groups": [
+        "mensajeria-soporte"
+      ],
       "specs": [
         "§10"
       ],
@@ -5493,6 +5543,9 @@
         "§10",
         "§17"
       ],
+      "groups": [
+        "mensajeria-soporte"
+      ],
       "specs": [
         "§10",
         "§17"
@@ -5519,6 +5572,9 @@
       "tags": [
         "F07",
         "§10"
+      ],
+      "groups": [
+        "mensajeria-soporte"
       ],
       "specs": [
         "§7",
@@ -5548,6 +5604,9 @@
       "status": "done",
       "tags": [
         "§10"
+      ],
+      "groups": [
+        "mensajeria-soporte"
       ],
       "specs": [
         "§10"
@@ -5590,6 +5649,9 @@
       "tags": [
         "F08",
         "F09"
+      ],
+      "groups": [
+        "mensajeria-soporte"
       ],
       "specs": [
         "§10"

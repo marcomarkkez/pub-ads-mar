@@ -1528,5 +1528,88 @@ a doomed one; (3) two standing owner rules recorded in claude.md. Delivered as `
   confirm orphans survive, confirm nothing answers 403.
 - Q33, Q35, Q36 and Session 29's parked UC/todo proposals remain open.
 
+## Session 34 — 2026-08-02 · Group tags + three-cluster congruence audit
+
+**Cross-cutting group tags.** `design.json` gained a `.groups` block (`convention` + `registry`) and
+a `groups: [...]` array on specs, user stories and todos. First slug: **`mensajeria-soporte`**
+(§10, §11 · UC-7/8/9/21/22/27/28/42 · F08, F09, CHAT-1..4, WALK-1 — 17 objects). Deliberately a
+SEPARATE field from `todos[].tags`: those feed the §/feature cross-link graph, and a work-front slug
+mixed in there would invent phantom edges between every object in the front. The dashboard renders
+group pills in kanban cards, spec rows, todo rows, story rows and all three drawers, and the slug is
+in the search haystack of all four views — so typing `mensajeria-soporte` filters to the front.
+Verified in headless Chromium; found and fixed one real bug (the kanban search had its own haystack
+and ignored the new field, so the same query returned 2 specs in Lista and 0 in Kanban).
+
+**`AGENTS.md`: the "you MUST push" mandate was DELETED, not overridden** (owner call). It appeared
+twice (hand-written "Landing the Plane" + the beads-generated block). The owner's reasoning: an
+override reads as a web-session exception, but the rule is wrong everywhere — *when* a branch goes
+out is the owner's call, not the agent's. Step 4 now describes leaving the work reviewable, with the
+patch recipe for web sessions. A note inside the beads markers says to delete it again if `bd`
+regenerates it.
+
+**Three read-only audit agents** ran over the pending clusters (messaging/support · admin-RBAC-config
+· proof/money-B9). Headline: the code is well ahead of the bookkeeping. `design.json` still describes
+the pre-CHAT-1 architecture in several places (`Conversation`, `type=internal`, `MessageController`,
+dual-ticket, 48h re-upload), and several batch/feature statuses lag what is built. Nothing was
+flipped — the doc edits are Q47 below.
+
+### Loose ends found (work, not decisions)
+- **`Chat::STATUS_IN_PROGRESS` has no writer.** §10 and UC-21 both say "Support sets in_progress on
+  pickup"; `ChatController::join()` stamps `support_joined_at` and leaves `status=open`. Both Support
+  and Admin dashboards count a state that can never occur. → Q39.
+- **`ChatController::join()` and `::reopen()` write no `AuditLog` row** though §2 marks both 📝. So
+  AU-record-02's "every remaining ✏/$ action of §2 now writes to the log" is over-stated: money,
+  RBAC, accounts, config and flags are covered; those two chat powers are not.
+- **`AD-delguard-08` is real and P1.** `Client\CampaignController::destroy`, `Provider\SpaceController::destroy`
+  and `Admin\UserController::destroy` delete with no "programmed for deletion" guard, even with live
+  bookings or funds. Risk of actual data loss.
+- **`MvpDemoSeeder:129-137` still violates B9** — it seeds proofs with `status=approved/rejected` and
+  `reviewed_by_user_id = payments`, i.e. Payments reviewing proof content. It is the only remaining
+  writer of the two dead `proofs.status` values.
+- **Ghost endpoint** `GET,POST /payments/proofs` is still in `.endpoints[]`; the routes were removed
+  2026-08-02 and `PaymentsNoProofReviewTest` asserts 404. The four proof endpoints also carry
+  `sectionId:"17"` instead of `"7"`.
+- **`open_tickets` vestige** in `frontend/.../dashboard/dashboard.component.ts:233` after the ticket
+  system was retired.
+- **F12 snapshot covers exactly one key.** Snapshot-at-creation (`BookingController:63`) and the
+  `apply_scope='all'` re-apply (`ConfigurationController:52`) both filter to `proof_deadline_days`;
+  every other configurable key of §12 is neither snapshotted nor re-applied.
+- **No explicit anti-lockout guard** in `PermissionController::update` — today the admin role is
+  protected only structurally (the `/permissions` routes carry `role:admin` and no `permission:`).
+- **`AD-silentpost-04` contradicts §12/§2/§14**: the backlog line grants Admin silent read+WRITE into
+  any thread; the specs say Admin is read-only/incognito with `reopen` as the single write.
+
+### Open Questions for Next Session (Q39+)
+- **Q39 — `in_progress` on pickup.** (a) `join()` sets it automatically · (b) explicit
+  `POST /chats/{c}/pickup` · (c) drop the state from §10/UC-21 and the dashboards.
+- **Q40 — invoice → Support chat with the `payment` attached.** Backend already accepts
+  `object_type=payment`; the button does not exist in `invoice-list.component.ts`. Required for
+  WALK-1, or deferred?
+- **Q41 — PII whitelist "close variants".** §10 asks for the booked space's address *and close
+  variants*; `PiiMaskingService::spaceAddress()` matches exactly. Exact-match enough for MVP?
+- **Q42 — collapse `proofs.status`** to `{pending_review, client_accepted, client_rejected}`, mapping
+  `approved→client_accepted` / `rejected→client_rejected`? (And keep `pending_review`, or rename to
+  `uploaded` as `PR-status-02` says — the rename has a much wider blast radius.)
+- **Q43 — does a MANUAL hold open a Support thread?** Only `ProofFlagController::reject` opens the
+  three chats; `holdPayout` and `flagPayoutHold` change status with no flag and no thread, so a
+  payment can sit `held` with no record of why.
+- **Q44 — Admin silent post**: keep §12 (read-only, `reopen` only) and retire `AD-silentpost-04`, or
+  reopen §2/§12/§14 to allow it?
+- **Q45 — explicit anti-lockout** validation in `PUT /permissions/admin`? §14 asks for it literally.
+- **Q46 — audit the client's proof reject?** It moves `payments.status` to `held` but the actor is a
+  client, and §2 audits staff.
+- **Q47 — doc hygiene: update the canonical file now, or keep the stale text as history?** Covers:
+  F11 `featureReview`+`mvpSprintStatus` → resolved (§12 already says "CLOSED as done"); B4 → done;
+  B9 → done/review; retire `TK-dual-03`, `PR-reupload-06`, `PR-adjudicate-10` (all describe flows the
+  specs explicitly removed); `PM-removeproof-03` → built; re-word `AD-oversight-03` and `CH-conv-01`
+  off the retired conversations/tickets vocabulary; rewrite `F07`/`F08`/`F09` `mvpSprintNote`s that
+  describe the pre-CHAT-1 architecture; §10/§11 kanban `wip` → `review`.
+- **Q48 — moderation scope.** (a) `AD-delguard-08` now (data loss), takedown/freeze later ·
+  (b) the whole moderation package now.
+- **Q49 — lineage.** Link UC-23 to F09 (built under it), and give UC-27/UC-42 an owning todo, or
+  leave them deliberately unowned?
+- Q37 (proofs 403 vs 404) is unchanged and now has a costed answer: 2 controllers + 3 test
+  assertions, ~6 lines, no migration. Q33, Q35, Q36, Q38 remain open.
+
 <!-- Add new sessions above this line -->
 
