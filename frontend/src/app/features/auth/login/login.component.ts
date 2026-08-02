@@ -1,9 +1,11 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { parseApiError } from '../../../core/models/api-error';
 
 @Component({
   selector: 'app-login',
@@ -37,9 +39,10 @@ export class LoginComponent {
         this.notify.success('Welcome back!');
         this.router.navigateByUrl(this.auth.landingRoute());
       },
-      error: (err) => {
+      error: (err: HttpErrorResponse) => {
         this.loading.set(false);
-        this.error.set(err.error?.message || 'Login failed. Please check your credentials.');
+        const { code, message } = parseApiError(err);
+        this.error.set(`${message} (${code})`);
       },
     });
   }

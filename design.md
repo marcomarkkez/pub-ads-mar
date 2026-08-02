@@ -1183,7 +1183,7 @@ ratings, notifications, escrow/pre-pay, media-spec validator, moderation, invoic
 
 
 == 21. Object Ownership & Access Chain (guardrails) ==  [F01,F14]
-kanban: `status:backlog` · `weight:M` · `impacts:F02,F04,F05,F11` · `deps:F01` · `ids:SEC-chain-01`
+kanban: `status:wip` · `weight:M` · `impacts:F02,F04,F05,F11` · `deps:F01` · `ids:SEC-chain-01`
 
 [owner 2026-08-01] APPROVED. Every screen and endpoint authorizes by the OWNERSHIP CHAIN, never by
 the parent alone. (UC-43.)

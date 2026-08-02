@@ -228,41 +228,15 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
               </div>
             }
 
-            <!-- Add Ad Toggle -->
-            @if (showAdFormFor() === adset.id) {
-              <div style="border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--hover);">
-                <div class="form-group">
-                  <label>Ad Name *</label>
-                  <input type="text" [(ngModel)]="newAdName" name="newAdName" placeholder="Ad name" />
-                </div>
-                <div class="form-group">
-                  <label>Media Type *</label>
-                  <select [(ngModel)]="newAdMediaType" name="newAdMediaType">
-                    <option value="image">Image</option>
-                    <option value="video">Video</option>
-                    <option value="sound">Sound</option>
-                    <option value="gif">GIF</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>File *</label>
-                  <input type="file" (change)="onFileSelected($event)" style="font-size:13px;" />
-                </div>
-                <div style="display:flex;gap:8px;">
-                  <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
-                    (click)="addAd(adset)" [disabled]="addingAd()">
-                    @if (addingAd()) {
-                      <span class="spinner"></span>
-                    } @else {
-                      Upload Ad
-                    }
-                  </button>
-                  <button class="btn btn-sm" (click)="showAdFormFor.set(null)">Cancel</button>
-                </div>
-              </div>
-            } @else {
-              <button class="btn btn-sm" (click)="openAdForm(adset.id)">+ Ad Space</button>
-            }
+            <!--
+              design.md §21 rule 4 / §5 (ad origin) — an ad ALWAYS carries a space_id:
+              a space-less ad has nobody to pay and nowhere to send the files, so it can
+              never be booked. The old "name + media type + upload" form minted exactly
+              that and has been removed. Ads enter an adset from the campaign backlog,
+              which is filled by booking spaces from the search.
+            -->
+            <a class="btn btn-sm" [routerLink]="['/client/spaces']"
+              [queryParams]="{ campaign: campaignId, adset: adset.id }">+ Add space to this adset</a>
           </div>
         }
       </div>
@@ -317,7 +291,8 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
 })
 export class CampaignDetailComponent implements OnInit {
   private readonly api = environment.apiUrl;
-  private campaignId!: number;
+  // Read by the template to link into the space search for this campaign.
+  campaignId!: number;
 
   campaign = signal<Campaign | null>(null);
   adsets = signal<Adset[]>([]);
@@ -327,13 +302,6 @@ export class CampaignDetailComponent implements OnInit {
   // Adset form
   newAdsetName = '';
   addingAdset = signal(false);
-
-  // Ad form
-  showAdFormFor = signal<number | null>(null);
-  newAdName = '';
-  newAdMediaType: 'image' | 'video' | 'sound' | 'gif' = 'image';
-  selectedFile: File | null = null;
-  addingAd = signal(false);
 
   // Collaborator form
   newCollabEmail = '';
@@ -557,55 +525,10 @@ export class CampaignDetailComponent implements OnInit {
 
   /* ── Ads ── */
 
-  openAdForm(adsetId: number): void {
-    this.showAdFormFor.set(adsetId);
-    this.newAdName = '';
-    this.newAdMediaType = 'image';
-    this.selectedFile = null;
-  }
-
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files?.[0] ?? null;
-  }
-
-  addAd(adset: Adset): void {
-    if (!this.newAdName.trim()) {
-      this.notify.warning('Please enter an ad name.');
-      return;
-    }
-    if (!this.selectedFile) {
-      this.notify.warning('Please select a file.');
-      return;
-    }
-
-    this.addingAd.set(true);
-    const formData = new FormData();
-    formData.append('name', this.newAdName.trim());
-    formData.append('media_type', this.newAdMediaType);
-    formData.append('file', this.selectedFile);
-
-    this.http.post<Ad>(
-      `${this.api}/client/campaigns/${this.campaignId}/adsets/${adset.id}/ads`,
-      formData
-    ).subscribe({
-      next: (res) => {
-        this.adsets.update(list =>
-          list.map(a => a.id === adset.id
-            ? { ...a, ads: [...(a.ads || []), res] }
-            : a
-          )
-        );
-        this.showAdFormFor.set(null);
-        this.addingAd.set(false);
-        this.notify.success('Ad uploaded.');
-      },
-      error: (err) => {
-        this.addingAd.set(false);
-        this.notify.error(err.error?.message || 'Failed to upload ad.');
-      },
-    });
-  }
+  // design.md §21 rule 4 / §5 — `openAdForm`/`onFileSelected`/`addAd` used to mint a
+  // space-less ad from a name + media type + file. That origin is a bug: ads come
+  // from booking a space or from moving one in from the campaign backlog, so the
+  // form and its handlers were removed rather than patched.
 
   deleteAd(adset: Adset, ad: Ad): void {
     if (!confirm(`Delete ad "${ad.name}"?`)) return;

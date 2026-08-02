@@ -50,19 +50,24 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('campaigns/{campaign}', [CampaignController::class, 'update'])->middleware('permission:campaigns,update');
         Route::delete('campaigns/{campaign}', [CampaignController::class, 'destroy'])->middleware('permission:campaigns,delete');
 
-        // Adsets
-        Route::get('campaigns/{campaign}/adsets', [AdsetController::class, 'index'])->middleware('permission:adsets,read');
-        Route::post('campaigns/{campaign}/adsets', [AdsetController::class, 'store'])->middleware('permission:adsets,create');
-        Route::get('campaigns/{campaign}/adsets/{adset}', [AdsetController::class, 'show'])->middleware('permission:adsets,read');
-        Route::put('campaigns/{campaign}/adsets/{adset}', [AdsetController::class, 'update'])->middleware('permission:adsets,update');
-        Route::delete('campaigns/{campaign}/adsets/{adset}', [AdsetController::class, 'destroy'])->middleware('permission:adsets,delete');
+        // Adsets + Ads — design.md §21 (UC-43): nested bindings are ALWAYS scoped, so
+        // a child is resolved THROUGH its parent and a foreign id 404s at the router.
+        // The controllers re-check each link explicitly on top of this.
+        Route::scopeBindings()->group(function () {
+            // Adsets
+            Route::get('campaigns/{campaign}/adsets', [AdsetController::class, 'index'])->middleware('permission:adsets,read');
+            Route::post('campaigns/{campaign}/adsets', [AdsetController::class, 'store'])->middleware('permission:adsets,create');
+            Route::get('campaigns/{campaign}/adsets/{adset}', [AdsetController::class, 'show'])->middleware('permission:adsets,read');
+            Route::put('campaigns/{campaign}/adsets/{adset}', [AdsetController::class, 'update'])->middleware('permission:adsets,update');
+            Route::delete('campaigns/{campaign}/adsets/{adset}', [AdsetController::class, 'destroy'])->middleware('permission:adsets,delete');
 
-        // Ads
-        Route::get('campaigns/{campaign}/adsets/{adset}/ads', [AdController::class, 'index'])->middleware('permission:ads,read');
-        Route::post('campaigns/{campaign}/adsets/{adset}/ads', [AdController::class, 'store'])->middleware('permission:ads,create');
-        Route::get('campaigns/{campaign}/adsets/{adset}/ads/{ad}', [AdController::class, 'show'])->middleware('permission:ads,read');
-        Route::put('campaigns/{campaign}/adsets/{adset}/ads/{ad}', [AdController::class, 'update'])->middleware('permission:ads,update');
-        Route::delete('campaigns/{campaign}/adsets/{adset}/ads/{ad}', [AdController::class, 'destroy'])->middleware('permission:ads,delete');
+            // Ads
+            Route::get('campaigns/{campaign}/adsets/{adset}/ads', [AdController::class, 'index'])->middleware('permission:ads,read');
+            Route::post('campaigns/{campaign}/adsets/{adset}/ads', [AdController::class, 'store'])->middleware('permission:ads,create');
+            Route::get('campaigns/{campaign}/adsets/{adset}/ads/{ad}', [AdController::class, 'show'])->middleware('permission:ads,read');
+            Route::put('campaigns/{campaign}/adsets/{adset}/ads/{ad}', [AdController::class, 'update'])->middleware('permission:ads,update');
+            Route::delete('campaigns/{campaign}/adsets/{adset}/ads/{ad}', [AdController::class, 'destroy'])->middleware('permission:ads,delete');
+        });
 
         // Bookings
         Route::get('bookings', [ClientBookingController::class, 'index'])->middleware('permission:bookings,read');

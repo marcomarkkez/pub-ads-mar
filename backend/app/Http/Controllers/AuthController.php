@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ApiErrorCode;
 use App\Models\RolePermission;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -44,13 +44,17 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+            return response()->json([
+                'error_code' => ApiErrorCode::AuthInvalidCredentials->value,
+                'message' => 'The email or password is incorrect.',
+            ], 401);
         }
 
         if (!$user->is_active) {
-            return response()->json(['message' => 'Account is deactivated.'], 403);
+            return response()->json([
+                'error_code' => ApiErrorCode::AuthAccountDeactivated->value,
+                'message' => 'This account has been deactivated.',
+            ], 403);
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
