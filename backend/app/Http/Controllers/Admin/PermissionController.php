@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\RolePermission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PermissionController extends Controller
 {
@@ -63,6 +65,28 @@ class PermissionController extends Controller
         ]);
     }
 
+    /**
+     * The role's granted actions as `resource => [action, ...]` — the shape the
+     * audit entry mirrors, narrowed to one resource when $resource is given.
+     *
+     * @return array<string, list<string>>
+     */
+    private function matrixFor(string $role, ?string $resource = null): array
+    {
+        $query = RolePermission::where('role', $role)->where('allowed', true);
+
+        if ($resource !== null) {
+            $query->where('resource', $resource);
+        }
+
+        $matrix = [];
+        foreach ($query->orderBy('resource')->orderBy('action')->get() as $perm) {
+            $matrix[$perm->resource][] = $perm->action;
+        }
+
+        return $matrix;
+    }
+
     public function update(Request $request, string $role): JsonResponse
     {
         if (!in_array($role, RolePermission::ROLES)) {
@@ -84,28 +108,45 @@ class PermissionController extends Controller
             }
         }
 
-        RolePermission::where('role', $role)->delete();
+        // Rewriting who may do what is the most consequential ✏ in §2, so it is
+        // 📝-logged whole: the delete+insert leaves no single row to point at, so
+        // the entry targets the role's permission SET (target_id null).
+        $before = $this->matrixFor($role);
 
-        $rows = [];
-        $now = now();
-        foreach ($validated['permissions'] as $resource => $actions) {
-            foreach ($actions as $action) {
-                $rows[] = [
-                    'role' => $role,
-                    'resource' => $resource,
-                    'action' => $action,
-                    'allowed' => true,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+        DB::transaction(function () use ($request, $role, $validated, $before) {
+            RolePermission::where('role', $role)->delete();
+
+            $rows = [];
+            $now = now();
+            foreach ($validated['permissions'] as $resource => $actions) {
+                foreach ($actions as $action) {
+                    $rows[] = [
+                        'role' => $role,
+                        'resource' => $resource,
+                        'action' => $action,
+                        'allowed' => true,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
             }
-        }
 
-        if (!empty($rows)) {
-            RolePermission::insert($rows);
-        }
+            if (!empty($rows)) {
+                RolePermission::insert($rows);
+            }
 
-        RolePermission::clearCache($role);
+            RolePermission::clearCache($role);
+
+            AuditLog::recordOn(
+                $request->user(),
+                'update',
+                'role_permissions',
+                null,
+                $before,
+                $this->matrixFor($role),
+                'admin rewrote the RBAC matrix of role ' . $role . ' (§2 ✏)',
+            );
+        });
 
         return response()->json([
             'message' => "Permissions updated for role: {$role}.",
@@ -128,26 +169,40 @@ class PermissionController extends Controller
             'actions.*' => 'in:' . implode(',', RolePermission::ACTIONS),
         ]);
 
-        RolePermission::where('role', $role)->where('resource', $resource)->delete();
+        $before = $this->matrixFor($role, $resource);
 
-        $rows = [];
-        $now = now();
-        foreach ($validated['actions'] as $action) {
-            $rows[] = [
-                'role' => $role,
-                'resource' => $resource,
-                'action' => $action,
-                'allowed' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
+        DB::transaction(function () use ($request, $role, $resource, $validated, $before) {
+            RolePermission::where('role', $role)->where('resource', $resource)->delete();
 
-        if (!empty($rows)) {
-            RolePermission::insert($rows);
-        }
+            $rows = [];
+            $now = now();
+            foreach ($validated['actions'] as $action) {
+                $rows[] = [
+                    'role' => $role,
+                    'resource' => $resource,
+                    'action' => $action,
+                    'allowed' => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
 
-        RolePermission::clearCache($role);
+            if (!empty($rows)) {
+                RolePermission::insert($rows);
+            }
+
+            RolePermission::clearCache($role);
+
+            AuditLog::recordOn(
+                $request->user(),
+                'update',
+                'role_permissions',
+                null,
+                $before,
+                $this->matrixFor($role, $resource),
+                'admin rewrote ' . $role . '.' . $resource . ' in the RBAC matrix (§2 ✏)',
+            );
+        });
 
         return response()->json([
             'message' => "Permissions for {$role}.{$resource} updated.",

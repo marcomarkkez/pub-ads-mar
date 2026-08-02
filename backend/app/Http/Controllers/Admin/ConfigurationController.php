@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Booking;
 use App\Models\SystemConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ConfigurationController extends Controller
 {
@@ -31,21 +33,55 @@ class ConfigurationController extends Controller
             $pairs[$row['key']] = $row['value'] ?? null;
         }
 
-        SystemConfiguration::setMany($pairs, $request->user()->id);
+        // The old values have to be read BEFORE setMany() overwrites them —
+        // updateOrCreate leaves nothing behind to diff against afterwards.
+        $previous = SystemConfiguration::whereIn('key', array_keys($pairs))
+            ->pluck('value', 'key')
+            ->all();
 
-        // apply_scope 'all' also patches in-flight bookings' snapshots so the
-        // new proof deadline applies retroactively to live bookings.
-        if ($validated['apply_scope'] === 'all' && array_key_exists('proof_deadline_days', $pairs)) {
-            $deadline = $pairs['proof_deadline_days'];
+        DB::transaction(function () use ($request, $validated, $pairs, $previous) {
+            SystemConfiguration::setMany($pairs, $request->user()->id);
 
-            $inFlight = ['pending', 'waiting_approval', 'confirmed', 'active', 'waiting_proof'];
+            // apply_scope 'all' also patches in-flight bookings' snapshots so the
+            // new proof deadline applies retroactively to live bookings.
+            $patched = 0;
 
-            Booking::whereIn('status', $inFlight)->get()->each(function (Booking $booking) use ($deadline) {
-                $snapshot = $booking->config_snapshot ?? [];
-                $snapshot['proof_deadline_days'] = $deadline;
-                $booking->update(['config_snapshot' => $snapshot]);
-            });
-        }
+            if ($validated['apply_scope'] === 'all' && array_key_exists('proof_deadline_days', $pairs)) {
+                $deadline = $pairs['proof_deadline_days'];
+
+                $inFlight = ['pending', 'waiting_approval', 'confirmed', 'active', 'waiting_proof'];
+
+                Booking::whereIn('status', $inFlight)->get()->each(function (Booking $booking) use ($deadline, &$patched) {
+                    $snapshot = $booking->config_snapshot ?? [];
+                    $snapshot['proof_deadline_days'] = $deadline;
+                    $booking->update(['config_snapshot' => $snapshot]);
+                    $patched++;
+                });
+            }
+
+            // §2 · System config is Admin's 🟢 and a staff write, so it is 📝-logged:
+            // one entry per key that actually moved, keyed to the config row itself.
+            $rows = SystemConfiguration::whereIn('key', array_keys($pairs))->get()->keyBy('key');
+
+            foreach ($pairs as $key => $value) {
+                $before = $previous[$key] ?? null;
+                $after = $rows[$key]?->value;
+
+                if ($before === $after) {
+                    continue;
+                }
+
+                AuditLog::record(
+                    $request->user(),
+                    'update',
+                    $rows[$key],
+                    [$key => $before],
+                    [$key => $after],
+                    'admin config · scope=' . $validated['apply_scope']
+                        . ($patched ? ' · ' . $patched . ' in-flight bookings re-snapshotted' : ''),
+                );
+            }
+        });
 
         return response()->json(SystemConfiguration::orderBy('key')->get());
     }

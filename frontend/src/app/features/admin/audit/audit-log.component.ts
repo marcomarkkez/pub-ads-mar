@@ -24,7 +24,8 @@ interface AuditEntry {
   actor_label: string | null;
   action: string;
   target_type: string;
-  target_id: number;
+  /** null when the action targets a SET, not a row (a role's whole RBAC matrix). */
+  target_id: number | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   context: string | null;
@@ -55,6 +56,10 @@ interface AuditEntry {
           <option value="bookings">bookings</option>
           <option value="users">users</option>
           <option value="collaborators">collaborators</option>
+          <option value="payments">payments</option>
+          <option value="chats">chats</option>
+          <option value="system_configurations">system config</option>
+          <option value="role_permissions">RBAC matrix</option>
         </select>
         <input type="number" min="1" [(ngModel)]="fTargetId" placeholder="Object id" class="num" />
         <input type="number" min="1" [(ngModel)]="fActorId" placeholder="Actor id" class="num" />
@@ -63,6 +68,13 @@ interface AuditEntry {
           <option value="create">create</option>
           <option value="update">update</option>
           <option value="delete">delete</option>
+          <option value="approve">approve ($)</option>
+          <option value="reject">reject ($)</option>
+          <option value="refund">refund ($)</option>
+          <option value="release_payout">release payout ($)</option>
+          <option value="hold_payout">hold payout ($)</option>
+          <option value="flag_raise">flag raised</option>
+          <option value="flag_change">flag changed</option>
         </select>
         <button type="button" class="btn btn-sm" (click)="load()">Apply</button>
         <button type="button" class="btn btn-sm" (click)="clearFilters()">Clear</button>
@@ -75,7 +87,7 @@ interface AuditEntry {
         <li *ngFor="let e of entries()">
           <div class="row">
             <span class="badge badge--action">{{ e.action }}</span>
-            <strong>{{ e.target_type }} #{{ e.target_id }}</strong>
+            <strong>{{ e.target_type }}<ng-container *ngIf="e.target_id"> #{{ e.target_id }}</ng-container></strong>
             <span class="who">
               {{ e.actor?.name || e.actor_label || 'system' }}
               <span class="badge">{{ e.actor_role }}</span>

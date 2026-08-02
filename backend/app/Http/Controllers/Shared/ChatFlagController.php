@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Shared;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Chat;
 use App\Models\ChatFlag;
 use Illuminate\Http\JsonResponse;
@@ -62,6 +63,18 @@ class ChatFlagController extends Controller
                 'kind' => 'system',
             ]);
             $chat->update(['last_message_at' => now()]);
+
+            // §2 · Support's "flag$ 📝": raising or changing a money flag is a staff
+            // action on the chat, so it is logged against the chat — the flag row
+            // itself is already immutable history (superseded, never edited).
+            AuditLog::record(
+                $user,
+                $previous ? 'flag_change' : 'flag_raise',
+                $chat,
+                $previous ? ['type' => $previous->type, 'reason' => $previous->reason] : null,
+                ['type' => $flag->type, 'reason' => $flag->reason],
+                'chat flag ' . $validated['type'] . ' (§2 flag$ · §10 UC-22)',
+            );
 
             return $flag;
         });

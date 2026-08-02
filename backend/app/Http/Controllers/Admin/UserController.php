@@ -3,10 +3,17 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
+/**
+ * §2 gives Admin ✏📝 over User/account: creating, editing (role included) and
+ * deleting an account are all audit-logged (UC-31). Passwords never reach the
+ * log — AuditLog::scrub() redacts them on the way in.
+ */
 class UserController extends Controller
 {
     public function index(): JsonResponse
@@ -29,7 +36,20 @@ class UserController extends Controller
             'is_active' => 'nullable|boolean',
         ]);
 
-        $user = User::create($validated);
+        $user = DB::transaction(function () use ($request, $validated) {
+            $user = User::create($validated);
+
+            AuditLog::record(
+                $request->user(),
+                'create',
+                $user,
+                null,
+                $user->getAttributes(),
+                'admin created the account (§2 ✏)',
+            );
+
+            return $user;
+        });
 
         return response()->json($user, 201);
     }
@@ -52,14 +72,33 @@ class UserController extends Controller
             'is_active' => 'nullable|boolean',
         ]);
 
-        $user->update($validated);
+        $user->fill($validated);
+
+        DB::transaction(function () use ($request, $user) {
+            AuditLog::recordChange($request->user(), $user, 'admin edited the account (§2 ✏)');
+            $user->save();
+        });
 
         return response()->json($user);
     }
 
-    public function destroy(User $user): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
-        $user->delete();
+        DB::transaction(function () use ($request, $user) {
+            // The entry is written BEFORE the delete: audit_logs.actor_id is
+            // nullOnDelete, and the target row is about to stop existing, so the
+            // mirrored attributes are the only record left of what was removed.
+            AuditLog::record(
+                $request->user(),
+                'delete',
+                $user,
+                $user->getAttributes(),
+                null,
+                'admin deleted the account (§2 ✏)',
+            );
+
+            $user->delete();
+        });
 
         return response()->json(['message' => 'User deleted.']);
     }

@@ -87,13 +87,30 @@ class AuditLog extends Model
         ?array $after = null,
         ?string $context = null,
     ): self {
+        return static::recordOn($actor, $action, static::slugFor($target), $target->getKey(), $before, $after, $context);
+    }
+
+    /**
+     * Record an action whose target is NOT a single row — a role's whole
+     * permission set, say. `target_id` is null there on purpose: inventing an
+     * id would make the entry unjoinable and quietly wrong.
+     */
+    public static function recordOn(
+        ?User $actor,
+        string $action,
+        string $targetType,
+        int|string|null $targetId,
+        ?array $before = null,
+        ?array $after = null,
+        ?string $context = null,
+    ): self {
         return static::create([
             'actor_id' => $actor?->id,
             'actor_role' => $actor?->role ?? 'system',
             'actor_label' => $actor?->name,
             'action' => $action,
-            'target_type' => static::slugFor($target),
-            'target_id' => $target->getKey(),
+            'target_type' => $targetType,
+            'target_id' => $targetId,
             'before' => $before === null ? null : static::scrub($before),
             'after' => $after === null ? null : static::scrub($after),
             'context' => $context,
@@ -108,8 +125,12 @@ class AuditLog extends Model
      * Call this BEFORE save(): once saved, the model is clean and has nothing
      * left to compare.
      */
-    public static function recordChange(?User $actor, Model $target, ?string $context = null): ?self
-    {
+    public static function recordChange(
+        ?User $actor,
+        Model $target,
+        ?string $context = null,
+        string $action = 'update',
+    ): ?self {
         $after = $target->getDirty();
 
         if ($after === []) {
@@ -123,7 +144,7 @@ class AuditLog extends Model
             $before[$key] ??= null;
         }
 
-        return static::record($actor, 'update', $target, $before, $after, $context);
+        return static::record($actor, $action, $target, $before, $after, $context);
     }
 
     private static function scrub(array $attributes): array
