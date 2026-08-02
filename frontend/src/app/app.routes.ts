@@ -64,6 +64,8 @@ export const routes: Routes = [
           { path: 'users/:id', loadComponent: () => import('./features/admin/users/user-form.component').then(m => m.UserFormComponent) },
           { path: 'permissions', loadComponent: () => import('./features/admin/permissions/permissions-editor.component').then(m => m.PermissionsEditorComponent) },
           { path: 'oversight', loadComponent: () => import('./features/admin/oversight/oversight.component').then(m => m.OversightComponent) },
+          // UC-31 · design.md §12 — the immutable audit log (read-only).
+          { path: 'audit', loadComponent: () => import('./features/admin/audit/audit-log.component').then(m => m.AuditLogComponent) },
           { path: 'config', loadComponent: () => import('./features/admin/config/config.component').then(m => m.ConfigComponent) },
         ],
       },

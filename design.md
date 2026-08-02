@@ -574,7 +574,14 @@ They differ only by participant set; the opposite party is simply not a particip
 `GET /admin/oversight/chats` with filters; full spec stated once in §12 [dedup 2026-07-17]. (UC-28.)
 
 == 11. (merged into §10) ==  [F09]
-kanban: `status:wip` · `weight:S` · `impacts:F09` · `deps:F08` · `ids:-`
+kanban: `status:review` · `weight:S` · `impacts:F09` · `deps:F08` · `ids:TK-editany-05,AU-log-01,AU-query-03`
+<!-- [2026-08-02] UC-23 BUILT — Support\ObjectEditController: PUT /support/{spaces|ads|bookings|users|collaborators}/{id},
+     each edit + its AuditLog row in ONE transaction (UC-31, built with it). Money is unreachable on BOTH
+     levels: money OBJECTS have no route, money-determining FIELDS (total_price, price_per_*, amount…) are
+     outside every whitelist and re-checked by assertNonMoney(). users.role/password stay Admin-only (§1);
+     collaborators.role IS Support's per §1. RBAC rows added by migration 2026_08_02_000002 (the seeder
+     truncates, so it never reaches a populated DB). SupportEditAuditTest: 14 green on Postgres.
+     → `review` until the human walkthrough; F09's last code item is done. -->
 
 Tickets & Support are no longer a separate system: a "ticket" is just a **chat with a Support
 participant** — see §10 "Chats, Objetos & Flags". Support's non-chat powers live with their
@@ -612,7 +619,13 @@ new activity, stops receiving new bookings/payments, and stays visible with the 
 programmed for deletion" until current bookings finish, then is removed.
 
 **Immutable audit log.**  (UC-31)  Append-only; one entry per action of ANY role with **actor, target,
-before/after, timestamp**; queryable as per-object history; Admin read-only. Internals (AFTER-MVP):
+before/after, timestamp**; queryable as per-object history; Admin read-only.
+<!-- [2026-08-02] BUILT with UC-23 — `audit_logs` (no updated_at, by construction) + App\Models\AuditLog
+     (record() / recordChange(); `updating` and `deleting` throw, so no app code path can rewrite history)
+     + GET /admin/audit (?target_type,?target_id,?actor_id,?action). `admin.audit.read` is the only
+     permission that exists for it. Writers so far: Support edit-any (UC-23); the other ✏/$ actions of §2
+     still have to start calling AuditLog::record(). -->
+Internals (AFTER-MVP):
 DB-level immutability (INSERT-only grant + trigger raising on UPDATE/DELETE, optional hash-chain);
 audit row written in the SAME txn as the state change (async via outbox); `insert_data.py
 --erase-all-data` env-guarded and never truncates audit in a real env. API: `AuditLog::record()`
@@ -824,9 +837,14 @@ wallet_entries  [belongs to: user]   -- append-only ledger; balance = SUM(amount
 
 system_configurations  [admin-tunable]
   id, key (unique), value, updated_by_user_id, timestamps
+
+audit_logs  [append-only — §12/UC-31; NO updated_at, and that is the point]
+  id, actor_id (nullOnDelete), actor_role, actor_label, action,
+  target_type (API resource slug: 'spaces','ads',…), target_id,
+  before (json), after (json), context, created_at
 ```
 
-PLANNED tables (designed, not built): `strikes`, `ratings`, `audit_logs`, `account_grants`,
+PLANNED tables (designed, not built): `strikes`, `ratings`, `account_grants`,
 `notifications`. Relationships: User(client) ─< Campaign ─< Adset ─< Ad (adset_id nullable →
 orphan); Ad ─> Space + User(provider). Account ─< Collaborator. User(provider) ─< Space ─<
 SpacePhoto/SpaceAvailability. Space+Ad+Adset+User(client) ─> Booking ─> Payment. Ad+Booking+User
@@ -896,12 +914,16 @@ Admin (role:admin, prefix /admin):
   GET /permissions · GET,PUT /permissions/{role} · PATCH /permissions/{role}/{resource} — RBAC matrix
   GET /oversight/chats · GET /oversight/chats/{chat} — eagle-eye chat oversight (read-only, incognito;
     filters ?nature ?flag ?object_type ?object_id ?status ?participant). RETIRES /oversight/{conversations,tickets}
+  GET /audit — the immutable log (UC-31); filters ?target_type ?target_id ?actor_id ?action.
+    Read-only by construction: no write verb exists and the model refuses UPDATE/DELETE.
   GET,PUT /configurations — tunable key/values
 
 Support (role:support, prefix /support):
   GET /dashboard — Support acts on chats via the shared /chats map (join/flag/resolve/close, below)
   ⚠ RETIRED: /tickets, /tickets/{t}, /tickets/{t}/reply → folded into /chats (a ticket = chat w/ Support)
-  ⚠ edit-any-non-money (PUT /support/{resource}/{id}) + flag→Payments bridge are Planned (below)
+  PUT /spaces/{s} · PUT /ads/{ad} · PUT /bookings/{b} · PUT /users/{u} · PUT /collaborators/{c}
+    — edit-any-NON-money, audited (UC-23). Money objects have NO route here; money-determining
+    fields are excluded per-object. Response: {data, audited, audit_id}.
 
 Payments (role:payments, prefix /payments):
   GET /dashboard · GET /payments · GET /payments/{p} · POST /…/approve · POST /…/reject
@@ -931,11 +953,9 @@ Media specs: spaces gain physical_specs+media_specs+upload_instructions; GET /cl
 Checkout/escrow: POST /client/campaigns/{c}/checkout (ONE payment + ONE invoice) · POST /client/bookings {is_prepay} · GET /provider/spaces/{s}/waiting-list · POST /provider/waiting-list/{offer}/confirm
 Ratings: POST /client/campaigns/{c}/rating · GET /spaces/{s} (avg+count)
 Wallet: POST /client/wallet/withdraw
-Audit: AuditLog::record() internal + GET /admin/audit (?target_type,?target_id)
+Audit: the TABLE, the model and GET /admin/audit are BUILT (above). What is still planned is COVERAGE —
+  every other ✏/$ action of §2 calling AuditLog::record() in its own transaction (today only UC-23 does).
 Moderation: POST /admin/spaces/{s}/takedown · /restore · POST /admin/providers/{u}/freeze · /unfreeze
-Support powers: PUT /support/{spaces|ads|users|bookings|collaborators}/{id} (edit-any-non-money, audited).
-  Money FLAGS + join now go through the unified /chats map above (POST /chats/{c}/flags, /chats/{c}/join) —
-  the old /support/payments/{p}/flag-* and /support/conversations/{c}/join are RETIRED.
 Dispute (RETIRES "dual ticket"): on client proof reject, auto-open THREE chats (Support↔Client / ↔Provider /
   ↔Payments), each attached to the held payment+booking with a `payment_held` flag (§7/§10; UC-7).
 Notifications: dispatcher + GET /notifications · POST /notifications/{n}/read
@@ -1183,7 +1203,11 @@ ratings, notifications, escrow/pre-pay, media-spec validator, moderation, invoic
 
 
 == 21. Object Ownership & Access Chain (guardrails) ==  [F01,F14]
-kanban: `status:wip` · `weight:M` · `impacts:F02,F04,F05,F11` · `deps:F01` · `ids:SEC-chain-01`
+kanban: `status:review` · `weight:M` · `impacts:F02,F04,F05,F11` · `deps:F01` · `ids:SEC-chain-01`
+<!-- [2026-08-02] Corrected wip→review per §0: the code landed and OwnershipChainTest is green on
+     Postgres, so it is "implemented AND under verification". It clears to `done` only after the
+     human walkthrough (create/move/delete adsets+ads; orphans survive; nothing answers 403). -->
+
 
 [owner 2026-08-01] APPROVED. Every screen and endpoint authorizes by the OWNERSHIP CHAIN, never by
 the parent alone. (UC-43.)
@@ -1263,6 +1287,6 @@ Planning lineage: UC → spec → flow → class → ER (roots = UC + spec). Met
 - `FL20>FL16` → Satisfactory proof, client accepts [Satisfactory proof, client accepts]
 - `FL20>FL21` → Uphold dispute [Uphold dispute]
 
-**ER entities (ER):** `ER01`=users · `ER02`=personal_access_tokens · `ER03`=accounts · `ER04`=campaigns · `ER05`=adsets · `ER06`=ads · `ER07`=spaces · `ER08`=space_photos · `ER09`=space_availabilities · `ER10`=bookings · `ER11`=payments · `ER12`=chats · `ER13`=chat_objects · `ER14`=chat_flags · `ER15`=chat_participants · `ER16`=messages · `ER17`=proofs · `ER18`=collaborators · `ER19`=invoices · `ER20`=role_permissions · `ER21`=wallet_entries · `ER22`=system_configurations · `ER23`=(PLANNED) strikes / ratings / audit_logs / account_grants / notifications
+**ER entities (ER):** `ER01`=users · `ER02`=personal_access_tokens · `ER03`=accounts · `ER04`=campaigns · `ER05`=adsets · `ER06`=ads · `ER07`=spaces · `ER08`=space_photos · `ER09`=space_availabilities · `ER10`=bookings · `ER11`=payments · `ER12`=chats · `ER13`=chat_objects · `ER14`=chat_flags · `ER15`=chat_participants · `ER16`=messages · `ER17`=proofs · `ER18`=collaborators · `ER19`=invoices · `ER20`=role_permissions · `ER21`=wallet_entries · `ER22`=system_configurations · `ER23`=(PLANNED) strikes / ratings / account_grants / notifications · `ER24`=audit_logs
 
 **Classes (CL):** `CL01`=Chat · `CL02`=ChatParticipant · `CL03`=ChatObject · `CL04`=ChatFlag · `CL05`=Message · `CL06`=ChatController · `CL07`=Booking · `CL08`=Payment · `CL09`=Proof · `CL10`=WalletEntry

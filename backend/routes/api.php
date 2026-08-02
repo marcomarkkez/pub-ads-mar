@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\ConfigurationController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\OversightController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Shared\ChatController;
 use App\Http\Controllers\Shared\ChatFlagController;
 use App\Http\Controllers\Shared\ChatObjectController;
 use App\Http\Controllers\Support\DashboardController as SupportDashboardController;
+use App\Http\Controllers\Support\ObjectEditController as SupportObjectEditController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -163,6 +165,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // UC-28 · Admin's only chat write-power: reopen a closed chat for investigation.
         Route::post('chats/{chat}/reopen', [ChatController::class, 'reopen']);
 
+        // UC-31 · design.md §12/§17 — the immutable audit log, Admin read-only.
+        // There is no write verb here by design: entries are written by the actions
+        // themselves, in their own transaction.
+        Route::get('audit', [AuditController::class, 'index'])->middleware('permission:audit,read');
+
         // System configurations (C12)
         Route::get('configurations', [ConfigurationController::class, 'index'])->middleware('permission:configurations,read');
         Route::put('configurations', [ConfigurationController::class, 'update'])->middleware('permission:configurations,update');
@@ -176,6 +183,16 @@ Route::middleware('auth:sanctum')->group(function () {
         // design.md §10/§17: Support acts on chats via the shared /chats map
         // (join/flag/resolve/close). The old /tickets, /conversations/{c}/join and
         // /payments/{p}/flag-* routes are RETIRED into the ONE chat primitive.
+
+        // UC-23 · design.md §11/§17 — edit-any-NON-money object, audited.
+        // Money objects (payments, invoices, wallet entries) have NO route here:
+        // Support flags, Payments executes (§8). Money-determining FIELDS are
+        // excluded inside the controller.
+        Route::put('spaces/{space}', [SupportObjectEditController::class, 'updateSpace'])->middleware('permission:spaces,update');
+        Route::put('ads/{ad}', [SupportObjectEditController::class, 'updateAd'])->middleware('permission:ads,update');
+        Route::put('bookings/{booking}', [SupportObjectEditController::class, 'updateBooking'])->middleware('permission:bookings,update');
+        Route::put('users/{user}', [SupportObjectEditController::class, 'updateUser'])->middleware('permission:users,update');
+        Route::put('collaborators/{collaborator}', [SupportObjectEditController::class, 'updateCollaborator'])->middleware('permission:collaborators,update');
     });
 
     // ── Payments routes ─────────────────────────────────────

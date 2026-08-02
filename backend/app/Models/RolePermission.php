@@ -40,6 +40,8 @@ class RolePermission extends Model
         'collaborators',
         'configurations',
         'dashboard',
+        // design.md §12 (UC-31) — read-only for Admin; the log is append-only.
+        'audit',
     ];
 
     public const ACTIONS = ['create', 'read', 'update', 'delete', 'refund'];

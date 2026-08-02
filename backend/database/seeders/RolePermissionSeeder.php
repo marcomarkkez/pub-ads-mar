@@ -53,10 +53,22 @@ class RolePermissionSeeder extends Seeder
                 'collaborators'         => ['read'],
                 'dashboard'             => ['read'],
                 'configurations'        => ['read', 'update'],
+                // UC-31 · §12 — Admin is the ONLY reader of the audit log, and
+                // read is the only action that exists: it is append-only.
+                'audit'                 => ['read'],
             ],
 
             'support' => [
-                'users'     => ['read'],
+                // UC-23 · §11 — edit-any-NON-money object (audited). `update` on
+                // CONTENT objects only; there is deliberately no `payments`,
+                // `invoices` or wallet permission — Support flags, Payments
+                // executes (§8). Money-determining FIELDS are excluded in
+                // Support\ObjectEditController.
+                'users'         => ['read', 'update'],
+                'spaces'        => ['read', 'update'],
+                'ads'           => ['read', 'update'],
+                'bookings'      => ['read', 'update'],
+                'collaborators' => ['read', 'update'],
                 // create+read: Support posts/joins/flags/resolves via the /chats map
                 // (no chats.update — lifecycle actions are gated on chats.create).
                 'chats'     => ['create', 'read'],

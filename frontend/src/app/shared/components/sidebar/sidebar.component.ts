@@ -50,6 +50,8 @@ export class SidebarComponent {
           { label: 'Permissions', icon: '🔐', route: '/admin/permissions' },
           // design.md §12 — admin's Messages surface is the read-only oversight screen.
           { label: 'Messages', icon: '💬', route: '/admin/oversight' },
+          // design.md §12 (UC-31) — the append-only log; Admin is its only reader.
+          { label: 'Audit Log', icon: '📜', route: '/admin/audit' },
           { label: 'Configurations', icon: '⚙️', route: '/admin/config' },
         ];
       case 'support':
