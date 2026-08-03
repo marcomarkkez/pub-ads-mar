@@ -10,6 +10,7 @@
     "version": "2",
     "preamble": "This file is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed ARCHITECTURE.md, cases.md, platform-graph.md and the useful parts of\ncompliance-report.md (2026-06-27), then design.md and .claude/todos/mvp-sprint.json (2026-08-02).\nThere is no second document: schema, routes, specs, decisions, the role/object graph, user\nstories and the build backlog all live here.\n\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSpecs 1-18 are the SPECS (kept tight); spec 19 is the verbose USER STORIES, also structured in\n`userStories[]`. Spec 0 lives in `notation` — read it first to parse the `kanban` state.\n\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering.\n\nCode traceability: every file/class/method implementing a behavior here carries a short comment\nnaming the spec it satisfies (e.g. `design.json §7 proof`). Older comments say `design.md §N` —\nthe number still resolves, it is `specs[].id`.\n\nFeature codes: each spec carries `features` (`[Fxx]`) matching `todos[]`; `[infra]`/`[dev]`/\n`[all]` mark cross-cutting specs that are not a single feature. The granular build backlog and\nits `mvp-sprint:` prefixed ids are under `mvpSprint`.",
     "sectionRefConvention": "Code comments say \"design.md §N\". design.md is gone; §N still resolves — it is specs[].id N in this file. New comments should say \"design.json §N\".",
+    "provenancePointersConvention": "Many strings under mvpSprint carry provenance pointers such as `design:412`, \"design.md\" or `cases#…`/`journey#…`: they cite files that were folded into design.json and deleted on 2026-08-02, so those LINE NUMBERS are dead and are deliberately left unedited as historical citations — the `§` id is the authoritative reference.",
     "preambleHistory": "This document is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed the former ARCHITECTURE.md, cases.md, platform-graph.md, and the\nuseful parts of compliance-report.md (consolidated 2026-06-27) — design.md is now the one\nhome for schema, routes, specs, decisions, the role/object graph, and user stories.\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSections 1–18 are the SPECS (kept tight); section 19 is the verbose USER STORIES.\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering. Code traceability: every file/class/method implementing a\nbehavior here carries a short comment naming the spec it satisfies (e.g. `design.md §7 proof`).\nFeature codes: section/sub-section headers carry a `[Fxx]` tag matching the feature index in\n`.claude/todos/mvp-sprint.json` → `feature_review` (e.g. `[F06]` = booking action & per-ad\ngo-live). Use these shared codes when referring to a feature. `[infra]`/`[dev]`/`[all]` mark\ncross-cutting sections that are not a single feature.\nSpec-Kanban: every spec header ALSO carries a one-line `kanban:` state tag (status/weight/\nimpacts/deps/ids) so this doc doubles as a live board — **read §0 first** for the notation."
   },
   "notation": {
@@ -77,6 +78,432 @@
         "label": "Mensajeria y soporte",
         "added": "2026-08-02",
         "description": "Frente de trabajo activo: el chat unificado (un solo primitivo chats/objetos/flags/participantes), el enmascarado de PII, y Soporte-como-chat tras retirar el sistema de tickets. Cruza §10 (+§11, fusionada en §10) con F08, F09, CHAT-1..4 y WALK-1."
+      }
+    ]
+  },
+  "glossary": {
+    "convention": "Vocabulario del proyecto para quien NO se sabe de memoria los endpoints ni los nombres de clase. Dos partes: `idPrefixes` explica que significa cada prefijo de identificador (§, UC-, F, B, C, CHAT-, WALK-, Q, WS-, los codigos del backlog y los nodos de diagrama), y `terms` explica el vocabulario de dominio. Si un termino aparece en un texto viejo pero ya no existe en el codigo, se marca RETIRADO en vez de borrarlo, para que quien lo lea sepa interpretarlo.",
+    "idPrefixes": [
+      {
+        "code": "§N",
+        "name": "Seccion de la especificacion",
+        "meaning": "El \"que\" del sistema: la descripcion canonica de una parte de la plataforma. Van de §1 a §21 y cada una lleva su propio estado de kanban.",
+        "example": "§10 — Chats, Objetos y Flags",
+        "where": ".specs[]"
+      },
+      {
+        "code": "UC-N",
+        "name": "Historia de usuario",
+        "meaning": "El \"quien quiere que\": un caso de uso escrito desde el punto de vista de un actor concreto (cliente, proveedor, support, payments, admin).",
+        "example": "UC-21 — Support recoge un hilo",
+        "where": ".userStories[]"
+      },
+      {
+        "code": "Fxx",
+        "name": "Feature del indice de construccion",
+        "meaning": "El \"trabajo\": una unidad de construccion. AVISO: un Fxx lleva DOS estados en dos sitios distintos y pueden discrepar legitimamente. `.todos[].status` responde \"¿esta cerrado el trabajo?\"; `.mvpSprint.featureReview` responde \"¿esta clara la especificacion?\". Un F puede estar `in_progress` en el primero y `resolved` en el segundo: significa que la spec ya no tiene dudas pero el trabajo sigue abierto (tipicamente por un WALK pendiente).",
+        "example": "F09 — Soporte como chat",
+        "where": ".todos[]"
+      },
+      {
+        "code": "CHAT-n",
+        "name": "Todo de la reescritura del chat",
+        "meaning": "Serie cerrada: los cuatro todos que unificaron chat y tickets en un solo primitivo. Todos estan `done`; no se crean mas.",
+        "example": "CHAT-1 — Unificacion del chat",
+        "where": ".todos[]"
+      },
+      {
+        "code": "WALK-n",
+        "name": "Recorrido humano",
+        "meaning": "Una verificacion que hace una PERSONA sobre la interfaz real. No es un test. Existe porque una suite verde no demuestra que una pantalla sea usable ni que un flujo se pueda completar de principio a fin. Un Fxx no pasa a `done` mientras su WALK siga `pending`.",
+        "example": "WALK-1 — Recorrido de Messages por rol",
+        "where": ".walkthroughs"
+      },
+      {
+        "code": "Bn",
+        "name": "Batch de la fase-UI",
+        "meaning": "Paquete de entrega historico, CON estado propio (esta entregado o no). Es una serie cerrada y fechada. NO sirve para agrupar cosas relacionadas: para eso esta `.groups`, que no afirma nada sobre progreso.",
+        "example": "B9 — separacion prueba/pago",
+        "where": ".mvpSprint.uiPhase.batches[]"
+      },
+      {
+        "code": "Cnn",
+        "name": "Item del checklist del MVP",
+        "meaning": "La lista de verificacion global: cada linea es una capacidad que el MVP debe demostrar, con su estado (verified / implemented / missing).",
+        "example": "C08",
+        "where": ".mvpSprint.checklist[]"
+      },
+      {
+        "code": "Qnn",
+        "name": "Pregunta abierta",
+        "meaning": "Una decision que solo el dueño del producto puede tomar. Ningun agente la responde por su cuenta. Cuando se responde, sale de la lista de abiertas y queda una linea en el registro de resueltas.",
+        "example": "Q50",
+        "where": ".openQuestions"
+      },
+      {
+        "code": "WS-*",
+        "name": "Workstream",
+        "meaning": "Carril de trabajo del sprint: agrupa el backlog granular por area tecnica.",
+        "example": "Subsystems",
+        "where": ".mvpSprint.workstreams[]"
+      },
+      {
+        "code": "XX-nombre-NN",
+        "name": "Item del backlog granular",
+        "meaning": "La unidad mas fina de trabajo. Lleva su estado entre corchetes ([built] / [partial] / [missing] / [obsoleto] / [descartado]) y su prioridad (P1..P3). Viven agrupados en once dominios que van de `A_` a `K_`.",
+        "example": "AD-delguard-08 — guardas de borrado",
+        "where": ".mvpSprint.specBacklog.domains"
+      },
+      {
+        "code": "FL / ER / CL",
+        "name": "Nodos de diagrama",
+        "meaning": "Referencias a un nodo concreto de los diagramas de flujo (FL), entidad-relacion (ER) y clases (CL).",
+        "example": "ER12 — chats",
+        "where": ".diagrams + .lineage"
+      },
+      {
+        "code": "slug de grupo",
+        "name": "Frente de trabajo transversal",
+        "meaning": "Etiqueta que cruza las tres categorias nativas (§, UC, F) y responde a \"¿en que estamos trabajando ahora?\". Un objeto puede pertenecer a varios. No lleva estado.",
+        "example": "mensajeria-soporte",
+        "where": ".groups + el array `groups` de cada objeto"
+      }
+    ],
+    "terms": [
+      {
+        "term": "proof (prueba de publicacion)",
+        "meaning": "La foto o video con que el proveedor demuestra que el anuncio esta efectivamente publicado. El cliente la acepta o la rechaza, y de eso depende que el dinero se libere."
+      },
+      {
+        "term": "hold (retencion)",
+        "meaning": "El pago queda parado y no llega al proveedor. Lo dispara el rechazo de una prueba, o una retencion manual de Payments."
+      },
+      {
+        "term": "flag",
+        "meaning": "Una marca que Support pone sobre un chat para pedir a Payments que haga algo con el dinero (`refund`, `payout_hold`). Support marca; Payments ejecuta. Support no tiene autoridad sobre el dinero."
+      },
+      {
+        "term": "apply-scope",
+        "meaning": "Al cambiar una configuracion del sistema, decide si el cambio afecta solo a las reservas nuevas (`new_only`) o tambien a las que ya estan en vuelo (`all`)."
+      },
+      {
+        "term": "snapshot de configuracion",
+        "meaning": "La foto de la configuracion vigente que se guarda sobre la reserva en el momento de crearla, para que un cambio posterior no altere las reglas con que nacio esa reserva."
+      },
+      {
+        "term": "enmascarado de PII",
+        "meaning": "Los datos de contacto (telefono, email, URL, direcciones ajenas) se ocultan al renderizar el mensaje, no al guardarlo. Se relaja cuando Support entra al chat, y la direccion del espacio reservado si se muestra en su propio hilo."
+      },
+      {
+        "term": "adset",
+        "meaning": "Agrupacion de anuncios dentro de una campaña. Es una etiqueta organizativa: borrarla NO destruye sus anuncios, los deja huerfanos."
+      },
+      {
+        "term": "booking (reserva)",
+        "meaning": "El contrato entre un cliente y un proveedor sobre un espacio y unas fechas. Es lo que lleva el dinero asociado."
+      },
+      {
+        "term": "despublicar (unpublished)",
+        "meaning": "Sacar un objeto de circulacion sin borrarlo. Es distinto de `paused`: `paused` es una decision del cliente, `unpublished` es consecuencia de un borrado programado o de una accion de moderacion."
+      },
+      {
+        "term": "borrado programado",
+        "meaning": "Cuando un objeto no se puede borrar porque hay clientes usandolo, se despublica y se marca con fecha. El borrado real no ocurre solo: espera a que los bloqueos desaparezcan Y a una confirmacion humana."
+      },
+      {
+        "term": "takedown / freeze",
+        "meaning": "Moderacion del admin: retirar un espacio (takedown) o congelar a un proveedor (freeze). Ninguna de las dos se puede revertir desde la cuenta afectada. Diseñado, aun no construido."
+      },
+      {
+        "term": "eagle-eye",
+        "meaning": "La vista de solo lectura con la que el admin ve toda la actividad, incluidos los chats cerrados y sin enmascarar. El admin lee; no escribe."
+      },
+      {
+        "term": "announced",
+        "meaning": "Si la entrada de alguien a un chat se anuncia con un mensaje de sistema. La entrada de Support SI se anuncia. La del admin NO: queda solo en el log de auditoria."
+      },
+      {
+        "term": "ticket dual",
+        "meaning": "RETIRADO. Era el mecanismo antiguo por el que un rechazo de prueba abria dos tickets enlazados. Hoy abre TRES chats de disputa (interno Support-Payments, Support-cliente, Support-proveedor). Si lo lees en un texto fechado, es historia, no comportamiento actual."
+      },
+      {
+        "term": "ventana de re-subida de 48h",
+        "meaning": "RETIRADO. El proveedor no dispone de una ventana para re-subir una prueba rechazada. No confundir con la ventana de 48h que §18 da al proveedor para APROBAR una reserva, que si es vigente."
+      },
+      {
+        "term": "Conversation / MessageController / tickets",
+        "meaning": "RETIRADOS. Nombres de la arquitectura anterior a CHAT-1. Las tablas `conversations` y `tickets` estan borradas por migracion. Hoy todo es un solo primitivo: `chats` + `chat_participants` + `chat_objects` + `chat_flags` + `messages`, servido por `Shared/ChatController`."
+      }
+    ]
+  },
+  "openQuestions": {
+    "convention": "Decisiones que solo el dueño del producto puede tomar. `items` son las que siguen ABIERTAS: mientras una este aqui, ningun agente debe inventarse la respuesta ni construir sobre ella. Cuando se responde, la pregunta SALE de `items` y queda una sola linea en `resolved`, para que nadie la vuelva a plantear sin saber que ya se decidio. El razonamiento largo de cada decision vive fechado en history.md, no aqui.",
+    "items": [
+      {
+        "id": "Q35",
+        "question": "¿Se puede cerrar F08 y F09 sin el recorrido humano?",
+        "oneLiner": "No: F08 y F09 estan funcionalmente construidos, pero nadie ha recorrido Mensajes a mano. Lo resuelve WALK-1.",
+        "impacts": [
+          "F08",
+          "F09",
+          "§10",
+          "WALK-1"
+        ]
+      },
+      {
+        "id": "Q38",
+        "question": "¿§21 puede pasar de wip a done sin recorrido humano?",
+        "oneLiner": "Igual que Q35 pero del lado de campañas: falta recorrer a mano crear, mover y borrar adsets y anuncios, y confirmar que nada ajeno responde 403. Lo resuelve WALK-2.",
+        "impacts": [
+          "§21",
+          "UC-43",
+          "WALK-2"
+        ]
+      },
+      {
+        "id": "Q40",
+        "question": "¿El boton factura -> Soporte con el pago adjunto entra en WALK-1?",
+        "oneLiner": "Seria un quinto punto de entrada al chat, de la misma familia que los que CHAT-4 ya construyo, y el backend ya acepta el adjunto. Recomendado incluirlo; pendiente de confirmar junto con el guion de WALK-1.",
+        "impacts": [
+          "F08",
+          "F09",
+          "UC-9",
+          "WALK-1"
+        ]
+      },
+      {
+        "id": "Q53",
+        "question": "¿Como se llama el estado inicial de una prueba tras colapsar el enum?",
+        "oneLiner": "El enum se colapsa a tres valores (Q42). El codigo y los tests usan hoy `pending_review`; el texto de §12 decia `pending`/`uploaded`. Se pidio quitar `pending_review`, pero el enum necesita SI O SI un tercer estado para \"prueba subida, esperando al cliente\" — si no, no hay forma de distinguir una prueba recien subida de una ya aceptada. La pregunta es solo el NOMBRE: `pending_review` (lo que corre hoy) o `uploaded` (lo que decia §12).",
+        "impacts": [
+          "§12",
+          "F07",
+          "PR-status-02"
+        ]
+      }
+    ],
+    "resolved": [
+      {
+        "id": "Q33",
+        "oneLiner": "Los hilos de anuncio, reserva y prueba van a Soporte; ¿Support podra meter al proveedor en ese hilo?",
+        "resolution": "Por ahora no. Se revisara mas adelante si las herramientas de Support crecen.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q34",
+        "oneLiner": "El formulario de anuncio sin espacio seguia enviandose desde el detalle de campaña.",
+        "resolution": "Retirado; se sustituyo por un enlace a /client/spaces que lleva campaña y adset.",
+        "answeredOn": "2026-08-01"
+      },
+      {
+        "id": "Q36",
+        "oneLiner": "F11 se cerro con evidencia de tests pero su recorrido humano nunca se ejecuto.",
+        "resolution": "F11 baja a `review` y se queda ahi hasta que WALK-3 se ejecute.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q37",
+        "oneLiner": "Una prueba ajena respondia 403, que confirma que el recurso existe.",
+        "resolution": "Responde 404, segun §21 regla 2. Aplicado en los dos controladores y en los asserts.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q39",
+        "oneLiner": "Nadie escribia nunca el estado `in_progress` de un chat.",
+        "resolution": "Lo estampa `join()`: abrir un chat de soporte lo deja `open` (nadie lo ha recogido); cuando una persona de Support entra, pasa a `in_progress`.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q41",
+        "oneLiner": "La lista blanca de PII hablaba de \"variantes cercanas\" de la direccion.",
+        "resolution": "Coincidencia exacta en el MVP. Nada de variantes.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q42",
+        "oneLiner": "El enum de `proofs.status` tenia cinco valores, dos de ellos muertos.",
+        "resolution": "Se colapsa a tres: `approved` -> `client_accepted`, `rejected` -> `client_rejected`.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q43",
+        "oneLiner": "¿Una retencion manual de Payments abre hilo de soporte?",
+        "resolution": "Si, los mismos tres chats de disputa que abre el rechazo del cliente, con motivo propio en el flag para poder distinguirlos.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q44",
+        "oneLiner": "AD-silentpost-04 pedia que el admin escribiera en cualquier hilo.",
+        "resolution": "Descartado. El admin es de solo lectura; su entrada se audita y NO se anuncia en el hilo.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q45",
+        "oneLiner": "¿Guarda anti-lockout explicita al reescribir los permisos del admin?",
+        "resolution": "Si.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q46",
+        "oneLiner": "¿Se audita el rechazo de prueba del cliente, que mueve dinero sin ser staff?",
+        "resolution": "Si, y tambien su aceptacion: auditar solo la mitad de un par simetrico es peor que no auditar.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q47",
+        "oneLiner": "¿Se corrige el archivo canonico o se deja el texto viejo como historia?",
+        "resolution": "Se corrige. La version vieja queda fechada en history.md, no en design.json.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q48",
+        "oneLiner": "¿Todo el paquete de moderacion de una vez?",
+        "resolution": "No: primero AD-delguard-08 (riesgo real de perdida de datos); takedown y freeze despues.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q49",
+        "oneLiner": "UC-23 no colgaba de ningun todo, y UC-27 y UC-42 no tenian dueño.",
+        "resolution": "UC-23 se enlaza a F09; UC-27 y UC-42 reciben todo propietario.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q50",
+        "oneLiner": "¿Que minimo de permisos no puede quitarse el admin a si mismo?",
+        "resolution": "El admin conserva siempre la gestion de usuarios. Ojo a la distincion: el admin quita usuarios de sus roles, pero NO los elimina — eliminar es del dueño de la cuenta.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q51",
+        "oneLiner": "§18 menciona 48h para que el proveedor apruebe una reserva, sin codigo que la imponga.",
+        "resolution": "Sigue siendo canonica y se implementa.",
+        "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q52",
+        "oneLiner": "No hay cron en el contenedor: nada de lo programado se ejecuta.",
+        "resolution": "Para el MVP la purga se dispara a mano con un comando. El cron queda anotado como deuda de infraestructura.",
+        "answeredOn": "2026-08-03"
+      }
+    ]
+  },
+  "walkthroughs": {
+    "convention": "WALK-1 a WALK-10 son recorridos humanos por la interfaz real. Los hace una PERSONA, no una suite: existen porque un test verde demuestra que una funcion responde, no que una pantalla sea usable ni que un flujo se pueda completar de principio a fin. Regla dura: un Fxx no pasa a `done` mientras el WALK que lo cierra siga `pending`. Cada paso lleva una accion concreta y lo que debe observarse; si lo observado no coincide, el recorrido falla y el Fxx no se cierra.",
+    "items": [
+      {
+        "id": "WALK-1",
+        "title": "Recorrido humano de Messages por rol",
+        "todoId": "WALK-1",
+        "status": "pending",
+        "closes": [
+          "F08",
+          "F09"
+        ],
+        "specs": [
+          "§10"
+        ],
+        "ucs": [
+          "UC-9",
+          "UC-21"
+        ],
+        "groups": [
+          "mensajeria-soporte"
+        ],
+        "steps": [
+          {
+            "id": "W1-1",
+            "role": "cliente",
+            "action": "Abrir un chat desde cada punto de entrada: Soporte en la barra, boton hacia el proveedor en el listado, ficha de anuncio, reserva, y factura con el pago adjunto (este ultimo depende de Q40).",
+            "expected": "El objeto aparece colgado del hilo como contexto y los datos de contacto salen enmascarados."
+          },
+          {
+            "id": "W1-2",
+            "role": "proveedor",
+            "action": "Recibir el hilo, responder, y abrir la prueba de publicacion desde el propio chat.",
+            "expected": "La prueba se ve en linea y no aparece ningun dato personal del cliente."
+          },
+          {
+            "id": "W1-3",
+            "role": "support",
+            "action": "Recoger el hilo desde la cola de Support y despues reabrir un hilo ya cerrado.",
+            "expected": "Al recogerlo el estado pasa a `in_progress`, la entrada se anuncia con un mensaje de sistema y el enmascarado se relaja."
+          },
+          {
+            "id": "W1-4",
+            "role": "payments",
+            "action": "Abrir el hilo nacido de un rechazo de prueba.",
+            "expected": "El pago retenido aparece enlazado como objeto del chat, con el motivo por el que esta parado."
+          },
+          {
+            "id": "W1-5",
+            "role": "admin",
+            "action": "Entrar a cualquier hilo desde la vista de solo lectura.",
+            "expected": "No hay caja de escritura. La entrada queda registrada en el log de auditoria y NO aparece anunciada dentro del hilo."
+          }
+        ],
+        "notes": "Es lo unico que separa a F08 y F09 de `done`: no queda codigo pendiente en ninguno de los dos."
+      },
+      {
+        "id": "WALK-2",
+        "title": "Recorrido humano de campañas, adsets y anuncios",
+        "todoId": null,
+        "status": "pending",
+        "closes": [
+          "§21"
+        ],
+        "specs": [
+          "§21"
+        ],
+        "ucs": [
+          "UC-43"
+        ],
+        "groups": [],
+        "steps": [
+          {
+            "id": "W2-1",
+            "role": "cliente",
+            "action": "Crear una campaña, un adset y un anuncio, y despues mover el anuncio a otro adset.",
+            "expected": "El movimiento arrastra a sus dependientes en una sola operacion; nada queda a medias."
+          },
+          {
+            "id": "W2-2",
+            "role": "cliente",
+            "action": "Borrar un adset que todavia tiene anuncios.",
+            "expected": "Los anuncios sobreviven huerfanos: un adset es una etiqueta organizativa, borrarla no destruye su contenido."
+          },
+          {
+            "id": "W2-3",
+            "role": "cliente",
+            "action": "Pedir por URL un objeto que pertenece a otra cuenta.",
+            "expected": "Responde 404, nunca 403: un 403 confirmaria que ese objeto existe."
+          }
+        ],
+        "notes": "Mantiene a §21 en `wip`. Es la contraparte de WALK-1 del lado de campañas."
+      },
+      {
+        "id": "WALK-3",
+        "title": "Recorrido humano de F11 (vista eagle-eye del admin)",
+        "todoId": null,
+        "status": "pending",
+        "closes": [
+          "F11"
+        ],
+        "specs": [
+          "§12"
+        ],
+        "ucs": [
+          "UC-28"
+        ],
+        "groups": [],
+        "steps": [
+          {
+            "id": "W3-1",
+            "role": "admin",
+            "action": "Recorrer la vista de actividad de principio a fin (el guion original O1 a O7).",
+            "expected": "Todo lo que la vista promete se puede alcanzar desde la interfaz, sin construir URLs a mano."
+          }
+        ],
+        "notes": "F11 se cerro con evidencia de tests y su recorrido nunca se ejecuto; por eso baja a `review` hasta que este recorrido pase."
       }
     ]
   },
@@ -2197,14 +2624,14 @@
       "method": "POST",
       "path": "/client/proofs/{proof}/accept",
       "desc": "client accepts proof -> payout releasable (B9)",
-      "sectionId": "17"
+      "sectionId": "7"
     },
     {
       "group": "Client",
       "method": "POST",
       "path": "/client/proofs/{proof}/reject",
       "desc": "client rejects -> payout HELD + payment_held flag + 3 Support chats (B9)",
-      "sectionId": "17"
+      "sectionId": "7"
     },
     {
       "group": "Client",
@@ -2288,14 +2715,14 @@
       "method": "GET,POST",
       "path": "/provider/proofs",
       "desc": "list / upload the primary proof",
-      "sectionId": "17"
+      "sectionId": "7"
     },
     {
       "group": "Provider",
       "method": "GET",
       "path": "/provider/proofs/{proof}",
       "desc": "proof detail",
-      "sectionId": "17"
+      "sectionId": "7"
     },
     {
       "group": "Admin",
@@ -2421,13 +2848,6 @@
       "method": "POST",
       "path": "/payments/payments/{p}/payout/hold",
       "desc": "hold a payout (no-op if gateway-settled)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Payments",
-      "method": "GET,POST",
-      "path": "/payments/proofs",
-      "desc": "proof review routes - VIOLATES B9, to be REMOVED",
       "sectionId": "17"
     },
     {
@@ -3734,7 +4154,60 @@
         "relations": []
       },
       {
-        "name": "(PLANNED) strikes / ratings / audit_logs / account_grants / notifications",
+        "name": "audit_logs",
+        "note": "BUILT 2026-08-02 (migration 2026_08_02_000001, App\\Models\\AuditLog, read-only via GET /admin/audit -> Admin\\AuditController). Append-only: no updated_at on purpose and the model throws on update/delete. The DB-level INSERT-only trigger stays AFTER-MVP per §12.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "actor_id",
+            "type": "fk users nullable (nullOnDelete — the row outlives the actor)"
+          },
+          {
+            "name": "actor_role",
+            "type": "varchar(20) snapshot taken at write time"
+          },
+          {
+            "name": "actor_label",
+            "type": "varchar(255) nullable snapshot"
+          },
+          {
+            "name": "action",
+            "type": "varchar(40) create|update|delete|flag_raise|..."
+          },
+          {
+            "name": "target_type",
+            "type": "varchar(60) API resource slug (spaces, ads, payments, ...)"
+          },
+          {
+            "name": "target_id",
+            "type": "bigint (null-able target for set-wide writes such as the RBAC rewrite)"
+          },
+          {
+            "name": "before",
+            "type": "json nullable — only the fields that changed"
+          },
+          {
+            "name": "after",
+            "type": "json nullable — mirror of before"
+          },
+          {
+            "name": "context",
+            "type": "varchar(255) nullable free-text reason/route note"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp default now (there is NO updated_at)"
+          }
+        ],
+        "relations": [
+          "users"
+        ]
+      },
+      {
+        "name": "(PLANNED) strikes / ratings / account_grants / notifications",
         "note": "designed, not built",
         "columns": [
           {
@@ -3744,10 +4217,6 @@
           {
             "name": "ratings",
             "type": "1-5 + comment, one per client per campaign, immutable"
-          },
-          {
-            "name": "audit_logs",
-            "type": "append-only actor/target/before/after/timestamp"
           },
           {
             "name": "account_grants",
@@ -5202,7 +5671,7 @@
       ],
       "mvpSprintId": "mvp-sprint:F07",
       "mvpSprintStatus": "resolved",
-      "mvpSprintNote": "CODE DONE 2026-07-16 (Option A): ProofFlagController::reject now (a) holds payout, (b) flags Payments with subject 'Payment held - <reason>' (ticketable=payment, else ad), (c) auto-opens THREE Support-anchored threads idempotently via openDisputeThreads() keyed (space_id,client_user_id,type): internal + support_client + support_provider, each with a one-time system opener. MessageController ACL rewritten for the 4 types (internal=staff; support_client=that client+support/admin; support_provider=that provider+support/admin; direct=participants + support-after-join). PiiMaskingService relaxes all non-direct threads. Conversation model gained TYPE_* consts; migration 2026_07_16 widened unique -> (space_id,client_user_id,type); Shared/ConversationController store pins type=direct + index filters by type; Support/ConversationController.join limited to direct; Support/TicketController.show now returns related_conversation_id (direct) + dispute_conversations{internal,support_client,support_provider}. Test DisputeThreadsTest added (3 threads + hold + flag + idempotent + cross-ACL); run in Codespace. --- ORIGINAL SPEC: Owner 2026-07-10: NO re-upload cycle. Client reject -> ONLY automatic = payout auto-hold + auto-route ONE ticket to Payments+Support (payment attached). Release/refund is a MANUAL Payments+Support human decision. Primary-proof uploaders = provider owner OR Installator OR Supervisor subrole (NOT Sales, no client role); 'manager' interpreted as provider Supervisor (confirm). design.md reconciled (removed 48h re-upload window in ~8 places). CODE PENDING: verify/enforce uploader roles; remove any re-upload UI; ensure reject -> auto-hold + auto dual-ticket + no auto-release. [owner 2026-07-14] Dispute refinement: proof deadline = the ONLY automatic phase; on client-reject the ONLY automatic actions are payout auto-HELD + a FLAG (reason text 'Payment held - <reason>') + THREE Support-anchored threads auto-open (Support<->Payments internal, Support<->Client type=support_client, Support<->Provider type=support_provider). All resolution is human; new-proof requests are human (no auto re-upload). CODE PENDING: auto-open 3 threads on reject + flag reason text; conversation types support_client/support_provider + their ACL. design.md 7/10/11 updated."
+      "mvpSprintNote": "CODE DONE 2026-07-16 (Option A), re-expressed on the unified chat primitive by CHAT-1..CHAT-4 (2026-08-02): Client/ProofFlagController::reject now (a) holds the payout, (b) raises a `payment_held` chat flag with reason 'Payment held - <reason>', (c) idempotently auto-opens THREE dispute chats via openDisputeChats() — internal (Support+Payments), support_client (Support+the client) and support_provider (Support+the provider) — each with a one-time system opener message. There is NO `chats.type` column: a chat's nature is DERIVED at read time from its participants (chat_participants), its attached objects (chat_objects) and its flags (chat_flags). The ACL is membership-based and lives in Shared/ChatController; PiiMaskingService relaxes masking on the staff-side chats. The Conversation and Ticket models and the `conversations`/`tickets` tables were DROPPED. --- ORIGINAL SPEC: Owner 2026-07-10: NO re-upload cycle — the 48h re-upload window is retired everywhere. Client reject -> ONLY automatic = payout auto-hold + auto-open of the 3 dispute chats with the payment attached as a chat object. Release/refund is a MANUAL Payments+Support human decision. Primary-proof uploaders = provider owner OR Installator OR Supervisor subrole (NOT Sales, no client role). [owner 2026-07-14] Dispute refinement: the proof deadline is the ONLY automatic phase; on client-reject the ONLY automatic actions are payout auto-HELD + the `payment_held` flag + the 3 Support-anchored dispute chats. All resolution is human; new-proof requests are human."
     },
     {
       "id": "F08",
@@ -5214,7 +5683,7 @@
       "groups": [
         "mensajeria-soporte"
       ],
-      "note": "Recorrido humano (Messages) pendiente para cerrar.",
+      "note": "Funcionalmente construido y su entrada en featureReview esta `resolved` (la spec es clara); se mantiene `in_progress` a proposito hasta que se ejecute el recorrido humano WALK-1 sobre Mensajes.",
       "specs": [
         "§10"
       ],
@@ -5239,7 +5708,7 @@
       ],
       "mvpSprintId": "mvp-sprint:F08",
       "mvpSprintStatus": "resolved",
-      "mvpSprintNote": "Owner-approved 2026-07-10. Masking core done (phone/email/URL/address + booked-space whitelist + privileged roles see raw). ADDED: explicit internal-thread ACL in MessageController (non-staff blocked from type=internal on read AND post) + Feature test InternalThreadAclTest (spec-requested: client 403, payments 200) - run in Codespace (php artisan test). DEFERRED to F09/F11: Support/Payments JOIN flow (support_joined_at never set yet; masking already relaxes on it) + Payments-join relax. Polymorphic conversation reconciliation = AFTER-MVP. [owner 2026-07-14] F08<->F09<->F10 clash resolved: the client<->provider ACL now also lets SUPPORT read/post AFTER it joins (support_joined_at); PAYMENTS never enters client<->provider threads (works via internal thread; Support relays); Admin via oversight. design.md 10 updated; test added."
+      "mvpSprintNote": "Owner-approved 2026-07-10. Masking core done (phone/email/URL/address + booked-space whitelist + privileged roles see raw). ACL: since CHAT-1..CHAT-4 there is no MessageController and no `type` column — access to a chat is decided by PARTICIPATION (chat_participants) plus role, in Shared/ChatController. A client is not a participant of the internal Support<->Payments dispute chat, so it can neither read nor post there; the guarantee comes from membership, never from a mutable flag. [owner 2026-07-14] F08<->F09<->F10 clash resolved: the client<->provider chat also lets SUPPORT read/post AFTER it joins (POST /chats/{c}/join); PAYMENTS never enters a client<->provider chat (it works through the internal dispute chat and Support relays); Admin reads via /admin/oversight/chats and is READ-ONLY. §10 updated; chat ACL tests cover client-vs-internal."
     },
     {
       "id": "F09",
@@ -5251,7 +5720,7 @@
       "groups": [
         "mensajeria-soporte"
       ],
-      "note": "Unificado en el primitivo chat; recorrido pendiente.",
+      "note": "Unificado en el primitivo chat y funcionalmente construido; su entrada en featureReview esta `resolved` (la spec es clara). Se mantiene `in_progress` a proposito hasta que se ejecute el recorrido humano WALK-1.",
       "specs": [
         "§10",
         "§11"
@@ -5278,7 +5747,7 @@
       ],
       "mvpSprintId": "mvp-sprint:F09",
       "mvpSprintStatus": "resolved",
-      "mvpSprintNote": "Ticket system done. ADDED: (1) JOIN conversation POST /support/conversations/{c}/join -> support_joined_at (relaxes F08 masking) + announcement, idempotent; (2) flag-refund + flag-payout-hold POST /support/payments/{p}/... -> payment-ticket for Payments (hold also parks status=held); Support has NO money authority; (3) UI: support ticket-detail surfaces related_conversation_id + Join button + Flag payout-hold/refund for payment tickets. Tests SupportJoinConversationTest. [2026-08-02] LAST CODE ITEM DONE (UC-23): PUT /support/{spaces|ads|bookings|users|collaborators}/{id} in Support\\ObjectEditController, each edit + its AuditLog row in ONE transaction. Money is unreachable twice over: money OBJECTS have no route here (Support flags, Payments executes) and money-DETERMINING fields (total_price, price_per_*, amount) are outside every whitelist and re-checked by assertNonMoney(). users.role/password stay Admin-only; collaborators.role IS Support's per design.md §1. Built UC-31 with it (audit_logs + AuditLog + GET /admin/audit) since 'audited' has no meaning without a log. RBAC rows land via migration 2026_08_02_000002 because the seeder truncates and never runs on a populated DB. SupportEditAuditTest 14 green; full suite 71 green on Postgres. F09 now needs only the human walkthrough; §11 moved wip -> review."
+      "mvpSprintNote": "Support-as-chat done. The routes POST /support/conversations/{c}/join and POST /support/payments/{p}/flag-refund|flag-payout-hold are RETIRED; their behaviour lives on the unified chat map: (1) POST /chats/{c}/join -> Support becomes a participant, the entry is announced with a system message, F08 masking relaxes, idempotent; (2) POST /chats/{c}/flags -> Support raises `refund` / `payout_hold` flags on the chat (flag only; Payments executes — a payout-hold flag parks payments.status=held). Support has NO money authority. UI: ONE Messages surface, no Support tabs. [2026-08-02] LAST CODE ITEM DONE (UC-23): PUT /support/{spaces|ads|bookings|users|collaborators}/{id} in Support\\ObjectEditController, each edit + its AuditLog row in ONE transaction. Money is unreachable twice over: money OBJECTS have no route here (Support flags, Payments executes) and money-DETERMINING fields (total_price, price_per_*, amount) are outside every whitelist and re-checked by assertNonMoney(). users.role/password stay Admin-only; collaborators.role IS Support's per §1. Built UC-31 with it (audit_logs + AuditLog + GET /admin/audit) since 'audited' has no meaning without a log. RBAC rows land via migration 2026_08_02_000002 because the seeder truncates and never runs on a populated DB. SupportEditAuditTest 14 green; full suite green on Postgres. F09 now needs only the human walkthrough WALK-1; §11 folded into §10."
     },
     {
       "id": "F10",
@@ -5313,12 +5782,12 @@
       ],
       "mvpSprintId": "mvp-sprint:F10",
       "mvpSprintStatus": "resolved",
-      "mvpSprintNote": "Core money done: approve/reject/refund(+wallet credit, idempotent)/release(gated on client_accepted)/hold; payments list+buttons. CLOSED the F09->F10 loop (this pass): Payment now morphMany tickets; Payments index/show load them; payment-list shows a flag-note per attached Support flag/dispute ticket so Payments sees WHY money is held + what Support requested. DEFERRED/AFTER-MVP: escrow, Admin 24h payout-stop window, per-provider payout scheduling, gateway webhooks/FX/clawback."
+      "mvpSprintNote": "Core money done: approve/reject/refund(+wallet credit, idempotent)/release(gated on client_accepted)/hold; payments list+buttons. CLOSED the F09->F10 loop: a Payment reaches the chat side as a polymorphic chat_object, and the reason the money is parked lives in chat_flags (`payment_held` / `refund` / `payout_hold`). Payments index/show load those flags and the payment-list shows a flag-note per attached Support flag, so Payments sees WHY money is held and what Support requested. DEFERRED/AFTER-MVP: escrow, Admin 24h payout-stop window, per-provider payout scheduling, gateway webhooks/FX/clawback."
     },
     {
       "id": "F11",
       "title": "Admin oversight / eagle-eye",
-      "status": "done",
+      "status": "review",
       "tags": [
         "F11"
       ],
@@ -5364,7 +5833,8 @@
       "classes": [],
       "mvpSprintId": "mvp-sprint:F12",
       "mvpSprintStatus": "pending",
-      "mvpSprintNote": ""
+      "mvpSprintNote": "",
+      "note": "El backend de configuraciones existe, pero la regla de §16 — congelar (snapshot) la configuracion vigente dentro de la reserva al crearla — no esta implementada: por eso sigue `pending`."
     },
     {
       "id": "F13",
@@ -5728,7 +6198,7 @@
       {
         "for": "UC-31",
         "title": "Immutable audit log of admin actions",
-        "note": "§12 audit-log (AU-log-01); no AuditLog model/table yet; suggest a todo"
+        "note": "§12 audit-log (AU-log-01) — CONSTRUIDO 2026-08-02 (migracion, App\\Models\\AuditLog, GET /admin/audit). La propuesta de todo queda cubierta; conservada como registro."
       },
       {
         "for": "UC-32",
@@ -5867,7 +6337,7 @@
             "mvp-sprint:C07",
             "mvp-sprint:C09"
           ],
-          "note": "CODE DONE 2026-07-16 (Option A): ProofFlagController::reject now (a) holds payout, (b) flags Payments with subject 'Payment held - <reason>' (ticketable=payment, else ad), (c) auto-opens THREE Support-anchored threads idempotently via openDisputeThreads() keyed (space_id,client_user_id,type): internal + support_client + support_provider, each with a one-time system opener. MessageController ACL rewritten for the 4 types (internal=staff; support_client=that client+support/admin; support_provider=that provider+support/admin; direct=participants + support-after-join). PiiMaskingService relaxes all non-direct threads. Conversation model gained TYPE_* consts; migration 2026_07_16 widened unique -> (space_id,client_user_id,type); Shared/ConversationController store pins type=direct + index filters by type; Support/ConversationController.join limited to direct; Support/TicketController.show now returns related_conversation_id (direct) + dispute_conversations{internal,support_client,support_provider}. Test DisputeThreadsTest added (3 threads + hold + flag + idempotent + cross-ACL); run in Codespace. --- ORIGINAL SPEC: Owner 2026-07-10: NO re-upload cycle. Client reject -> ONLY automatic = payout auto-hold + auto-route ONE ticket to Payments+Support (payment attached). Release/refund is a MANUAL Payments+Support human decision. Primary-proof uploaders = provider owner OR Installator OR Supervisor subrole (NOT Sales, no client role); 'manager' interpreted as provider Supervisor (confirm). design.md reconciled (removed 48h re-upload window in ~8 places). CODE PENDING: verify/enforce uploader roles; remove any re-upload UI; ensure reject -> auto-hold + auto dual-ticket + no auto-release. [owner 2026-07-14] Dispute refinement: proof deadline = the ONLY automatic phase; on client-reject the ONLY automatic actions are payout auto-HELD + a FLAG (reason text 'Payment held - <reason>') + THREE Support-anchored threads auto-open (Support<->Payments internal, Support<->Client type=support_client, Support<->Provider type=support_provider). All resolution is human; new-proof requests are human (no auto re-upload). CODE PENDING: auto-open 3 threads on reject + flag reason text; conversation types support_client/support_provider + their ACL. design.md 7/10/11 updated."
+          "note": "CODE DONE 2026-07-16 (Option A), re-expressed on the unified chat primitive by CHAT-1..CHAT-4 (2026-08-02): Client/ProofFlagController::reject now (a) holds the payout, (b) raises a `payment_held` chat flag with reason 'Payment held - <reason>', (c) idempotently auto-opens THREE dispute chats via openDisputeChats() — internal (Support+Payments), support_client (Support+the client) and support_provider (Support+the provider) — each with a one-time system opener message. There is NO `chats.type` column: a chat's nature is DERIVED at read time from its participants (chat_participants), its attached objects (chat_objects) and its flags (chat_flags). The ACL is membership-based and lives in Shared/ChatController; PiiMaskingService relaxes masking on the staff-side chats. The Conversation and Ticket models and the `conversations`/`tickets` tables were DROPPED. --- ORIGINAL SPEC: Owner 2026-07-10: NO re-upload cycle — the 48h re-upload window is retired everywhere. Client reject -> ONLY automatic = payout auto-hold + auto-open of the 3 dispute chats with the payment attached as a chat object. Release/refund is a MANUAL Payments+Support human decision. Primary-proof uploaders = provider owner OR Installator OR Supervisor subrole (NOT Sales, no client role). [owner 2026-07-14] Dispute refinement: the proof deadline is the ONLY automatic phase; on client-reject the ONLY automatic actions are payout auto-HELD + the `payment_held` flag + the 3 Support-anchored dispute chats. All resolution is human; new-proof requests are human."
         },
         {
           "id": "mvp-sprint:F08",
@@ -5881,12 +6351,12 @@
           "checklist": [
             "mvp-sprint:C06"
           ],
-          "note": "Owner-approved 2026-07-10. Masking core done (phone/email/URL/address + booked-space whitelist + privileged roles see raw). ADDED: explicit internal-thread ACL in MessageController (non-staff blocked from type=internal on read AND post) + Feature test InternalThreadAclTest (spec-requested: client 403, payments 200) - run in Codespace (php artisan test). DEFERRED to F09/F11: Support/Payments JOIN flow (support_joined_at never set yet; masking already relaxes on it) + Payments-join relax. Polymorphic conversation reconciliation = AFTER-MVP. [owner 2026-07-14] F08<->F09<->F10 clash resolved: the client<->provider ACL now also lets SUPPORT read/post AFTER it joins (support_joined_at); PAYMENTS never enters client<->provider threads (works via internal thread; Support relays); Admin via oversight. design.md 10 updated; test added."
+          "note": "Owner-approved 2026-07-10. Masking core done (phone/email/URL/address + booked-space whitelist + privileged roles see raw). ACL: since CHAT-1..CHAT-4 there is no MessageController and no `type` column — access to a chat is decided by PARTICIPATION (chat_participants) plus role, in Shared/ChatController. A client is not a participant of the internal Support<->Payments dispute chat, so it can neither read nor post there; the guarantee comes from membership, never from a mutable flag. [owner 2026-07-14] F08<->F09<->F10 clash resolved: the client<->provider chat also lets SUPPORT read/post AFTER it joins (POST /chats/{c}/join); PAYMENTS never enters a client<->provider chat (it works through the internal dispute chat and Support relays); Admin reads via /admin/oversight/chats and is READ-ONLY. §10 updated; chat ACL tests cover client-vs-internal."
         },
         {
           "id": "mvp-sprint:F09",
           "code": "F09",
-          "title": "Tickets & support (Support button on any object; auto-ticket on proof mismatch; Support powers: join chat, flag refund/payout-hold, edit any non-money object)",
+          "title": "Soporte como chat; apertura automatica de chats de disputa (boton de soporte sobre cualquier objeto; poderes de Support: unirse al chat, marcar refund/payout-hold, editar cualquier objeto sin dinero)",
           "status": "resolved",
           "mvp": true,
           "designSections": [
@@ -5897,7 +6367,7 @@
             "mvp-sprint:C08",
             "mvp-sprint:C09"
           ],
-          "note": "Ticket system done. ADDED: (1) JOIN conversation POST /support/conversations/{c}/join -> support_joined_at (relaxes F08 masking) + announcement, idempotent; (2) flag-refund + flag-payout-hold POST /support/payments/{p}/... -> payment-ticket for Payments (hold also parks status=held); Support has NO money authority; (3) UI: support ticket-detail surfaces related_conversation_id + Join button + Flag payout-hold/refund for payment tickets. Tests SupportJoinConversationTest. [2026-08-02] LAST CODE ITEM DONE (UC-23): PUT /support/{spaces|ads|bookings|users|collaborators}/{id} in Support\\ObjectEditController, each edit + its AuditLog row in ONE transaction. Money is unreachable twice over: money OBJECTS have no route here (Support flags, Payments executes) and money-DETERMINING fields (total_price, price_per_*, amount) are outside every whitelist and re-checked by assertNonMoney(). users.role/password stay Admin-only; collaborators.role IS Support's per design.md §1. Built UC-31 with it (audit_logs + AuditLog + GET /admin/audit) since 'audited' has no meaning without a log. RBAC rows land via migration 2026_08_02_000002 because the seeder truncates and never runs on a populated DB. SupportEditAuditTest 14 green; full suite 71 green on Postgres. F09 now needs only the human walkthrough; §11 moved wip -> review."
+          "note": "Support-as-chat done. The routes POST /support/conversations/{c}/join and POST /support/payments/{p}/flag-refund|flag-payout-hold are RETIRED; their behaviour lives on the unified chat map: (1) POST /chats/{c}/join -> Support becomes a participant, the entry is announced with a system message, F08 masking relaxes, idempotent; (2) POST /chats/{c}/flags -> Support raises `refund` / `payout_hold` flags on the chat (flag only; Payments executes — a payout-hold flag parks payments.status=held). Support has NO money authority. UI: ONE Messages surface, no Support tabs. [2026-08-02] LAST CODE ITEM DONE (UC-23): PUT /support/{spaces|ads|bookings|users|collaborators}/{id} in Support\\ObjectEditController, each edit + its AuditLog row in ONE transaction. Money is unreachable twice over: money OBJECTS have no route here (Support flags, Payments executes) and money-DETERMINING fields (total_price, price_per_*, amount) are outside every whitelist and re-checked by assertNonMoney(). users.role/password stay Admin-only; collaborators.role IS Support's per §1. Built UC-31 with it (audit_logs + AuditLog + GET /admin/audit) since 'audited' has no meaning without a log. RBAC rows land via migration 2026_08_02_000002 because the seeder truncates and never runs on a populated DB. SupportEditAuditTest 14 green; full suite green on Postgres. F09 now needs only the human walkthrough WALK-1; §11 folded into §10."
         },
         {
           "id": "mvp-sprint:F10",
@@ -5911,7 +6381,7 @@
           "checklist": [
             "mvp-sprint:C10"
           ],
-          "note": "Core money done: approve/reject/refund(+wallet credit, idempotent)/release(gated on client_accepted)/hold; payments list+buttons. CLOSED the F09->F10 loop (this pass): Payment now morphMany tickets; Payments index/show load them; payment-list shows a flag-note per attached Support flag/dispute ticket so Payments sees WHY money is held + what Support requested. DEFERRED/AFTER-MVP: escrow, Admin 24h payout-stop window, per-provider payout scheduling, gateway webhooks/FX/clawback."
+          "note": "Core money done: approve/reject/refund(+wallet credit, idempotent)/release(gated on client_accepted)/hold; payments list+buttons. CLOSED the F09->F10 loop: a Payment reaches the chat side as a polymorphic chat_object, and the reason the money is parked lives in chat_flags (`payment_held` / `refund` / `payout_hold`). Payments index/show load those flags and the payment-list shows a flag-note per attached Support flag, so Payments sees WHY money is held and what Support requested. DEFERRED/AFTER-MVP: escrow, Admin 24h payout-stop window, per-provider payout scheduling, gateway webhooks/FX/clawback."
         },
         {
           "id": "mvp-sprint:F11",
@@ -6052,13 +6522,13 @@
         "id": "C08",
         "item": "Support sees new requests with items attached (or not)",
         "status": "verified",
-        "note": "support ticket queue returns array (B3 fix); reference-less + attached tickets both list"
+        "note": "[pre-CHAT-1] support ticket queue returns array (B3 fix); reference-less + attached tickets both list"
       },
       {
         "id": "C09",
         "item": "Automatic ticket to support when a proof is mismatch-flagged by client",
         "status": "implemented",
-        "note": "ProofFlagController auto-ticket + ownership guard; no proofs seeded to runtime-walk"
+        "note": "[pre-CHAT-1] ProofFlagController auto-ticket + ownership guard; no proofs seeded to runtime-walk"
       },
       {
         "id": "C10",
@@ -6070,7 +6540,7 @@
         "id": "C11",
         "item": "Admin eagle-eye: sees all, incl. support and payments chats",
         "status": "verified",
-        "note": "/admin/oversight/conversations + tickets HTTP 200, no participant filter"
+        "note": "[pre-CHAT-1] /admin/oversight/conversations + tickets HTTP 200, no participant filter"
       },
       {
         "id": "C12",
@@ -6101,7 +6571,7 @@
           "mvp-sprint:AC-grants-08 [missing P2] enforce CLIENT subrole caps: publicist=no money; manager=full incl money — design:89 | dep AC-grants-07",
           "mvp-sprint:AC-grants-09 [missing P2] enforce PROVIDER subrole caps: installator=proof-upload-only; sales=reply-to-messages-only; supervisor=all-except-remove-people/config/delete-space — design:96 | dep AC-grants-07",
           "mvp-sprint:AC-collab-10 [partial P2] collaborator email invite+accept (pending->accepted->revoked; user_id nullable) — cases#11 | dep AC-collab-04",
-          "mvp-sprint:AC-namedcaps-11 [missing P2] named capabilities (refund.flag/.execute, payout.hold/.release, strike.accrue/.reverse, internal_thread.read/.post) — design RBAC | dep AC-grants-07"
+          "mvp-sprint:AC-namedcaps-11 [missing P2] named capabilities (refund.flag/.execute, payout.hold/.release, strike.accrue/.reverse) — NO hay capabilities de internal_thread: no existe un tipo de hilo interno, el acceso al chat interno se decide por el LADO del participante (chat_participants.side) — design RBAC | dep AC-grants-07"
         ],
         "B_campaigns_ads_mediaspecs": [
           "mvp-sprint:CA-crud-01 [built P1] campaign CRUD /client/campaigns",
@@ -6141,11 +6611,11 @@
         ],
         "E_proof_deadline_strikes": [
           "mvp-sprint:PR-primary-01 [built P1] provider primary proof upload (photo/video)",
-          "mvp-sprint:PR-status-02 [built P1] proofs.status pending|uploaded|client_accepted|client_rejected (B9)",
-          "mvp-sprint:PR-accept-03 [missing P1] POST /client/proofs/{proof}/accept -> payment releasable — design:715 | dep PR-status-02",
-          "mvp-sprint:PR-reject-04 [partial P1] POST /client/proofs/{proof}/reject -> re-upload window + payout HELD + dual ticket (fold in flag-mismatch) — design:715 | dep PR-status-02,TK-dual-03",
-          "mvp-sprint:PR-flag-05 [built P2] client/collaborator mismatch flag holds payout + opens ticket",
-          "mvp-sprint:PR-reupload-06 [missing P1] provider 48h re-upload after reject (clock stops while dispute open) — design:160 | dep PR-reject-04,CF-config-01",
+          "mvp-sprint:PR-status-02 [built P1] proofs.status pending_review|client_accepted|client_rejected (B9; enum colapsado por Q42 2026-08-02 — `approved`/`rejected` retirados)",
+          "mvp-sprint:PR-accept-03 [built P1] POST /client/proofs/{proof}/accept -> payment releasable — design:715 | dep PR-status-02 | 2026-08-02 BUILT: Client\\ProofFlagController::accept, ruta viva",
+          "mvp-sprint:PR-reject-04 [built P1] POST /client/proofs/{proof}/reject -> payout HELD + flag `payment_held` + 3 chats de disputa (interno Support<->Payments, Support<->Cliente, Support<->Proveedor); absorbe flag-mismatch — design:715 | dep PR-status-02,TK-dual-03",
+          "mvp-sprint:PR-flag-05 [built P2] client/collaborator mismatch flag holds payout + abre los 3 chats de disputa",
+          "mvp-sprint:PR-reupload-06 [obsoleto — no hay ventana de re-subida] provider 48h re-upload after reject (clock stops while dispute open) — design:160 | dep PR-reject-04,CF-config-01 | requisito RETIRADO por el dueño (2026-07-10): tras el rechazo no se abre ninguna ventana de re-subida; el texto se conserva como registro del requisito descartado",
           "mvp-sprint:PR-secondary-07 [missing P2] collaborator SECONDARY proof upload (per role) — design:139 | dep AC-grants-09",
           "mvp-sprint:PR-cron-08 [missing P1] proof-deadline cron: day-3+day-4 reminders (day-4 SMS), day-5 auto-cancel — design:139 | dep PR-primary-01,CF-config-01",
           "mvp-sprint:PR-autocancel-09 [missing P1] day-5 auto-cancel: lock booking, re-check proof NULL in txn, full refund, accrue strike — design:557 | dep PR-cron-08,ST-strikes-01,WT-wallet-02",
@@ -6159,7 +6629,7 @@
         "F_payments_wallet_invoices": [
           "mvp-sprint:PM-list-01 [built P1] payments list/show + approve/reject",
           "mvp-sprint:PM-money-02 [built P1] refund / payout-release / payout-hold (idempotent -> wallet)",
-          "mvp-sprint:PM-removeproof-03 [partial P1] REMOVE Payments proof approve/reject/index (/payments/proofs*) — B9 violation, still live — design:701 | dep PR-accept-03",
+          "mvp-sprint:PM-removeproof-03 [built P1] REMOVE Payments proof approve/reject/index (/payments/proofs*) — B9 violation — design:701 | dep PR-accept-03 | 2026-08-02 BUILT: las rutas /payments/proofs y el permiso payments.proofs.update fueron eliminados; Payments conserva proofs.read (§2 le da 👁, no ✏)",
           "mvp-sprint:PM-holdview-04 [missing P2] Payments READ-ONLY view-proof + chat ONLY when payment on hold, by Release/Cancel — design:622 | dep PR-reject-04",
           "mvp-sprint:PM-payouttxn-05 [partial P1] payout state machine held->processing->released->settled, re-check holds in locked txn — design:490 | dep PM-money-02",
           "PM-procqueue-05b [missing P2] payout PROCESSING QUEUE + grace window (owner 2026-07-16): on release, status=processing for admin-config payout_processing_grace (default 1h) before a queued job dispatches to gateway; reversible to held (Payments OR Support) during the window with NO gateway call; processing shown ONLY on Payments+Support UIs; after dispatch gateway=source-of-truth (webhook+status query -> gateway_status/gateway_settled_at), terminal, holdPayout=no-op, undo=gateway refund; nightly reconcile for missing webhooks. Queue+grace+state-machine+UI MVP-scoped; live dispatch/webhooks AFTER-MVP — design:§8 | dep PM-payouttxn-05,CF-config-01",
@@ -6183,37 +6653,37 @@
           "mvp-sprint:RT-flag-04 [missing P3] flag abusive rating comments for Support — cases#3 | dep RT-table-01"
         ],
         "H_chat_pii": [
-          "mvp-sprint:CH-conv-01 [built P1] conversations + messages CRUD",
+          "mvp-sprint:CH-conv-01 [built P1] UN solo primitivo `chats` + messages CRUD (chats, chat_participants, chat_objects, chat_flags); las tablas conversations y tickets fueron retiradas",
           "mvp-sprint:CH-mask-02 [partial P1] PII masking per-message at render (phone/email/URL/off-space addr) by viewer role+join state — design:316",
           "mvp-sprint:CH-whitelist-03 [missing P2] whitelist booked space's own street address in its thread; mask other addrs — design:330 | dep CH-mask-02",
-          "mvp-sprint:CH-poly-04 [partial P2] polymorphic conversation anchor + conversation_links travel history — design:582 | dep CH-conv-01",
-          "mvp-sprint:CH-internal-05 [missing P2] internal Support<->Payments threads = separate rows + ACL; client cannot fetch — design:586 | dep CH-poly-04",
-          "mvp-sprint:CH-relax-06 [partial P2] masking relax + system msg on Support/Payments join; never on internal — design:316 | dep CH-mask-02",
+          "mvp-sprint:CH-poly-04 [partial P2] objetos polimorficos colgados del chat (chat_objects) + historial de transformaciones en mensajes kind=system; sustituye al viejo conversation_links — design:582 | dep CH-conv-01",
+          "mvp-sprint:CH-internal-05 [missing P2] chat interno Support<->Payments = un chat propio SIN participante cliente (no hay columna type; el acceso se decide por participacion); el cliente no puede leerlo — design:586 | dep CH-conv-01",
+          "mvp-sprint:CH-relax-06 [partial P2] relajar el enmascarado + mensaje de sistema cuando Support entra al chat (POST /chats/{c}/join); nunca en el chat interno — design:316 | dep CH-mask-02",
           "mvp-sprint:CH-help-07 [missing P3] global Help-menu chat for every account user — cases#12 | dep CH-conv-01",
           "mvp-sprint:CH-startchat-08 [partial P2] start-chat from any ad/adset/campaign/booking with object context — design:318 | dep CH-conv-01"
         ],
-        "I_tickets_support": [
-          "mvp-sprint:TK-shared-01 [built P1] shared ticket CRUD+reply, ticketable ad|adset|campaign|space",
-          "mvp-sprint:TK-payment-02 [partial P2] add 'payment' to ticketable types — design:705 | dep TK-shared-01",
-          "mvp-sprint:TK-dual-03 [missing P1] dual Support<->Payments ticket auto-open on client proof reject (ticketable=payment, payout held) — design:750 | dep TK-payment-02,PR-reject-04",
-          "mvp-sprint:TK-supportq-04 [built P1] support ticket queue + status + reply",
+        "I_soporte_chats": [
+          "mvp-sprint:TK-shared-01 [built P1] chat compartido: crear + responder, con el objeto (ad|adset|campaign|space) colgado como chat_object",
+          "mvp-sprint:TK-payment-02 [partial P2] colgar tambien un `payment` como objeto del chat — design:705 | dep TK-shared-01",
+          "mvp-sprint:TK-dual-03 [built P1] apertura automatica al rechazar el cliente una prueba: NO es un ticket dual sino 3 CHATS DE DISPUTA (interno Support<->Payments, Support<->Cliente, Support<->Proveedor) con el pago adjunto como objeto del chat y payments.status=held — design:750 | dep TK-payment-02,PR-reject-04",
+          "mvp-sprint:TK-supportq-04 [built P1] cola de chats de Support + estado + respuesta",
           "mvp-sprint:TK-editany-05 [built P2] PUT /support/{spaces|ads|users|bookings|collaborators}/{id} edit-any non-money, audited — design:746 | dep AU-log-01 | 2026-08-02 BUILT: Support\\ObjectEditController; money unreachable at OBJECT level (no route) and FIELD level (whitelists + assertNonMoney); users.role/password stay Admin-only; audited in the same txn",
-          "mvp-sprint:TK-flagbridge-06 [missing P1] POST /support/payments/{p}/flag-refund + flag-payout-hold (flag only; Payments executes) — cases#SUPP5 | dep PM-money-02,AC-namedcaps-11",
-          "mvp-sprint:TK-join-07 [missing P2] POST /support/conversations/{c}/join announced + system msg (Admin stays silent) — cases#SUPP2 | dep CH-relax-06",
-          "mvp-sprint:TK-adhoc-08 [partial P3] support-initiated ad-hoc ticket visible only to provider involved — cases#SUPP4 | dep TK-shared-01",
-          "mvp-sprint:TK-close-09 [partial P3] support close ticket w/o user consent; conversation stays re-openable — design:347 | dep TK-supportq-04",
-          "mvp-sprint:TK-internal-10 [missing P2] Support<->Payments private internal thread client never sees — design:338 | dep CH-internal-05"
+          "mvp-sprint:TK-flagbridge-06 [built] POST /chats/{c}/flags — Support marca `refund` / `payout_hold` sobre el chat (solo marca; Payments ejecuta). Sustituye a las rutas retiradas /support/payments/{p}/flag-* — cases#SUPP5 | dep PM-money-02,AC-namedcaps-11",
+          "mvp-sprint:TK-join-07 [built] POST /chats/{c}/join — Support entra al chat, la entrada se anuncia con un mensaje de sistema y el chat pasa a in_progress; el Admin nunca entra asi (es de solo lectura y su acceso solo queda en el log de auditoria) — cases#SUPP2 | dep CH-relax-06",
+          "mvp-sprint:TK-adhoc-08 [partial P3] chat ad-hoc iniciado por Support, visible solo para el proveedor implicado — cases#SUPP4 | dep TK-shared-01",
+          "mvp-sprint:TK-close-09 [partial P3] Support puede cerrar el chat sin consentimiento del usuario; un chat CERRADO no lo puede reabrir el usuario — solo el admin, con POST /admin/chats/{c}/reopen — design:347 | dep TK-supportq-04",
+          "mvp-sprint:TK-internal-10 [built] chat interno Support<->Payments que el cliente nunca ve — es uno de los 3 chats de disputa y simplemente no tiene participante cliente — design:338 | dep CH-internal-05"
         ],
         "J_admin_moderation_audit": [
           "mvp-sprint:AD-usercrud-01 [built P1] admin user CRUD/CRM",
           "mvp-sprint:AD-rbac-02 [built P1] RBAC matrix editor (anti-lockout)",
-          "mvp-sprint:AD-oversight-03 [built P2] eagle-eye read-only conversations+tickets",
-          "mvp-sprint:AD-silentpost-04 [missing P2] admin SILENT read+write into any thread (no join announce) — design:326 | dep CH-internal-05",
+          "mvp-sprint:AD-oversight-03 [built P2] eagle-eye de solo lectura sobre los chats — UNA sola vista GET /admin/oversight/chats con filtros (sustituye a las vistas paralelas de conversations y tickets)",
+          "mvp-sprint:AD-silentpost-04 [descartado — admin read-only; su entrada se audita, no se anuncia] admin SILENT read+write into any thread (no join announce) — design:326 | dep CH-internal-05 | decision REVERTIDA por el dueño (2026-08-02, Q44): el admin no escribe en ningun chat; el texto se conserva como registro de la decision revertida",
           "mvp-sprint:AD-takedown-05 [missing P2] POST /admin/spaces/{s}/takedown + /restore (provider cannot self-reverse) — cases#ADMIN2 | dep AU-log-01",
           "mvp-sprint:AD-freeze-06 [missing P2] POST /admin/providers/{u}/freeze + /unfreeze (pause new bookings + auto-cancel+refund upcoming) — journey#7 | dep RF-policy-08,AC-namedcaps-11",
           "mvp-sprint:AD-freezecache-07 [missing P2] freeze busts permission/session cache + revokes Sanctum tokens — design:579 | dep AD-freeze-06",
           "mvp-sprint:AD-delguard-08 [missing P1] deletion guardrails EVERY object (block hard-delete w/ open ticket, active booking, unsettled funds) -> 'programmed for deletion' — design:417",
-          "mvp-sprint:AD-health-09 [partial P2] admin health dashboard (rejects, re-uploads, tickets, stopped payments, queues, refund/strike rate, gateway health) — cases#ADMIN5",
+          "mvp-sprint:AD-health-09 [partial P2] admin health dashboard (rechazos, chats de disputa abiertos, pagos detenidos, queues, refund/strike rate, gateway health) — cases#ADMIN5",
           "mvp-sprint:AU-log-01 [built P1] append-only audit_logs table (actor,target,before/after,ts) + DB INSERT-only trigger — design:370 | 2026-08-02 BUILT: audit_logs has no updated_at and AuditLog throws on updating/deleting; the DB INSERT-only trigger remains AFTER-MVP per design.md §12",
           "mvp-sprint:AU-record-02 [built P1] AuditLog::record() on every mutating staff action, same txn — design:595 | dep AU-log-01 | 2026-08-02 BUILT: Payments approve/reject/refund/release_payout/hold_payout, Admin user create/update/delete, Admin system config (per key), Admin RBAC rewrite (recordOn → target_id null, the target is a SET), staff chat money flags (flag_raise/flag_change); a no-op change writes no entry — AuditWritersTest, 16 tests",
           "mvp-sprint:AU-query-03 [built P2] GET /admin/audit (?target_type,?target_id,?actor_id,?action) per-object history read-only — design:738 | dep AU-record-02 | 2026-08-02 BUILT: Admin\\AuditController, gated on the new admin.audit.read permission; no write verb exists",
@@ -6221,7 +6691,7 @@
           "mvp-sprint:AU-eraseguard-05 [partial P3] insert_data.py --erase-all-data env-guarded (local/testing only) — design:601"
         ],
         "K_config_notifications_calendar_xcut": [
-          "mvp-sprint:CF-config-01 [partial P1] System Configurations read/update (proof-deadline, re-upload, strike window/threshold, prepay expiry, calendar-staleness, payout-stop, refund split, currency, rate limits, audit retention, default timezone) — design:386",
+          "mvp-sprint:CF-config-01 [partial P1] System Configurations read/update (proof-deadline, strike window/threshold, prepay expiry, calendar-staleness, payout-stop, refund split, currency, rate limits, audit retention, default timezone) — design:386",
           "mvp-sprint:CF-snapshot-02 [partial P1] snapshot config onto booking at creation + 'apply to in-flight' checkbox — design:400 | dep SB-enum-07,CF-config-01",
           "mvp-sprint:CF-tz-03 [missing P2] UTC storage + deadline math vs admin default tz (Monterrey) + per-user users.timezone display — design:533",
           "mvp-sprint:NT-dispatch-01 [missing P1] notification dispatcher: domain events -> queued listeners fan out by channel/urgency — design:354",
@@ -6271,21 +6741,21 @@
       "done": [
         "Platform object graph + role-capability matrix (ASCII).",
         "Endpoint audit of all 26 items (UI-only / data-only / needs-backend).",
-        "MvpDemoSeeder: bookings/proofs/payments/tickets-with-objects/conversations seeded + verified via API.",
+        "[pre-CHAT-1] MvpDemoSeeder: bookings/proofs/payments/tickets-with-objects/conversations seeded + verified via API.",
         "4-agent design/cases compliance audit (2026-06-18); findings folded into batches + new_subsystems below."
       ],
       "batches": [
         {
           "id": "B1",
-          "title": "UI bug-fixes: map render, /conversations spinner, campaign spec edit + per-ad Book, map-centered landing",
+          "title": "[pre-CHAT-1] UI bug-fixes: map render, /conversations spinner, campaign spec edit + per-ad Book, map-centered landing",
           "status": "done",
-          "note": "S24: MessageController index/store {data:...} (spinner gone); campaign-detail spec edit + per-ad Book (booking runtime-verified); space-search default map view + [map|results] split layout. php -l + ng build clean."
+          "note": "[pre-CHAT-1] S24: MessageController index/store {data:...} (spinner gone); campaign-detail spec edit + per-ad Book (booking runtime-verified); space-search default map view + [map|results] split layout. php -l + ng build clean."
         },
         {
           "id": "B1b",
           "title": "Contract-shape bugfixes (same class as #14): payment-list, provider booking update (+cancelled enum), shared ticket reply",
           "status": "done",
-          "note": "S24: L1/L2/L3 fixed + runtime-verified (payments list data list=8; provider booking cancel -> {data:{status:cancelled}}; ticket reply -> {data:body}). Convention going forward: mutating endpoints return {data:...}; list endpoints may paginate but UI must read res.data."
+          "note": "[pre-CHAT-1] S24: L1/L2/L3 fixed + runtime-verified (payments list data list=8; provider booking cancel -> {data:{status:cancelled}}; ticket reply -> {data:body}). Convention going forward: mutating endpoints return {data:...}; list endpoints may paginate but UI must read res.data."
         },
         {
           "id": "B2",
@@ -6295,21 +6765,21 @@
         },
         {
           "id": "B3",
-          "title": "Nav/header: Collaborators under Configurations tab, drop Dashboard, header welcome+name, Help ? button (contextual view-only ticket)",
+          "title": "Nav/header: Collaborators under Configurations tab, drop Dashboard, header welcome+name, Help ? button (chat contextual de solo lectura)",
           "status": "todo",
-          "note": "AUDIT: also add contextual chat buttons on ad/adset/campaign + global Help menu (client) and a 'Talk to support' button that auto-attaches ticketable_type/id (cases CLIENT #12/#13) — these client chat/support surfaces are missing in the UI though endpoints exist."
+          "note": "AUDIT: also add contextual chat buttons on ad/adset/campaign + global Help menu (client) and a 'Talk to support' button that opens a chat with the object auto-attached as a chat_object (POST /chats con el objeto, o POST /chats/{c}/objects) — these client chat/support surfaces are missing in the UI though the endpoints exist. El boton de ayuda abre un chat contextual de solo lectura sobre el objeto en el que estas."
         },
         {
           "id": "B4",
           "title": "Support powers (backend) + audit log + messaging joins",
-          "status": "todo",
-          "note": "AUDIT: support is TICKETS-ONLY today. Need: (a) audit_logs table+model+AuditLog::record() helper [BLOCKING, underlies every design 'logged' marker]; instrument all mutating staff actions. (b) generic support edit-any-non-money controller (spaces/ads/users/bookings/proofs/collaborators). (c) POST /conversations/{id}/join writing support_joined_at + announced system message (column exists, never written). (d) Payments has no ticket reply route -> internal Support<->Payments thread is asymmetric. (e) support flag-refund/payout-hold bridge to Payments."
+          "status": "done",
+          "note": "[pre-CHAT-1] AUDIT: support is TICKETS-ONLY today. Need: (a) audit_logs table+model+AuditLog::record() helper [BLOCKING, underlies every design 'logged' marker]; instrument all mutating staff actions. (b) generic support edit-any-non-money controller (spaces/ads/users/bookings/proofs/collaborators). (c) POST /conversations/{id}/join writing support_joined_at + announced system message (column exists, never written). (d) Payments has no ticket reply route -> internal Support<->Payments thread is asymmetric. (e) support flag-refund/payout-hold bridge to Payments."
         },
         {
           "id": "B5",
           "title": "Admin eagle-eye / Activity + audit read",
-          "status": "todo",
-          "note": "AUDIT: Oversight = conversations+tickets only. Need: rename to Activity; per-object read endpoints (Providers/Spaces/Users/Bookings/Payments/Invoices/Tickets) + advanced node filters (navigate related nodes); admin silent(default)/announce-per-ticket toggle; GET /admin/audit (+?target_type/id per-object history); ?role= filter + split Users by role; scope RBAC editor to EMPLOYEE roles only; space takedown/restore/freeze with guardrails (no delete with active bookings/unsettled funds)."
+          "status": "done",
+          "note": "[pre-CHAT-1] AUDIT: Oversight = conversations+tickets only. Need: rename to Activity; per-object read endpoints (Providers/Spaces/Users/Bookings/Payments/Invoices/Tickets) + advanced node filters (navigate related nodes); admin silent(default)/announce-per-ticket toggle; GET /admin/audit (+?target_type/id per-object history); ?role= filter + split Users by role; scope RBAC editor to EMPLOYEE roles only; space takedown/restore/freeze with guardrails (no delete with active bookings/unsettled funds)."
         },
         {
           "id": "B6",
@@ -6393,7 +6863,7 @@
       "decisions_2026_06_20": [
         "Client lands on Spaces (SHIPPED).",
         "Collaborators are ACCOUNT-scoped (act across all the owner's campaigns), two ecosystems (client publicist/manager...; provider installator/manager...), subroles per ecosystem. Retire campaign_id scoping + the legacy 'proof_uploader' enum.",
-        "Proof/payment (FINAL 2026-06-20): payment is HELD from booking until the CLIENT accepts the primary proof. The CLIENT (and collaborators per role) review/accept/reject proofs — Payments does NOT review proof content. Client REJECT (or collaborator mismatch flag) -> 48h re-upload window opens for provider AND a ticket with the payment attached is created for BOTH Support AND Payments (both see it); payout stays HELD until Support+Payments agree to release. Client ACCEPT -> payment releasable, Payments MANUALLY releases (optionally auto under threshold). => remove Payments\\ProofReviewController + Payments 'Proofs' nav; add 'payment' ticketable; proof-reject -> auto-hold + dual Support/Payments ticket.",
+        "[pre-CHAT-1] Proof/payment (FINAL 2026-06-20): payment is HELD from booking until the CLIENT accepts the primary proof. The CLIENT (and collaborators per role) review/accept/reject proofs — Payments does NOT review proof content. Client REJECT (or collaborator mismatch flag) -> 48h re-upload window opens for provider AND a ticket with the payment attached is created for BOTH Support AND Payments (both see it); payout stays HELD until Support+Payments agree to release. Client ACCEPT -> payment releasable, Payments MANUALLY releases (optionally auto under threshold). => remove Payments\\ProofReviewController + Payments 'Proofs' nav; add 'payment' ticketable; proof-reject -> auto-hold + dual Support/Payments ticket.",
         "Payments auto-approval = admin System Config: toggle + amount THRESHOLD (auto-release under $X), default OFF.",
         "Invoice PDF generation = server-side (SHIPPED). Reflected in platform-graph.",
         "All NON-client dashboards (provider/payments/support/admin) must show live stats (metrics per role in design.md Dashboards section). Client has NO dashboard.",
@@ -6405,7 +6875,7 @@
           "id": "B8-dashboards",
           "title": "Stats dashboards for provider/payments/support/admin",
           "status": "done",
-          "note": "DONE 2026-06-20 (runtime-verified). New Payments/Support/Admin DashboardControllers + GET /{role}/dashboard (role-gated, no perm mw on the running DB; seeder gets dashboard:read for support/payments for future). Provider dashboard extended with revenue_paid/held/refunded. dashboard.component.ts renders a per-role stats grid above quick actions. Payments=paid/on_hold/pending/refunded; Support=waiting_review/solved/unassigned; Admin=users-by-role/spaces/campaigns/tickets/held/paid. php -l + ng build clean."
+          "note": "[pre-CHAT-1] DONE 2026-06-20 (runtime-verified). New Payments/Support/Admin DashboardControllers + GET /{role}/dashboard (role-gated, no perm mw on the running DB; seeder gets dashboard:read for support/payments for future). Provider dashboard extended with revenue_paid/held/refunded. dashboard.component.ts renders a per-role stats grid above quick actions. Payments=paid/on_hold/pending/refunded; Support=waiting_review/solved/unassigned; Admin=users-by-role/spaces/campaigns/tickets/held/paid. php -l + ng build clean."
         },
         {
           "id": "B9-proof-payment-rework",
@@ -6435,7 +6905,7 @@
       ],
       "open_decisions_top5": "ALL RESOLVED 2026-06-20: (1) proof-review reversal RATIFIED — see decisions; (2) collaborators ACCOUNT-scoped, kill proof_uploader; (3) dashboard metrics defined in design.md Dashboards; (4) multi-file DEFERRED, 1 file MVP; (5) booking queue = provider-picks.",
       "session_2026_06_23": {
-        "owner_reaffirmed": "Re-confirmed earlier decisions (collaborators account-wide BOTH client+provider, proof/payment B9 reversal, conversations = object with attached object + multi-role + admin-silent/support-announced, provider approve->installer OR reject-with-note). Working style: momentum over perfection, latest-decision-wins on soft conflicts, ~90% doc compliance, only stop on HARD stoppers (now in CLAUDE.md learnings).",
+        "owner_reaffirmed": "[pre-CHAT-1] Re-confirmed earlier decisions (collaborators account-wide BOTH client+provider, proof/payment B9 reversal, conversations = object with attached object + multi-role + admin-silent/support-announced, provider approve->installer OR reject-with-note). Working style: momentum over perfection, latest-decision-wins on soft conflicts, ~90% doc compliance, only stop on HARD stoppers (now in CLAUDE.md learnings).",
         "NEW_decision_money": "MONEY = DECIMAL MXN PESOS everywhere, no centavos ('forget cents'). design.md updated. Code is already decimal(10,2) for bookings/payments/ads/spaces/campaigns; ONLY wallet_entries.amount_centavos uses integer cents -> align it to decimal pesos (amount column) + drop the *100 / /100 conversions in PaymentController/WalletController/wallet.component.",
         "doc_updates_done": "design.md: cases-v2->cases refs, money->decimal pesos (3 spots), appended 'REVISIONS & ROADMAP (2026-06-15, owner)' section. CLAUDE.md: cases.md key-file note + 'momentum over perfection / soft-vs-hard stops' learning.",
         "build_order_chosen": "Endpoints-first then UI, feature by feature (backend-first minimizes IDE save-conflicts while owner uses the app). Order: [M] money pesos alignment (small, closes newest decision) -> B9 proof/payment rework (owner contradiction) -> B6 account collaborators + Configurations tab (owner's opening question) -> B3 nav/header (drop Dashboard, welcome+name, Help) -> B-avail availability text -> B4 support powers+audit log -> B5 admin eagle-eye/Activity -> B7 invoices -> N* deferred subsystems by need.",
@@ -6467,7 +6937,7 @@
           "B9-cleanup: remove Payments\\ProofReviewController routes /payments/proofs* AFTER unwiring proof-review-list.component.ts + sidebar (else Payments UI 404s). Payments keeps release/cancel + read-only proof view on HELD payments only.",
           "PV-booking: provider action = Approve OR Reject(reason) writing bookings.rejection_reason (minimal; no full state-machine rewrite).",
           "Gate releasePayout on proof client_accepted (manual Payments release; NO auto-approve threshold for MVP).",
-          "Day-0 frontend wiring pass (needs IDE frontend tabs CLOSED): start-chat button (POST /conversations), render green/red 'doesn't coincide' availability tag (SpaceSearchController already returns it), wire unused adset/ad/booking/invoice show+PUT edit screens.",
+          "[pre-CHAT-1] Day-0 frontend wiring pass (needs IDE frontend tabs CLOSED): start-chat button (POST /conversations), render green/red 'doesn't coincide' availability tag (SpaceSearchController already returns it), wire unused adset/ad/booking/invoice show+PUT edit screens.",
           "Verify book->approve->prove->accept->release loop runtime on the live publisher stack."
         ],
         "AFTER_MVP_cut_or_defer": "ALL already tracked elsewhere in this file (new_subsystems N1-N8 + spec_backlog) — flagged AFTER-MVP here, DO NOT build for v1: N1 ratings, N6 notifications/SMS/Twilio, N7 strikes+cron+auto-cancel, N8/RT tiered refund engine, N4 prepay-escrow+waitlist+sibling-cancel, N5/AU audit_logs, B6 account collaborators+account_grants, N2 media-spec HARD-FAIL validator (keep only basic format/size), N3 campaign checkout+invoice line-items, B4 support edit-any, B5 admin eagle-eye per-object+filters, B10 auto-approve toggle, WT wallet withdraw, SB-overlap gist EXCLUDE (use a lightweight app-level double-book guard if needed), gateway webhooks/FX/clawback/rate-limits/calendar-staleness/multi-file."
@@ -6501,7 +6971,7 @@
       },
       {
         "id": "WS-2r6",
-        "title": "Subsystems: auto-ticket, masking, eagle-eye, configs",
+        "title": "Subsystems: auto-apertura de chats de disputa, masking, eagle-eye, configs",
         "status": "done"
       },
       {
@@ -6538,12 +7008,12 @@
       "git push: RESOLVED for the Codespace (p64–p67 pushed fine from there). It stays blocked from Claude Code (web) sessions — token scope, not repo visibility — which is why delivery is patch-only; see claude.md Learnings."
     ],
     "sessionNotes": {
-      "session_32_chat_unification": "BIG REFACTOR (owner 2026-07-17): unify §10 Chat + §11 Tickets into ONE primitive 'Chats, Objetos & Flags'. Ran a 2-agent workflow (blueprints in scratchpad/spec-reconciliation-blueprint.md + chat-acl-security-review.md). LOCKED: no type/kind column (nature DERIVED from participants+objects+flags; origin/transforms in kind=system history); tickets+ticket_messages RETIRED; states open|in_progress|resolved|closed (Support resolves, opener/Admin closes, Support sets in_progress); dispute = 3 chats (Support<->Client/Provider/Payments) + payments.status=held + payment_held flag; participants = FULL per-person chat_participants table (owner chose the fuller shape over the thin one); collaborators: client=all, provider=sales+supervisor NOT installers; Admin oversight = ONE /admin/oversight/chats with filters; UI = single Messages (drop Support tabs), attach object via 2 dropdowns. SECURITY (red-team): access by membership/role NEVER by a mutable flag; R1 fix = Admin read-only/incognito (no ghost-post); R2 fix = ownership-check on object attach (no private-object leak). DONE this session: new §10 written + §11 stub (design.md). PENDING RECONCILIATIONS (next design patch): §2 matrix (3 rows->1 Chat row), §7 dispute (drop type=), §12 (oversight wording), §15 schema (retire tickets; add chats/chat_objects/chat_flags/chat_participants; messages.conversation_id->chat_id), §16 invariants, §17 endpoint map (unified /chats), §19 cases/alerts (ticket->chat), spec_backlog H_chat_pii/I_tickets_support, claude.md schema table. THEN code phases: schema+models -> ACL(derived, membership) -> dispute re-express (~80% reuse ProofFlagController) -> unified endpoints -> UI -> rebuild seeders(DisputeDemoSeeder) + tests on Postgres (adapt the 37; add close/reopen/hidden-history/derived-nature + R1-R9 security cases). Migration: OK to DROP old ticket/chat data.",
-      "session_31_next": "HUMAN WALKTHROUGH (Codespace) surfaced UI gaps; started fixing. DONE: (p22) navbar user-menu was hidden behind the Leaflet map -> raised z-index (logout works on map pages); (p23) removed the client's Dashboard sidebar item (owner picked A: client has no dashboard, lands on Spaces; landingRoute + DashboardComponent already bounced clients); (p24) CLIENT PROOF REVIEW UI (the point-5 gap: client had NO way to accept/reject a proof) -> client BookingController eager-loads 'proofs'; client Bookings detail now shows the proof (media + status) with Accept/Reject buttons hitting /client/proofs/{id}/accept|reject; Booking/Proof TS models updated; DisputeDemoSeeder adds a 2nd booking with a pending_review proof so accept/reject is testable live (booking #1 = disputed/rejected, booking #2 = pending). Verified on Postgres: eager-load returns proofs+file_url, 37 tests still green. NOTE: proof file_path in the demo is a placeholder (broken img is expected; real provider uploads will render). STILL OPEN from the walkthrough: (a) client Messages list labels the support_client thread as 'With: Demo Provider' + shows '0 messages' (should say Support + show the opener) -> conversation-list UI needs thread-type-aware label/preview; (b) Support ticket-detail should surface the 3 dispute threads (or 1, owner leaned 'one thread, functional' -- keep 3 for client/provider privacy but make them openable in the UI); (c) verify p22 menu fix after hard-refresh on /client/spaces. NEXT after walkthrough: processing-queue build (session_30_plan).",
-      "session_30_plan": "PROCESSING QUEUE BUILD (owner 2026-07-16: build now, MVP) = PM-procqueue-05b. Re-think of F07-F10 folded into design.md §7/§8/§11 (release enters a reversible processing grace window; Support OR Payments can pull processing->held). BUILD STEPS: (1) migration: payments.status pgsql CHECK += 'processing','settled' + add payments.processing_since (timestamp nullable); (2) releasePayout (still gated on client_accepted) -> status='processing', processing_since=now(); MOVE the escrow_release wallet credit OUT of releasePayout INTO the promotion step (money moves at dispatch, not at enqueue); (3) scheduled command payouts:promote-processing (runs each minute) promoting due rows (processing_since + payout_processing_grace <= now) -> status='released' + escrow_release wallet entry (idempotency_key escrow_release:payment:{id}); wire the scheduler in Docker (schedule:work container or cron); (4) hold/cancel during processing -> held (holdPayout already no-ops on released|refunded, and processing is not terminal so it pulls back); (5) config key payout_processing_grace default 1h from System Config/config; (6) UI: payment-list + support ticket-detail show a 'processing' badge + countdown + Cancel/Hold; client/provider see only 'payout pending' (never the processing state); (7) tests: release->processing (NO wallet entry yet, status!=released), promote-command->released+wallet entry, hold-during-processing->held, hold-after-released->no-op (exists). Verify on Postgres + human walkthrough via DisputeDemoSeeder. Kanban: §7,§8 = wip during this build; move to review when tests+human done. AFTER: F11 review.",
-      "session_29_next": "Option A (dispute CODE) DONE + TESTS DONE 2026-07-16. Test harness moved to POSTGRES (owner decision): phpunit.xml pins DB_CONNECTION=pgsql + DB_DATABASE=pub_ads_mar_testing (force) - create once: docker compose exec db createdb -U postgres pub_ads_mar_testing. Added 4 feature tests (DisputeReviewFlowTest, DisputeThreadAclPostTest, SupportPaymentFlagTest, PaymentsVisibilityTest) + Tests\\Concerns\\BuildsBookingScenario trait; fixed DisputeThreadsTest URLs (/api/proofs -> /api/client/proofs). Verified locally against real Postgres: 27 passed. TWO real gaps the tests surfaced + fixed: (a) support role lacked conversations:create (couldn't POST replies in joined/dispute threads); (b) payments role lacked conversations entirely (couldn't read/post the internal Support<->Payments thread) - both granted in RolePermissionSeeder; also made MessageController::index order by id (deterministic chat order, created_at tied within a second). Round 2 tests DONE 2026-07-16 (verified local Postgres, 35 passed): AuthorizationNegativeTest (client can't reject others' proofs; provider blocked from /client/proofs; client blocked from /payments+/support), ConversationListingTest (GET /conversations shows only own direct + own support thread; only client can start), MoneyStateTest, PiiWhitelistTest (booked-space address kept, other masked). Fixed a real bug: PaymentController::holdPayout lacked a guard -> holding a released/refunded payment reverted it to held; added the same guard accept/reject/flagPayoutHold use. Added DisputeDemoSeeder (idempotent; held payment + flag + 3 threads + direct; reuses client1/provider1/support/payments logins) for the HUMAN 5-role walkthrough: docker compose exec backend php artisan db:seed --class=DisputeDemoSeeder. HUMAN TODO: confirm whether the CLIENT has accept/reject proof UI (backend route /client/proofs/* exists; frontend only has the old Payments proof-review) -> likely the next code gap. NEXT: continue review F11 (admin oversight) -> F12 (config) -> F13 (notif/calendar) -> F14 (RBAC). Deferred code gaps: F05 ('+ Ad Space' removal + per-ad creative upload), F03 (3-pane search layout), F09 (support edit-any-non-money-object endpoints).",
+      "session_32_chat_unification": "[pre-CHAT-1] BIG REFACTOR (owner 2026-07-17): unify §10 Chat + §11 Tickets into ONE primitive 'Chats, Objetos & Flags'. Ran a 2-agent workflow (blueprints in scratchpad/spec-reconciliation-blueprint.md + chat-acl-security-review.md). LOCKED: no type/kind column (nature DERIVED from participants+objects+flags; origin/transforms in kind=system history); tickets+ticket_messages RETIRED; states open|in_progress|resolved|closed (Support resolves, opener/Admin closes, Support sets in_progress); dispute = 3 chats (Support<->Client/Provider/Payments) + payments.status=held + payment_held flag; participants = FULL per-person chat_participants table (owner chose the fuller shape over the thin one); collaborators: client=all, provider=sales+supervisor NOT installers; Admin oversight = ONE /admin/oversight/chats with filters; UI = single Messages (drop Support tabs), attach object via 2 dropdowns. SECURITY (red-team): access by membership/role NEVER by a mutable flag; R1 fix = Admin read-only/incognito (no ghost-post); R2 fix = ownership-check on object attach (no private-object leak). DONE this session: new §10 written + §11 stub (design.md). PENDING RECONCILIATIONS (next design patch): §2 matrix (3 rows->1 Chat row), §7 dispute (drop type=), §12 (oversight wording), §15 schema (retire tickets; add chats/chat_objects/chat_flags/chat_participants; messages.conversation_id->chat_id), §16 invariants, §17 endpoint map (unified /chats), §19 cases/alerts (ticket->chat), spec_backlog H_chat_pii/I_tickets_support, claude.md schema table. THEN code phases: schema+models -> ACL(derived, membership) -> dispute re-express (~80% reuse ProofFlagController) -> unified endpoints -> UI -> rebuild seeders(DisputeDemoSeeder) + tests on Postgres (adapt the 37; add close/reopen/hidden-history/derived-nature + R1-R9 security cases). Migration: OK to DROP old ticket/chat data.",
+      "session_31_next": "[pre-CHAT-1] HUMAN WALKTHROUGH (Codespace) surfaced UI gaps; started fixing. DONE: (p22) navbar user-menu was hidden behind the Leaflet map -> raised z-index (logout works on map pages); (p23) removed the client's Dashboard sidebar item (owner picked A: client has no dashboard, lands on Spaces; landingRoute + DashboardComponent already bounced clients); (p24) CLIENT PROOF REVIEW UI (the point-5 gap: client had NO way to accept/reject a proof) -> client BookingController eager-loads 'proofs'; client Bookings detail now shows the proof (media + status) with Accept/Reject buttons hitting /client/proofs/{id}/accept|reject; Booking/Proof TS models updated; DisputeDemoSeeder adds a 2nd booking with a pending_review proof so accept/reject is testable live (booking #1 = disputed/rejected, booking #2 = pending). Verified on Postgres: eager-load returns proofs+file_url, 37 tests still green. NOTE: proof file_path in the demo is a placeholder (broken img is expected; real provider uploads will render). STILL OPEN from the walkthrough: (a) client Messages list labels the support_client thread as 'With: Demo Provider' + shows '0 messages' (should say Support + show the opener) -> conversation-list UI needs thread-type-aware label/preview; (b) Support ticket-detail should surface the 3 dispute threads (or 1, owner leaned 'one thread, functional' -- keep 3 for client/provider privacy but make them openable in the UI); (c) verify p22 menu fix after hard-refresh on /client/spaces. NEXT after walkthrough: processing-queue build (session_30_plan).",
+      "session_30_plan": "[pre-CHAT-1] PROCESSING QUEUE BUILD (owner 2026-07-16: build now, MVP) = PM-procqueue-05b. Re-think of F07-F10 folded into design.md §7/§8/§11 (release enters a reversible processing grace window; Support OR Payments can pull processing->held). BUILD STEPS: (1) migration: payments.status pgsql CHECK += 'processing','settled' + add payments.processing_since (timestamp nullable); (2) releasePayout (still gated on client_accepted) -> status='processing', processing_since=now(); MOVE the escrow_release wallet credit OUT of releasePayout INTO the promotion step (money moves at dispatch, not at enqueue); (3) scheduled command payouts:promote-processing (runs each minute) promoting due rows (processing_since + payout_processing_grace <= now) -> status='released' + escrow_release wallet entry (idempotency_key escrow_release:payment:{id}); wire the scheduler in Docker (schedule:work container or cron); (4) hold/cancel during processing -> held (holdPayout already no-ops on released|refunded, and processing is not terminal so it pulls back); (5) config key payout_processing_grace default 1h from System Config/config; (6) UI: payment-list + support ticket-detail show a 'processing' badge + countdown + Cancel/Hold; client/provider see only 'payout pending' (never the processing state); (7) tests: release->processing (NO wallet entry yet, status!=released), promote-command->released+wallet entry, hold-during-processing->held, hold-after-released->no-op (exists). Verify on Postgres + human walkthrough via DisputeDemoSeeder. Kanban: §7,§8 = wip during this build; move to review when tests+human done. AFTER: F11 review.",
+      "session_29_next": "[pre-CHAT-1] Option A (dispute CODE) DONE + TESTS DONE 2026-07-16. Test harness moved to POSTGRES (owner decision): phpunit.xml pins DB_CONNECTION=pgsql + DB_DATABASE=pub_ads_mar_testing (force) - create once: docker compose exec db createdb -U postgres pub_ads_mar_testing. Added 4 feature tests (DisputeReviewFlowTest, DisputeThreadAclPostTest, SupportPaymentFlagTest, PaymentsVisibilityTest) + Tests\\Concerns\\BuildsBookingScenario trait; fixed DisputeThreadsTest URLs (/api/proofs -> /api/client/proofs). Verified locally against real Postgres: 27 passed. TWO real gaps the tests surfaced + fixed: (a) support role lacked conversations:create (couldn't POST replies in joined/dispute threads); (b) payments role lacked conversations entirely (couldn't read/post the internal Support<->Payments thread) - both granted in RolePermissionSeeder; also made MessageController::index order by id (deterministic chat order, created_at tied within a second). Round 2 tests DONE 2026-07-16 (verified local Postgres, 35 passed): AuthorizationNegativeTest (client can't reject others' proofs; provider blocked from /client/proofs; client blocked from /payments+/support), ConversationListingTest (GET /conversations shows only own direct + own support thread; only client can start), MoneyStateTest, PiiWhitelistTest (booked-space address kept, other masked). Fixed a real bug: PaymentController::holdPayout lacked a guard -> holding a released/refunded payment reverted it to held; added the same guard accept/reject/flagPayoutHold use. Added DisputeDemoSeeder (idempotent; held payment + flag + 3 threads + direct; reuses client1/provider1/support/payments logins) for the HUMAN 5-role walkthrough: docker compose exec backend php artisan db:seed --class=DisputeDemoSeeder. HUMAN TODO: confirm whether the CLIENT has accept/reject proof UI (backend route /client/proofs/* exists; frontend only has the old Payments proof-review) -> likely the next code gap. NEXT: continue review F11 (admin oversight) -> F12 (config) -> F13 (notif/calendar) -> F14 (RBAC). Deferred code gaps: F05 ('+ Ad Space' removal + per-ad creative upload), F03 (3-pane search layout), F09 (support edit-any-non-money-object endpoints).",
       "session_28_next": "[DONE] Feature-by-feature MVP review; implemented the DISPUTE code (option A). See session_29_next + F07.",
-      "session_24_next": "B9 proof/payment rework (Payments held-payments view, remove proof review, client reject -> auto-hold + dual Support/Payments ticket). Then B4/B5 (support+admin oversight/user data), B6 (account collaborators + client Configurations tab), B3 nav, B7 money/invoices. Code sequentially (no parallel writes while IDE open); tag [todo Bx]."
+      "session_24_next": "[pre-CHAT-1] B9 proof/payment rework (Payments held-payments view, remove proof review, client reject -> auto-hold + dual Support/Payments ticket). Then B4/B5 (support+admin oversight/user data), B6 (account collaborators + client Configurations tab), B3 nav, B7 money/invoices. Code sequentially (no parallel writes while IDE open); tag [todo Bx]."
     },
     "specKanbanNote": "design.md IS the board now: §0 defines the notation; each §1-20 header carries a 'kanban:' line. Format: kanban: `status:V` · `weight:V` · `impacts:LIST` · `deps:LIST` · `ids:LIST`. status=backlog|wip|review|done; review is WEIGHTED = automated tests green on Postgres AND a human walkthrough (double gate, nothing is done without both). weight=S|M|L|XL. Grep the board: grep '^kanban:' design.md. Parser for a future UI: backtick spans `([a-z]+):([^`]*)`. spec_backlog ids below are the granular trace targets in the ids: field."
   }

@@ -35,6 +35,9 @@ jq -r '.mvpSprint.specBacklog.domains | to_entries[] | .value[]' design/design.j
 | `todos[]` | the Fxx feature index, enriched with the mvp-sprint feature-review notes |
 | `lineage` | FL/ER/CL id registry + the parked UC/todo proposals |
 | `groups` | cross-cutting work fronts — the slug registry (membership lives on each object) |
+| `glossary` | what every id prefix means (`§`, `UC-`, `Fxx`, `Bn`, …) + the domain vocabulary |
+| `openQuestions` | decisions only the owner can make: `items` are open, `resolved` is one line each |
+| `walkthroughs` | `WALK-n` — the human UI recorridos that gate a feature reaching `done` |
 | `mvpSprint` | the granular build backlog, checklist, ui-phase history, session notes |
 
 ### Groups — one work front across all three categories
@@ -60,6 +63,37 @@ and in every drawer, and the slug is searchable in all four views — typing `me
 any search box narrows that view to the front. The copied prompt reference carries a `grupo:` line
 too, so a pasted `§10` is unambiguous even when several fronts touch the same spec.
 
+### Glossary — the id vocabulary, written down once
+
+`§10`, `UC-21`, `F09`, `B9`, `C08`, `WALK-1`, `Q50`, `AD-delguard-08` are **eight different id
+axes**, and nothing used to say so. `.glossary.idPrefixes[]` explains each one: what it means, an
+example, and which key it lives under. `.glossary.terms[]` does the same for domain words (*proof*,
+*hold*, *flag*, *apply-scope*, *eagle-eye*, …).
+
+Retired vocabulary is **marked, not deleted** — `Conversation`, `MessageController`, *ticket dual*
+and the *48h re-upload window* all still appear in dated session logs, and a reader needs to know
+those words describe history rather than current behaviour.
+
+The one trap worth repeating here: **an `Fxx` carries two independent statuses**.
+`.todos[].status` answers *is the work closed?*; `.mvpSprint.featureReview` answers *is the spec
+clear?*. `in_progress` + `resolved` is a legitimate combination — it means the spec has no open
+questions but the work is still gated (usually by a `WALK`).
+
+### Open questions — what is genuinely undecided
+
+`.openQuestions.items[]` holds only the questions that are **still open**; while one sits there, no
+agent should invent the answer or build on top of it. When it is answered it leaves `items` and
+leaves one line behind in `.openQuestions.resolved[]`, so nobody re-litigates a settled decision.
+The long reasoning stays dated in `history.md` — this block is the index, not the record.
+
+### Walkthroughs — the human recorridos
+
+`.walkthroughs.items[]` are verifications a **person** performs against the running UI. They exist
+because a green suite proves a function responds, not that a screen is usable or that a flow can be
+completed end to end. The rule is hard: **a feature does not reach `done` while the `WALK` that
+closes it is `pending`** — which is exactly why `F08` and `F09` are still open with no code left to
+write. Each step names a role, a concrete action and what must be observed.
+
 ## Dashboard
 
 The dashboard renders `design.json` via `fetch`, so it must be **served over HTTP** — opening
@@ -78,6 +112,10 @@ Then open http://localhost:8080/design.html
 - **Flow / ER / Classes** — mermaid diagrams from `diagrams.*` (vendored, no network needed).
 - **User Stories** — grouped by actor, searchable.
 - **Sprint** — the granular backlog by domain, colour-coded built / partial / missing.
+- **Glosario** — the id prefixes and the domain vocabulary, searchable; retired terms flagged.
+- **Preguntas** — open questions first, then the resolved log with the decision on each.
+- **Recorridos** — each `WALK` as a card: its steps per role, action → what must be observed,
+  and which `Fxx` it closes.
 
 The theme button cycles system → light → dark. The UI files (`design.html`, `app.js`,
 `styles.css`) contain no baked-in data.

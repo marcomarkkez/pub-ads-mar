@@ -300,3 +300,38 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
   .tray { left: 12px; right: 12px; transform: none; max-width: none; }
   .tray-count { display: none; }
 }
+
+/* Glosario / Preguntas / Recorridos — three read-only views over .glossary,
+   .openQuestions and .walkthroughs. They reuse the .sprint container so they
+   inherit its prose width and heading rhythm; only the row shapes are new. */
+.gloss-list, .q-list { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 18px; }
+.gloss-row { display: grid; grid-template-columns: minmax(120px, 200px) 1fr; gap: 14px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.gloss-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+  font-weight: 600; color: var(--accent); word-break: break-word; }
+.gloss-name { font-weight: 600; margin-bottom: 2px; }
+.gloss-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+/* A retired term is kept on purpose: dated texts still use it, and a reader needs to know
+   it describes history rather than current behaviour. */
+.gloss-row.is-retired { border-left: 3px solid var(--danger, #ef4444); }
+
+.q-row { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.q-row.is-open { border-left: 3px solid var(--accent); }
+.q-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.q-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
+.q-question { font-weight: 600; margin-bottom: 4px; }
+.tag.q-state { text-transform: none; }
+.tag.q-state.open { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.tag.q-state.done { color: var(--muted); }
+
+.walk { padding: 14px 16px; margin: 12px 0; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.walk-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.walk-title { font-weight: 600; }
+.walk-steps { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.walk-step { padding: 10px 12px; border-left: 2px solid var(--border); }
+.walk-role { display: inline-block; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 4px; }
+.walk-expect { margin-top: 4px; font-size: 13px; color: var(--muted); }
+.walk-expect span { text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
+.walk-note { color: var(--muted); margin-top: 10px; }

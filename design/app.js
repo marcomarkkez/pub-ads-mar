@@ -210,7 +210,7 @@
       setView(itemViews[head]);
       return goto(head === "uc" ? "story" : head, id); // opens the item's drawer
     }
-    var views = ["specs", "todos", "flow", "er", "classes", "stories", "sprint"];
+    var views = ["specs", "todos", "flow", "er", "classes", "stories", "sprint", "glossary", "questions", "walks"];
     setView(views.indexOf(head) !== -1 ? head : "specs");
   }
 
@@ -324,7 +324,7 @@
       if (b.getAttribute("data-view") === v) b.setAttribute("aria-selected", "true");
       else b.removeAttribute("aria-selected");
     });
-    var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories", sprint: "Sprint" };
+    var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories", sprint: "Sprint", glossary: "Glosario", questions: "Preguntas abiertas", walks: "Recorridos humanos" };
     els.title.textContent = titles[v] || v;
     writeHash(v);
     render();
@@ -341,6 +341,9 @@
       case "classes": return renderDiagram("classes");
       case "stories": return renderStories();
       case "sprint": return renderSprint();
+      case "glossary": return renderGlossary();
+      case "questions": return renderQuestions();
+      case "walks": return renderWalks();
     }
   }
 
@@ -382,6 +385,155 @@
 
     box.innerHTML = html;
     els.content.appendChild(box);
+  }
+
+  /* ---------------- Glosario ----------------
+     design.json .glossary — el vocabulario del proyecto para quien no se sabe los endpoints de
+     memoria. Dos secciones: prefijos de identificador y terminos de dominio. Un termino RETIRADO
+     se marca en vez de borrarse, para poder leer los textos fechados sin confundirse. */
+  function renderGlossary() {
+    var g = state.data.glossary;
+    els.content.innerHTML = "";
+    if (!g) { els.content.innerHTML = '<div class="empty">No <code>glossary</code> block in design.json.</div>'; return; }
+
+    var q = "";
+    var search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Buscar en el glosario…";
+    search.addEventListener("input", function () { q = search.value.toLowerCase(); paint(); });
+    els.tools.appendChild(search);
+
+    var box = document.createElement("div");
+    box.className = "sprint";
+    els.content.appendChild(box);
+    paint();
+
+    function paint() {
+      var pre = (g.idPrefixes || []).filter(function (p) {
+        return !q || (p.code + " " + p.name + " " + p.meaning + " " + (p.example || "") + " " + (p.where || "")).toLowerCase().indexOf(q) !== -1;
+      });
+      var ter = (g.terms || []).filter(function (t) {
+        return !q || (t.term + " " + t.meaning).toLowerCase().indexOf(q) !== -1;
+      });
+      var html = '<p class="prose" style="color:var(--muted)">' + esc(g.convention || "") + '</p>';
+      html += '<h3>Prefijos de identificador <span class="badge">' + pre.length + '</span></h3><div class="gloss-list">';
+      pre.forEach(function (p) {
+        html += '<div class="gloss-row"><div class="gloss-code">' + esc(p.code) + '</div><div>' +
+          '<div class="gloss-name">' + esc(p.name) + '</div>' +
+          '<p class="prose">' + esc(p.meaning) + '</p>' +
+          '<div class="gloss-meta">' + (p.example ? 'ej. ' + esc(p.example) : "") +
+          (p.where ? ' · vive en <code>' + esc(p.where) + '</code>' : "") + '</div></div></div>';
+      });
+      html += '</div><h3>Terminos <span class="badge">' + ter.length + '</span></h3><div class="gloss-list">';
+      ter.forEach(function (t) {
+        var dead = /RETIRAD/.test(t.meaning);
+        html += '<div class="gloss-row' + (dead ? " is-retired" : "") + '"><div class="gloss-code">' + esc(t.term) + '</div>' +
+          '<div><p class="prose">' + esc(t.meaning) + '</p></div></div>';
+      });
+      html += '</div>';
+      box.innerHTML = html;
+    }
+  }
+
+  /* ---------------- Preguntas ----------------
+     design.json .openQuestions — decisiones que solo el dueño toma. `items` son las abiertas;
+     `resolved` guarda UNA linea por decision cerrada, para que nadie la vuelva a plantear. */
+  function renderQuestions() {
+    var oq = state.data.openQuestions;
+    els.content.innerHTML = "";
+    if (!oq) { els.content.innerHTML = '<div class="empty">No <code>openQuestions</code> block in design.json.</div>'; return; }
+
+    var q = "";
+    var search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Buscar preguntas…";
+    search.addEventListener("input", function () { q = search.value.toLowerCase(); paint(); });
+    els.tools.appendChild(search);
+
+    var box = document.createElement("div");
+    box.className = "sprint";
+    els.content.appendChild(box);
+    paint();
+
+    function paint() {
+      var open = (oq.items || []).filter(function (i) {
+        return !q || (i.id + " " + i.question + " " + i.oneLiner + " " + (i.impacts || []).join(" ")).toLowerCase().indexOf(q) !== -1;
+      });
+      var res = (oq.resolved || []).filter(function (i) {
+        return !q || (i.id + " " + i.oneLiner + " " + i.resolution).toLowerCase().indexOf(q) !== -1;
+      });
+      var html = '<p class="prose" style="color:var(--muted)">' + esc(oq.convention || "") + '</p>';
+      html += '<h3>Abiertas <span class="badge">' + open.length + '</span></h3><div class="q-list">';
+      open.forEach(function (i) {
+        html += '<div class="q-row is-open"><div class="q-head"><span class="q-id">' + esc(i.id) + '</span>' +
+          '<span class="tag q-state open">abierta</span></div>' +
+          '<div class="q-question">' + esc(i.question) + '</div>' +
+          '<p class="prose">' + esc(i.oneLiner) + '</p>' +
+          '<div class="row-tags">' + (i.impacts || []).map(function (x) {
+            return '<span class="tag">' + esc(x) + '</span>';
+          }).join('') + '</div></div>';
+      });
+      if (!open.length) html += '<div class="empty">Ninguna pregunta abierta coincide.</div>';
+      html += '</div><h3>Resueltas <span class="badge">' + res.length + '</span></h3><div class="q-list">';
+      res.forEach(function (i) {
+        html += '<div class="q-row"><div class="q-head"><span class="q-id">' + esc(i.id) + '</span>' +
+          '<span class="tag q-state done">resuelta ' + esc(i.answeredOn || "") + '</span></div>' +
+          '<p class="prose" style="color:var(--muted)">' + esc(i.oneLiner) + '</p>' +
+          '<p class="prose"><strong>→ ' + esc(i.resolution) + '</strong></p></div>';
+      });
+      html += '</div>';
+      box.innerHTML = html;
+    }
+  }
+
+  /* ---------------- Recorridos humanos ----------------
+     design.json .walkthroughs — verificaciones que hace una PERSONA sobre la UI real. Un Fxx no
+     pasa a `done` mientras su WALK siga pendiente, asi que esta vista dice literalmente que es lo
+     que falta para cerrar cada feature. */
+  function renderWalks() {
+    var w = state.data.walkthroughs;
+    els.content.innerHTML = "";
+    if (!w) { els.content.innerHTML = '<div class="empty">No <code>walkthroughs</code> block in design.json.</div>'; return; }
+
+    var q = "";
+    var search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Buscar recorridos…";
+    search.addEventListener("input", function () { q = search.value.toLowerCase(); paint(); });
+    els.tools.appendChild(search);
+
+    var box = document.createElement("div");
+    box.className = "sprint";
+    els.content.appendChild(box);
+    paint();
+
+    function paint() {
+      var items = (w.items || []).filter(function (it) {
+        var hay = it.id + " " + it.title + " " + (it.closes || []).join(" ") + " " +
+          (it.steps || []).map(function (s) { return s.role + " " + s.action + " " + s.expected; }).join(" ");
+        return !q || hay.toLowerCase().indexOf(q) !== -1;
+      });
+      var html = '<p class="prose" style="color:var(--muted)">' + esc(w.convention || "") + '</p>';
+      items.forEach(function (it) {
+        html += '<div class="walk"><div class="walk-head">' +
+          '<span class="q-id">' + esc(it.id) + '</span>' +
+          '<span class="walk-title">' + esc(it.title) + '</span>' +
+          '<span class="tag q-state ' + (it.status === "pending" ? "open" : "done") + '">' + esc(it.status) + '</span>' +
+          '</div><div class="row-tags">' +
+          (it.closes || []).map(function (c) { return '<span class="tag feat">cierra ' + esc(c) + '</span>'; }).join('') +
+          (it.specs || []).map(function (s) { return '<span class="tag">' + esc(s) + '</span>'; }).join('') +
+          (it.ucs || []).map(function (u) { return '<span class="tag">' + esc(u) + '</span>'; }).join('') +
+          '</div><ol class="walk-steps">';
+        (it.steps || []).forEach(function (s) {
+          html += '<li class="walk-step"><span class="walk-role">' + esc(s.role) + '</span>' +
+            '<div class="walk-action">' + esc(s.action) + '</div>' +
+            '<div class="walk-expect"><span>se espera</span> ' + esc(s.expected) + '</div></li>';
+        });
+        html += '</ol>' + (it.notes ? '<p class="prose walk-note">' + esc(it.notes) + '</p>' : "") + '</div>';
+      });
+      if (!items.length) html += '<div class="empty">Ningun recorrido coincide.</div>';
+      box.innerHTML = html;
+    }
   }
 
   /* ---------------- helpers ---------------- */
