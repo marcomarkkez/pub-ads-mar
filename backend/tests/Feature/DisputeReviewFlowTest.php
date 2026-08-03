@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\ChatFlag;
 use App\Models\Payment;
 use App\Models\WalletEntry;
@@ -20,6 +21,30 @@ class DisputeReviewFlowTest extends TestCase
 {
     use RefreshDatabase;
     use BuildsBookingScenario;
+
+    /**
+     * Q46 · §2 — the client is not staff, but accept/reject is the one path where a non-staff
+     * actor moves money. Both halves of the pair are audited: a gap on one side would read as
+     * "the hold never happened" rather than "we chose not to record it".
+     */
+    public function test_client_accept_and_reject_both_audit_the_hold(): void
+    {
+        ['client' => $client, 'proof' => $proof] = $this->bookingScenario();
+
+        Sanctum::actingAs($client);
+        $this->postJson("/api/client/proofs/{$proof->id}/accept")->assertStatus(200);
+
+        $entry = AuditLog::where('action', 'hold_on_accept')->sole();
+        $this->assertSame($client->id, $entry->actor_id);
+        $this->assertSame('client', $entry->actor_role);
+        $this->assertSame('held', $entry->after['status']);
+
+        ['client' => $client2, 'proof' => $proof2] = $this->bookingScenario();
+        Sanctum::actingAs($client2);
+        $this->postJson("/api/client/proofs/{$proof2->id}/reject", ['reason' => 'wrong wall'])->assertStatus(200);
+
+        $this->assertSame('client', AuditLog::where('action', 'hold_on_reject')->sole()->actor_role);
+    }
 
     public function test_accept_marks_proof_accepted_and_holds_payment(): void
     {

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Chat;
 use App\Models\ChatParticipant;
 use App\Models\User;
@@ -84,6 +85,46 @@ class SupportJoinConversationTest extends TestCase
         $this->postJson("/api/chats/{$chat->id}/join")->assertStatus(200);
 
         $this->assertEquals(1, $chat->messages()->where('body', 'Support has joined this conversation.')->count());
+        // The audit row sits inside the same idempotency guard, so a second join records nothing.
+        $this->assertEquals(1, AuditLog::where('action', 'chat_join')->count());
+    }
+
+    /**
+     * Q39 · §10/UC-21 — `in_progress` means "a human has this", so it is written on PICKUP, not
+     * on creation. Before this, nothing in the codebase ever wrote the state and both the Support
+     * and Admin dashboards counted a bucket that was structurally always empty.
+     */
+    public function test_join_moves_the_chat_to_in_progress_and_is_audited(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        ['support' => $support, 'chat' => $chat] = $this->makeChat();
+
+        $this->assertSame(Chat::STATUS_OPEN, $chat->status);
+
+        Sanctum::actingAs($support);
+        $this->postJson("/api/chats/{$chat->id}/join")->assertStatus(200);
+
+        $this->assertSame(Chat::STATUS_IN_PROGRESS, $chat->fresh()->status);
+
+        $entry = AuditLog::where('action', 'chat_join')->sole();
+        $this->assertSame($support->id, $entry->actor_id);
+        $this->assertSame('support', $entry->actor_role);
+        $this->assertSame(Chat::STATUS_OPEN, $entry->before['status']);
+        $this->assertSame(Chat::STATUS_IN_PROGRESS, $entry->after['status']);
+    }
+
+    /** A chat that is already resolved or closed must not be dragged back to `in_progress`. */
+    public function test_join_does_not_regress_a_resolved_chat(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        ['support' => $support, 'chat' => $chat] = $this->makeChat();
+        $chat->update(['status' => Chat::STATUS_RESOLVED]);
+
+        Sanctum::actingAs($support);
+        $this->postJson("/api/chats/{$chat->id}/join")->assertStatus(200);
+
+        $this->assertSame(Chat::STATUS_RESOLVED, $chat->fresh()->status);
+        $this->assertNotNull($chat->fresh()->support_joined_at);
     }
 
     public function test_join_rejects_non_client_provider_chats(): void

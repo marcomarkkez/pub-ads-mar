@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Campaign;
 use App\Models\Chat;
 use App\Models\ChatFlag;
@@ -90,6 +91,13 @@ class ChatAclMatrixTest extends TestCase
         Sanctum::actingAs($admin);
         $this->postJson("/api/admin/chats/{$chat->id}/reopen")->assertStatus(200);
         $this->assertSame(Chat::STATUS_OPEN, $chat->fresh()->status);
+
+        // §2 marks reopen 📝. It is the ONLY write an admin has on a chat, which is precisely
+        // why it must leave a trace: an unaudited admin write is indistinguishable from none.
+        $entry = AuditLog::where('action', 'chat_reopen')->sole();
+        $this->assertSame($admin->id, $entry->actor_id);
+        $this->assertSame(Chat::STATUS_CLOSED, $entry->before['status']);
+        $this->assertSame(Chat::STATUS_OPEN, $entry->after['status']);
     }
 
     /** R3 — a closed chat's history is hidden from users (visible to Admin via oversight). */

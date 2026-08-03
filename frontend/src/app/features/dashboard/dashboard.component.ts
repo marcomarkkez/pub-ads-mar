@@ -230,7 +230,10 @@ export class DashboardComponent implements OnInit {
           { label: 'Users', value: `${d.users_total ?? 0}` },
           { label: 'Active spaces', value: `${d.active_spaces ?? 0}`, sub: `${d.total_spaces ?? 0} total` },
           { label: 'Active campaigns', value: `${d.active_campaigns ?? 0}`, sub: `${d.total_campaigns ?? 0} total` },
-          { label: 'Open support chats', value: `${d.open_support_chats ?? d.open_tickets ?? 0}` },
+          // Admin\DashboardController returns `open_chats`. The two old fallbacks
+          // (`open_support_chats`, `open_tickets`) never matched anything, so this card
+          // silently showed 0 for every admin.
+          { label: 'Open support chats', value: `${d.open_chats ?? 0}` },
           { label: 'Payments held', value: `${d.payments_held?.count ?? 0}`, sub: this.money(d.payments_held?.amount) },
           { label: 'Revenue paid', value: `${d.revenue_paid?.count ?? 0}`, sub: this.money(d.revenue_paid?.amount) },
         ];

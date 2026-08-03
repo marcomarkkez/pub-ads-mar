@@ -26,7 +26,8 @@ class AuthorizationNegativeTest extends TestCase
         $stranger = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($stranger);
-        $this->postJson("/api/client/proofs/{$proof->id}/reject", ['reason' => 'nope'])->assertStatus(403);
+        // 404, not 403 — §21 rule 2 (Q37): a stranger must not learn that this proof exists.
+        $this->postJson("/api/client/proofs/{$proof->id}/reject", ['reason' => 'nope'])->assertStatus(404);
         $this->assertSame('pending_review', $proof->fresh()->status);
     }
 

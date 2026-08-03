@@ -85,8 +85,9 @@ class ProofController extends Controller
 
     public function show(Request $request, Proof $proof): JsonResponse
     {
+        // 404, never 403 — §21 rule 2 (Q37): see Client\ProofFlagController::ownedProof().
         if ($proof->uploaded_by_user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         return response()->json($proof->load(['ad', 'booking.space', 'reviewedBy']));

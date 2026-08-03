@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Shared;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Chat;
 use App\Models\ChatObject;
 use App\Models\ChatParticipant;
@@ -206,7 +207,17 @@ class ChatController extends Controller
 
         if ($chat->support_joined_at === null) {
             DB::transaction(function () use ($chat, $user) {
-                $chat->update(['support_joined_at' => now()]);
+                $before = ['status' => $chat->status, 'support_joined_at' => null];
+
+                // Pickup is what `in_progress` MEANS (Q39): a chat is `open` while it waits in the
+                // queue and `in_progress` once a human has it. Writing it anywhere earlier would
+                // make every chat born "in progress" and the queue would stop distinguishing
+                // anything. Only promote from `open` — a resolved/closed chat must not regress.
+                $attrs = ['support_joined_at' => now()];
+                if ($chat->status === Chat::STATUS_OPEN) {
+                    $attrs['status'] = Chat::STATUS_IN_PROGRESS;
+                }
+                $chat->update($attrs);
 
                 $chat->participants()->updateOrCreate(
                     ['user_id' => $user->id],
@@ -214,6 +225,17 @@ class ChatController extends Controller
                 );
 
                 $this->systemMessage($chat, $user->id, 'Support has joined this conversation.');
+
+                // §2 marks join 📝. Inside the same transaction and inside the idempotency guard,
+                // so a second join writes neither state nor an audit row.
+                AuditLog::record(
+                    $user,
+                    'chat_join',
+                    $chat,
+                    $before,
+                    ['status' => $chat->status, 'support_joined_at' => $chat->support_joined_at],
+                    'Support joined a client↔provider chat (§10 · UC-21)'
+                );
             });
         }
 
@@ -277,12 +299,28 @@ class ChatController extends Controller
             return response()->json(['message' => 'Chat is not closed.'], 422);
         }
 
-        $chat->update([
-            'status' => Chat::STATUS_OPEN,
-            'closed_at' => null,
-            'closed_by_user_id' => null,
-        ]);
-        $this->systemMessage($chat, $request->user()->id, 'Chat reopened by admin for investigation.');
+        // Reopen is the one write an admin has on a chat, so it is the one that most needs a
+        // trace: §2 marks it 📝. State change + system message + audit row in ONE transaction,
+        // matching every other audited writer in this codebase.
+        DB::transaction(function () use ($chat, $request) {
+            $before = ['status' => $chat->status, 'closed_at' => $chat->closed_at];
+
+            $chat->update([
+                'status' => Chat::STATUS_OPEN,
+                'closed_at' => null,
+                'closed_by_user_id' => null,
+            ]);
+            $this->systemMessage($chat, $request->user()->id, 'Chat reopened by admin for investigation.');
+
+            AuditLog::record(
+                $request->user(),
+                'chat_reopen',
+                $chat,
+                $before,
+                ['status' => Chat::STATUS_OPEN, 'closed_at' => null],
+                'Admin reopened a closed chat for investigation (§10 · UC-28)'
+            );
+        });
 
         return response()->json(['data' => $this->decorate($chat->fresh())]);
     }

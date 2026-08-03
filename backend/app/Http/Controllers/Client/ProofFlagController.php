@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Booking;
 use App\Models\Chat;
 use App\Models\ChatFlag;
@@ -28,13 +29,30 @@ class ProofFlagController extends Controller
     private function ownedProof(Request $request, Proof $proof): Proof
     {
         $proof->loadMissing('booking.payment');
+        // 404, never 403 — §21 rule 2 (Q37): a 403 confirms the row exists, which is enough to
+        // enumerate other clients' proof ids. A stranger must not be able to tell the difference
+        // between "not yours" and "does not exist".
         abort_unless(
             $proof->booking && $proof->booking->client_user_id === $request->user()->id,
-            403,
-            'You can only review proofs on your own bookings.'
+            404,
+            'Not found.'
         );
 
         return $proof;
+    }
+
+    /**
+     * Q46 · §2 — park a payout AND leave a trace. The actor here is the CLIENT, not staff, which
+     * is exactly why it needs auditing: it is the one path where a non-staff user moves money.
+     * Both accept and reject go through here — auditing half of a symmetric pair is worse than
+     * auditing neither, because the gap reads as "it never happened".
+     */
+    private function auditedHold(Request $request, Payment $payment, string $action, string $context): void
+    {
+        $before = ['status' => $payment->status];
+        $payment->update(['status' => 'held']);
+
+        AuditLog::record($request->user(), $action, $payment, $before, ['status' => 'held'], $context);
     }
 
     /** UC-6 · Client accepts the proof: payout is now releasable by Payments. */
@@ -42,12 +60,13 @@ class ProofFlagController extends Controller
     {
         $this->ownedProof($request, $proof);
 
-        DB::transaction(function () use ($proof) {
+        DB::transaction(function () use ($request, $proof) {
             $proof->update(['status' => 'client_accepted']);
 
             $payment = $proof->booking?->payment;
             if ($payment && ! in_array($payment->status, ['released', 'refunded'], true)) {
-                $payment->update(['status' => 'held']);
+                $this->auditedHold($request, $payment, 'hold_on_accept',
+                    'Client accepted proof #' . $proof->id . ' → payout held until Payments releases (§7 · UC-6)');
             }
         });
 
@@ -72,7 +91,8 @@ class ProofFlagController extends Controller
 
             $payment = $proof->booking?->payment;
             if ($payment && ! in_array($payment->status, ['released', 'refunded'], true)) {
-                $payment->update(['status' => 'held']);
+                $this->auditedHold($request, $payment, 'hold_on_reject',
+                    'Client rejected proof #' . $proof->id . ' → payout held pending Support review (§7 · UC-7)');
             }
 
             $this->openDisputeChats($request, $proof, $reason);
