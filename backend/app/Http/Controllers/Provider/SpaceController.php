@@ -46,7 +46,10 @@ class SpaceController extends Controller
     public function show(Request $request, Space $space): JsonResponse
     {
         if ($space->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            // 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+            // enough to enumerate another account's ids. "Not yours" and "does not exist"
+            // must be indistinguishable to a stranger.
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         return response()->json($space->load(['photos', 'availabilities', 'bookings.client', 'ads']));
@@ -55,7 +58,10 @@ class SpaceController extends Controller
     public function update(Request $request, Space $space): JsonResponse
     {
         if ($space->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            // 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+            // enough to enumerate another account's ids. "Not yours" and "does not exist"
+            // must be indistinguishable to a stranger.
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         $validated = $request->validate([

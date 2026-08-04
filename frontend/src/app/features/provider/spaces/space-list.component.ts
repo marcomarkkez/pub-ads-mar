@@ -6,6 +6,13 @@ import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
 import { Space } from '../../../core/models';
 
+/** UC-37 — one reason a listing cannot be scheduled for deletion (the 409 body). */
+interface SpaceBlocker {
+  kind: 'live_bookings' | 'unsettled_payments' | string;
+  count: number;
+  message: string;
+}
+
 @Component({
   selector: 'app-space-list',
   standalone: true,
@@ -52,7 +59,7 @@ import { Space } from '../../../core/models';
                 <th>Type</th>
                 <th>Location</th>
                 <th>Price/Day</th>
-                <th>Active</th>
+                <th>State</th>
                 <th>Photos</th>
                 <th>Actions</th>
               </tr>
@@ -73,22 +80,50 @@ import { Space } from '../../../core/models';
                       {{ formatType(space.type) }}
                     </span>
                   </td>
-                  <td>{{ space.location_name || (space.latitude + ', ' + space.longitude) }}</td>
+                  <td>{{ space.location_text || (space.latitude + ', ' + space.longitude) }}</td>
                   <td>{{ space.price_per_day | currency:'EUR' }}</td>
                   <td>
-                    <span class="badge" [class.badge-active]="space.is_active" [class.badge-cancelled]="!space.is_active">
-                      {{ space.is_active ? 'Active' : 'Inactive' }}
-                    </span>
+                    <!-- §12 keeps THREE levels apart and so does this cell: the provider's own
+                         pause, an admin takedown they cannot reverse, and a programmed deletion. -->
+                    @if (space.taken_down_at) {
+                      <span class="badge badge-cancelled" [title]="space.takedown_reason || ''">Taken down</span>
+                    } @else if (space.delete_scheduled_at) {
+                      <span class="badge badge-stale">Unpublished</span>
+                      <span class="sub">purge on {{ space.delete_scheduled_at | date:'mediumDate' }}</span>
+                    } @else if (space.is_active) {
+                      <span class="badge badge-active">Published</span>
+                    } @else {
+                      <span class="badge badge-cancelled">Paused</span>
+                    }
                   </td>
                   <td>{{ space.photos?.length || 0 }}</td>
                   <td class="actions">
                     <a [routerLink]="['/provider/spaces', space.id]" class="btn btn-sm">View</a>
                     <a [routerLink]="['/provider/spaces', space.id, 'edit']" class="btn btn-sm">Edit</a>
-                    <button class="btn btn-sm btn-danger" (click)="confirmDelete(space)" [disabled]="deleting()">
-                      Delete
-                    </button>
+                    <!-- UC-37 — DELETE does not delete: it unpublishes and PROGRAMS a purge,
+                         and 409s with blockers while clients are still on the listing. The
+                         button says what the endpoint does, and the way back is offered. -->
+                    @if (space.delete_scheduled_at) {
+                      <button class="btn btn-sm" (click)="cancelDeletion(space)" [disabled]="busyId() === space.id">
+                        Cancel deletion
+                      </button>
+                    } @else {
+                      <button class="btn btn-sm btn-danger" (click)="scheduleDeletion(space)" [disabled]="busyId() === space.id">
+                        Schedule deletion
+                      </button>
+                    }
                   </td>
                 </tr>
+                @if (blockersFor(space).length) {
+                  <tr>
+                    <td colspan="7" class="blockers">
+                      <strong>This listing cannot be scheduled for deletion yet:</strong>
+                      @for (b of blockersFor(space); track b.kind) {
+                        <span class="blocker">{{ b.message }}</span>
+                      }
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
@@ -113,6 +148,22 @@ import { Space } from '../../../core/models';
     .type-little_screen { background: #fce7f3; color: #9d174d; }
     .type-radio_station { background: #fef3c7; color: #92400e; }
     .type-other { background: #f3f4f6; color: #374151; }
+    .sub {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .blockers {
+      background: #fef2f2;
+      color: #991b1b;
+      font-size: 12px;
+      padding: 8px 12px;
+    }
+    .blocker {
+      display: block;
+      margin-top: 2px;
+    }
     .badge-stale {
       display: inline-block;
       margin-left: 8px;
@@ -163,7 +214,9 @@ export class SpaceListComponent implements OnInit {
   spaces = signal<Space[]>([]);
   loading = signal(false);
   error = signal('');
-  deleting = signal(false);
+  busyId = signal<number | null>(null);
+  /** 409 `blockers[]` from the last refused deletion, per space id. */
+  blockers = signal<Record<number, SpaceBlocker[]>>({});
   showIcalHelp = signal(false);
 
   // Staleness threshold in days. No frontend SystemConfiguration service is
@@ -197,23 +250,70 @@ export class SpaceListComponent implements OnInit {
     });
   }
 
-  confirmDelete(space: Space): void {
-    if (!confirm(`Are you sure you want to delete "${space.name}"? This action cannot be undone.`)) {
-      return;
-    }
-    this.deleting.set(true);
+  /**
+   * UC-37 · §12 — DELETE /provider/spaces/{id} UNPUBLISHES and programs a purge; it
+   * destroys nothing (a human runs `spaces:purge` later, re-checking the blockers then).
+   *
+   * The old copy here said "This action cannot be undone" and dropped the row out of the
+   * table on 200 — both false. The listing stays, in `unpublished`, with a date and a way
+   * back, and a listing that still has live bookings or unsettled payments answers 409
+   * with the reasons attached.
+   */
+  scheduleDeletion(space: Space): void {
+    const ok = confirm(
+      `Unpublish "${space.name}" and program its deletion?\n\n` +
+      'It leaves the catalog now. Nothing is destroyed today: the purge runs after the ' +
+      'grace period, and you can cancel it until then.'
+    );
+    if (!ok) return;
 
-    this.http.delete(`${this.api}/provider/spaces/${space.id}`).subscribe({
-      next: () => {
-        this.spaces.update(list => list.filter(s => s.id !== space.id));
-        this.notify.success(`Space "${space.name}" deleted.`);
-        this.deleting.set(false);
+    this.busyId.set(space.id);
+    this.blockers.update(m => { const n = { ...m }; delete n[space.id]; return n; });
+
+    this.http.delete<{ message: string; space: Space }>(`${this.api}/provider/spaces/${space.id}`).subscribe({
+      next: (res) => {
+        this.replace(res.space ?? { ...space });
+        this.notify.success('Listing unpublished and programmed for deletion.');
+        this.busyId.set(null);
       },
       error: (err) => {
-        this.notify.error(err.error?.message || 'Failed to delete space.');
-        this.deleting.set(false);
+        // 409 carries `blockers[]` — the refusal names WHICH clients are holding the
+        // listing, so it is rendered under the row instead of collapsed into a toast.
+        const list = err.error?.blockers as SpaceBlocker[] | undefined;
+        if (list?.length) {
+          this.blockers.update(m => ({ ...m, [space.id]: list }));
+        }
+        this.notify.error(err.error?.message || 'Failed to schedule the deletion.');
+        this.busyId.set(null);
       },
     });
+  }
+
+  /** The way back (POST /provider/spaces/{id}/cancel-deletion) — had no UI at all. */
+  cancelDeletion(space: Space): void {
+    this.busyId.set(space.id);
+
+    this.http.post<{ message: string; space: Space }>(
+      `${this.api}/provider/spaces/${space.id}/cancel-deletion`, {}
+    ).subscribe({
+      next: (res) => {
+        this.replace(res.space ?? { ...space });
+        this.notify.success('Programmed deletion cancelled.');
+        this.busyId.set(null);
+      },
+      error: (err) => {
+        this.notify.error(err.error?.message || 'Failed to cancel the programmed deletion.');
+        this.busyId.set(null);
+      },
+    });
+  }
+
+  blockersFor(space: Space): SpaceBlocker[] {
+    return this.blockers()[space.id] ?? [];
+  }
+
+  private replace(space: Space): void {
+    this.spaces.update(list => list.map(s => (s.id === space.id ? { ...s, ...space } : s)));
   }
 
   formatType(type: string): string {

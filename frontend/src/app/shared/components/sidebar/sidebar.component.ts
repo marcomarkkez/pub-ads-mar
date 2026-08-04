@@ -22,11 +22,26 @@ export class SidebarComponent {
   menuOpen = false;
 
   /**
-   * Owner-only surfaces. §3: the account OWNER manages collaborators (UC-19); a
-   * collaborator never can. The permission map is the only owner signal the SPA has
-   * today (there is no `is_owner` on /me yet) — the API re-checks ownership anyway.
+   * BR-8 · §3 (UC-19) — Collaborators is the account OWNER's screen.
+   *
+   * The approximation this replaces was `hasPermission('collaborators','create')`, which is
+   * a ROLE fact, not an account fact: it is true for every client alike and could never
+   * tell two clients apart. /me now carries the real account context.
+   *
+   * `is_owner` is the field that matches what the endpoint actually accepts:
+   * Client\CollaboratorController scopes every read and write to
+   * `$request->user()->account_id`, so the question the screen asks is "do I have an
+   * account of my own?" — exactly `is_owner`.
+   *
+   * `collaborating_on` is deliberately NOT the gate. Under the MVP unique index on
+   * users.account_id every registered client owns exactly one account, INCLUDING a person
+   * who also holds a collaborator grant on someone else's; the two roles stack on one
+   * human. Gating on `collaborating_on.length === 0` would hide a person's own
+   * collaborators screen from them merely because they also help on a friend's account,
+   * and the API would have served it. It is surfaced on AuthService as `isCollaborator()`
+   * for labelling the OTHER accounts, never for locking this one.
    */
-  canManageCollaborators = computed(() => this.auth.hasPermission('collaborators', 'create'));
+  canManageCollaborators = computed(() => this.auth.isAccountOwner());
 
   // design.json §10 — ONE "Messages" area for ALL roles; no separate Support/Tickets menu.
   navItems = computed<NavItem[]>(() => {

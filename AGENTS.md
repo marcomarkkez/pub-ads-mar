@@ -17,6 +17,20 @@ Patterns the owner explicitly praised and wants repeated — a "do more of this"
   stamp it `[owner YYYY-MM-DD]` in design/design.json and commit the design change FIRST (before the code),
   so the decision history is reviewable in git and `latest-decision-wins` resolves by date.
 
+## Standing rules (owner, 2026-08-04)
+
+- **One obvious option, not a menu.** "Cuando haya dudas siempre ofrece una opción obvia, si la
+  opción es demasiado obvia sólo aplícala." Propose THE obvious reading; if it is overwhelmingly
+  obvious, just apply it and say so afterwards. Never stop work to ask a question that has one
+  sane answer.
+- **Closed decisions stay closed.** "Cerremos decisiones y testeamos." A recorded decision is
+  closed; re-opening it needs a NEW dated owner ruling. Every closed decision ships with a test
+  that fails if it is quietly undone — that test is what stops the circling.
+- **Everything ends as running code; polish comes from walks.** "Termina de codificar todo… a
+  partir de ahí pulimos desde los walks solamente, nada de teoría en código seco." Nothing
+  planned stays half-written. Once it runs, further changes come ONLY from a human WALK-n
+  walkthrough finding a real problem — never from speculative design.
+
 ## Quick Reference
 
 ```bash

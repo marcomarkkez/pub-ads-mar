@@ -157,6 +157,32 @@ class DisputeReviewFlowTest extends TestCase
         $this->assertSame(Payment::STATUS_RELEASED, $payment->fresh()->status);
     }
 
+    /**
+     * EH-4 — the guard that does not depend on two columns agreeing. A payout stop writes
+     * BOTH `payout_stopped_at` and `status = held` today, so the status check alone happens
+     * to catch it; the day some path writes only one of the two, this is what still refuses.
+     */
+    public function test_a_stopped_payout_is_refused_even_if_its_status_says_releasable(): void
+    {
+        ['client' => $client, 'payment' => $payment, 'proof' => $proof] = $this->bookingScenario();
+
+        Sanctum::actingAs($client);
+        $this->postJson("/api/client/proofs/{$proof->id}/accept")->assertStatus(200);
+        $this->assertSame(Payment::STATUS_FREE_PAYMENT, $payment->fresh()->status);
+
+        // Deliberately the DRIFTED state: stopped, but the status still reads releasable.
+        $payment->forceFill(['payout_stopped_at' => now()])->save();
+
+        $payments = \App\Models\User::factory()->create(['role' => 'payments']);
+        Sanctum::actingAs($payments);
+        $this->postJson("/api/payments/payments/{$payment->id}/payout/release")
+            ->assertStatus(409)
+            ->assertJsonPath('error_code', 'CONFLICTING_STATE');
+
+        $this->assertSame(Payment::STATUS_FREE_PAYMENT, $payment->fresh()->status);
+        $this->assertSame(0, \App\Models\WalletEntry::where('type', 'escrow_release')->count());
+    }
+
     public function test_reject_raises_payment_held_flag_with_reason(): void
     {
         $s = $this->bookingScenario();

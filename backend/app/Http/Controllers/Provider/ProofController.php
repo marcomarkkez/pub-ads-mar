@@ -11,9 +11,25 @@ use Illuminate\Http\Request;
 
 class ProofController extends Controller
 {
+    /**
+     * design.json §21 — access DERIVES FROM THE OWNERSHIP CHAIN, not from authorship.
+     *
+     * This used to filter on `uploaded_by_user_id`, which is the uploader, not the owner.
+     * §7 says the INSTALLATOR subrole uploads the proof of display, so the moment provider
+     * collaborators ship, a provider looking at their own listing's proofs would see an
+     * empty list and a 404 on each one — their own space, their own booking, invisible
+     * because someone else pressed the button. The chain is proof → booking → space → user.
+     * The uploader stays an allowed reader on top of it (they must be able to see what they
+     * just uploaded even when their grant on the space is later revoked).
+     */
     public function index(Request $request): JsonResponse
     {
-        $proofs = Proof::where('uploaded_by_user_id', $request->user()->id)
+        $userId = $request->user()->id;
+
+        $proofs = Proof::where(function ($query) use ($userId) {
+            $query->whereHas('booking.space', fn ($q) => $q->where('user_id', $userId))
+                ->orWhere('uploaded_by_user_id', $userId);
+        })
             ->with(['ad', 'booking.space', 'reviewedBy'])
             ->latest()
             ->get();
@@ -85,8 +101,18 @@ class ProofController extends Controller
 
     public function show(Request $request, Proof $proof): JsonResponse
     {
+        // §21 — the ownership CHAIN decides (see index()), not who pressed upload: the
+        // provider who owns the space always reads the proofs on their own bookings, and
+        // the uploader (installator subrole, §7) reads what they uploaded.
+        //
         // 404, never 403 — §21 rule 2 (Q37): see Client\ProofFlagController::ownedProof().
-        if ($proof->uploaded_by_user_id !== $request->user()->id) {
+        $userId = $request->user()->id;
+        $proof->loadMissing('booking.space');
+
+        $ownsSpace = $proof->booking?->space?->user_id === $userId;
+        $uploaded = $proof->uploaded_by_user_id === $userId;
+
+        if (! $ownsSpace && ! $uploaded) {
             return response()->json(['message' => 'Not found.'], 404);
         }
 

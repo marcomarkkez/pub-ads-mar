@@ -39,6 +39,19 @@ class Payment extends Model
      */
     public const LOCKED_AGAINST_SETTLE = [self::STATUS_HELD, self::STATUS_RELEASED, self::STATUS_REFUNDED];
 
+    /**
+     * §12 · UC-37 — money that has not finished moving, so the row it hangs off must
+     * stay. `held` is in here too: a held payment is unsettled AND disputed, and the
+     * deletion guardrails read it under both headings for different reasons — see
+     * Account::disputeBlockers(), which treats it as the counterparty's evidence.
+     */
+    public const UNSETTLED_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_COMPLETED,
+        self::STATUS_FREE_PAYMENT,
+        self::STATUS_HELD,
+    ];
+
     protected $fillable = [
         'booking_id',
         'amount',

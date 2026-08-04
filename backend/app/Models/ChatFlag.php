@@ -28,6 +28,26 @@ class ChatFlag extends Model
         self::TYPE_OTHER,
     ];
 
+    /**
+     * §10/§12 · UC-37 — the flag types that mean "two parties disagree about money".
+     *
+     * An ACTIVE one of these on a chat is the marker of an OPEN DISPUTE, and a dispute
+     * is the one thing an account owner may not delete their way out of: the chat, the
+     * messages and the proofs under it are the counterparty's evidence too, and one side
+     * cannot waive a two-sided record. Read by Account::disputeBlockers().
+     *
+     * `cancel` and `other` are deliberately OUT. `other` is a free-form Support
+     * annotation and `cancel` is a request about a booking's schedule; neither asserts
+     * that money is contested, and a permanently un-deletable account is too heavy a
+     * consequence to hang on a note somebody forgot to supersede.
+     */
+    public const DISPUTE_TYPES = [
+        self::TYPE_PAYMENT_HELD,
+        self::TYPE_REFUND,
+        self::TYPE_PAYOUT_HOLD,
+        self::TYPE_MISMATCH,
+    ];
+
     protected $fillable = [
         'chat_id',
         'type',

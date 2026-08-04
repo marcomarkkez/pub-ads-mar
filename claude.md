@@ -46,6 +46,31 @@ review the product **one feature at a time**, driving to a deployable MVP:
   feature in the list so the owner can review, correct, or skip to the next.
 - Latest owner instruction on a topic wins over any earlier spec.
 
+### Stop circling — three standing rules (owner, 2026-08-04)
+
+- **"Cuando haya dudas siempre ofrece una opción obvia, si la opción es demasiado obvia sólo
+  aplícala."** Ambiguity is answered with ONE obvious proposal, never a menu of options for
+  the owner to pick from. When the obvious option is overwhelmingly obvious, do not propose it
+  at all — apply it, then say which way you went and why. **Never stop work to ask a question
+  that has one sane answer**; a question with one sane answer is not a fork, it is latency.
+  This sharpens "only escalate real forks" above: a real fork has at least two defensible
+  answers.
+- **"En algunas cosas siento que estamos dando vueltas en círculos, cerremos decisiones y
+  testeamos."** A decision, once recorded in `design/design.json` with its `[owner YYYY-MM-DD]`
+  stamp, is CLOSED. Re-opening it takes a NEW dated owner ruling — not an agent's second
+  opinion, not a re-reading of older spec text, not "while I was in there I noticed…".
+  **Every closed decision carries a test that fails if it is quietly undone**, and that test is
+  the thing that stops the circling: the whitelist, the 409, the revoked permission each have a
+  case that goes red the moment someone walks it back. Closing a decision without leaving that
+  test behind means the decision will be re-litigated, because nothing is holding it.
+- **"Con las preguntas ya respondidas termina de codificar todo… a partir de ahí pulimos desde
+  los walks solamente, nada de teoría en código seco."** Everything planned must end as
+  RUNNING CODE — nothing stays half-written, no endpoint without its UI, no UI without its
+  endpoint, no spec paragraph without a route behind it. Once that is true, further polish is
+  driven ONLY by a human **WALK-n** walkthrough that hits a real problem in the running app.
+  Speculative design work on code that already runs — refactors, "we could also", theoretical
+  edge cases nobody walked into — is exactly the circling the rule above forbids.
+
 ## Key Files
 
 | File | Purpose |

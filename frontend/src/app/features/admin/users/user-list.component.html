@@ -51,7 +51,15 @@
                 <td>{{ user.created_at | date:'mediumDate' }}</td>
                 <td class="actions-cell">
                   <a [routerLink]="['/admin/users', user.id]" class="btn btn-sm">Edit</a>
-                  <button class="btn btn-sm btn-danger" (click)="deleteUser(user)">Delete</button>
+                  <!-- No Delete: DELETE /admin/users/{id} does not exist (owner 2026-08-03).
+                       Admin deactivates; only the account owner deletes an account. -->
+                  @if (user.is_active) {
+                    <button class="btn btn-sm btn-danger" [disabled]="togglingId() === user.id"
+                            (click)="toggleActive(user)">Deactivate</button>
+                  } @else {
+                    <button class="btn btn-sm" [disabled]="togglingId() === user.id"
+                            (click)="toggleActive(user)">Reactivate</button>
+                  }
                 </td>
               </tr>
             }

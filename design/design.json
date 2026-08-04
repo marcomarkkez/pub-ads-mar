@@ -3,14 +3,14 @@
     "title": "PubAds — Design Dashboard",
     "source": "SELF — this file IS the canonical design reference",
     "foldedIn": [
-      "design.md (deleted 2026-08-02; full prose preserved verbatim in specs[].body)",
+      "the former standalone spec document (deleted 2026-08-02; full prose preserved verbatim in specs[].body)",
       ".claude/todos/mvp-sprint.json (deleted 2026-08-02; see mvpSprint)"
     ],
     "generatedAt": "2026-08-02",
     "version": "2",
-    "preamble": "This file is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed ARCHITECTURE.md, cases.md, platform-graph.md and the useful parts of\ncompliance-report.md (2026-06-27), then design.md and .claude/todos/mvp-sprint.json (2026-08-02).\nThere is no second document: schema, routes, specs, decisions, the role/object graph, user\nstories and the build backlog all live here.\n\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSpecs 1-18 are the SPECS (kept tight); spec 19 is the verbose USER STORIES, also structured in\n`userStories[]`. Spec 0 lives in `notation` — read it first to parse the `kanban` state.\n\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering.\n\nCode traceability: every file/class/method implementing a behavior here carries a short comment\nnaming the spec it satisfies (e.g. `design.json §7 proof`). Older comments say `design.md §N` —\nthe number still resolves, it is `specs[].id`.\n\nFeature codes: each spec carries `features` (`[Fxx]`) matching `todos[]`; `[infra]`/`[dev]`/\n`[all]` mark cross-cutting specs that are not a single feature. The granular build backlog and\nits `mvp-sprint:` prefixed ids are under `mvpSprint`.",
-    "sectionRefConvention": "Code comments say \"design.md §N\". design.md is gone; §N still resolves — it is specs[].id N in this file. New comments should say \"design.json §N\".",
-    "preambleHistory": "This document is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed the former ARCHITECTURE.md, cases.md, platform-graph.md, and the\nuseful parts of compliance-report.md (consolidated 2026-06-27) — design.md is now the one\nhome for schema, routes, specs, decisions, the role/object graph, and user stories.\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSections 1–18 are the SPECS (kept tight); section 19 is the verbose USER STORIES.\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering. Code traceability: every file/class/method implementing a\nbehavior here carries a short comment naming the spec it satisfies (e.g. `design.md §7 proof`).\nFeature codes: section/sub-section headers carry a `[Fxx]` tag matching the feature index in\n`.claude/todos/mvp-sprint.json` → `feature_review` (e.g. `[F06]` = booking action & per-ad\ngo-live). Use these shared codes when referring to a feature. `[infra]`/`[dev]`/`[all]` mark\ncross-cutting sections that are not a single feature.\nSpec-Kanban: every spec header ALSO carries a one-line `kanban:` state tag (status/weight/\nimpacts/deps/ids) so this doc doubles as a live board — **read §0 first** for the notation."
+    "preamble": "This file is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed ARCHITECTURE.md, cases.md, platform-graph.md and the useful parts of\ncompliance-report.md (2026-06-27), then the former standalone spec document and .claude/todos/mvp-sprint.json (2026-08-02).\nThere is no second document: schema, routes, specs, decisions, the role/object graph, user\nstories and the build backlog all live here.\n\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSpecs 1-18 are the SPECS (kept tight); spec 19 is the verbose USER STORIES, also structured in\n`userStories[]`. Spec 0 lives in `notation` — read it first to parse the `kanban` state.\n\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering.\n\nCode traceability: every file/class/method implementing a behavior here carries a short comment\nnaming the spec it satisfies (e.g. `design.json §7 proof`). Older comments cite the retired document's §N —\nthe number still resolves, it is `specs[].id`.\n\nFeature codes: each spec carries `features` (`[Fxx]`) matching `todos[]`; `[infra]`/`[dev]`/\n`[all]` mark cross-cutting specs that are not a single feature. The granular build backlog and\nits `mvp-sprint:` prefixed ids are under `mvpSprint`.",
+    "sectionRefConvention": "Older code comments cite a §N of the retired standalone document. That document is gone; §N still resolves — it is specs[].id N in this file. New comments should say \"design.json §N\".",
+    "preambleHistory": "This document is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed the former ARCHITECTURE.md, cases.md, platform-graph.md, and the\nuseful parts of compliance-report.md (consolidated 2026-06-27) — it is now the one\nhome for schema, routes, specs, decisions, the role/object graph, and user stories.\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSections 1–18 are the SPECS (kept tight); section 19 is the verbose USER STORIES.\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering. Code traceability: every file/class/method implementing a\nbehavior here carries a short comment naming the spec it satisfies (e.g. `§7 proof`).\nFeature codes: section/sub-section headers carry a `[Fxx]` tag matching the feature index in\n`.claude/todos/mvp-sprint.json` → `feature_review` (e.g. `[F06]` = booking action & per-ad\ngo-live). Use these shared codes when referring to a feature. `[infra]`/`[dev]`/`[all]` mark\ncross-cutting sections that are not a single feature.\nSpec-Kanban: every spec header ALSO carries a one-line `kanban:` state tag (status/weight/\nimpacts/deps/ids) so this doc doubles as a live board — **read §0 first** for the notation."
   },
   "notation": {
     "title": "Spec-Kanban (how to read this file)",
@@ -51,6 +51,11 @@
         "key": "done",
         "label": "Hecho",
         "color": "#22c55e"
+      },
+      {
+        "key": "review",
+        "label": "En revision",
+        "color": "#3b82f6"
       },
       {
         "key": "in_progress",
@@ -239,42 +244,287 @@
       }
     ]
   },
-  "openQuestions": {
-    "convention": "Decisiones que solo el dueño del producto puede tomar. `items` son las que siguen ABIERTAS: mientras una este aqui, ningun agente debe inventarse la respuesta ni construir sobre ella. Cuando se responde, la pregunta SALE de `items` y queda una sola linea en `resolved`, para que nadie la vuelva a plantear sin saber que ya se decidio. El razonamiento largo de cada decision vive fechado en history.md, no aqui.",
+  "businessRules": {
+    "convention": "Los GUARDRAILES del proyecto: reglas de negocio que ya fallo el owner y que el codigo debe hacer ciertas. No es una lista de deseos — cada regla nombra en `enforcedBy` el archivo, la clase o el test que la sostiene hoy, y `status` dice si eso existe (`built`), esta a medias (`partial`) o todavia no (`missing`). Una regla `partial` es una promesa que el codigo aun no cumple: se lee como trabajo pendiente, no como hecho. Para reabrir una regla hace falta un fallo NUEVO y fechado del owner (BR-11).",
     "items": [
       {
-        "id": "Q35",
-        "question": "¿Se puede cerrar F08 y F09 sin el recorrido humano?",
-        "oneLiner": "No: F08 y F09 estan funcionalmente construidos, pero nadie ha recorrido Mensajes a mano. Lo resuelve WALK-1.",
-        "impacts": [
-          "F08",
-          "F09",
-          "§10",
-          "WALK-1"
-        ]
+        "id": "BR-1",
+        "title": "Nada que este en uso se destruye jamas",
+        "rule": "Un DELETE sobre un objeto del que otros dependen no borra: despublica y PROGRAMA el borrado con fecha. La peticion se rechaza con 409 y los bloqueadores viajan DENTRO de la respuesta (`blockers[]`: que tipo, cuantos y por que). La destruccion real solo ocurre despues, en un comando que corre una PERSONA, y ese comando vuelve a comprobar los bloqueadores en ese momento en vez de fiarse del chequeo de hace un mes.",
+        "why": "\"No deben poder borrarse ads que tengan aun clientes usandolos, se pueden despublicar y programar para borrado\" [owner 2026-08-03]. Antes de esto, un proveedor ordenando su catalogo ejecutaba un DELETE que, por CASCADE, se llevaba por delante cada booking del espacio y cada pago de esos bookings: la campana pagada de un cliente desaparecia sin que nadie lo pidiera. Un \"no\" sin motivo tampoco sirve — el proveedor se queda adivinando cual de sus clientes retiene el espacio —, por eso los bloqueadores forman parte del rechazo.",
+        "appliesTo": [
+          "spaces",
+          "ads",
+          "accounts",
+          "bookings",
+          "payments"
+        ],
+        "enforcedBy": "Provider\\SpaceController::destroy (409 + blockers) · Space::deletionBlockers() · Space::PUBLICATION_UNPUBLISHED (valor propio, no `is_active=false`) · Console\\Commands\\PurgeScheduledSpaces (`spaces:purge`, manual, re-chequea) · migracion 2026_08_03_000030 (bookings.space_id CASCADE → RESTRICT)",
+        "status": "built"
       },
       {
-        "id": "Q38",
-        "question": "¿§21 puede pasar de wip a done sin recorrido humano?",
-        "oneLiner": "Igual que Q35 pero del lado de campañas: falta recorrer a mano crear, mover y borrar adsets y anuncios, y confirmar que nada ajeno responde 403. Lo resuelve WALK-2.",
-        "impacts": [
+        "id": "BR-2",
+        "title": "Una CUENTA con disputas vivas cae bajo la misma regla",
+        "rule": "`DELETE /account` no destruye una cuenta que sostiene objetos que la plataforma debe conservar, y una DISPUTA VIVA (pago en `held`, flag `payment_held` activo, chats de disputa abiertos) cuenta como uso. La cuenta se despublica/queda programada, no se destruye, y el 409 nombra la disputa concreta.",
+        "why": "Extension explicita del owner sobre BR-1: la cuenta es el objeto del que cuelga todo lo demas, asi que es donde mas caro sale una destruccion silenciosa. Hoy el controlador ya rechaza 409 por FK RESTRICT (campanas, espacios, bookings, wallet_entries) y exige `confirm_proof_loss` para las pruebas del dueno; lo que falta es que una disputa abierta, que no es una FK, bloquee igual — un pago congelado se argumenta con los chats y las pruebas que la destruccion se llevaria.",
+        "appliesTo": [
+          "accounts",
+          "payments.held",
+          "chat flags",
+          "proofs"
+        ],
+        "enforcedBy": "Account::disputeBlockers() (pago `held` / flag payment_held activo / prueba client_rejected) + Account::inUseBlockers() + AccountController::destroy — disputa viva = 409 ObjectInUse SIEMPRE, aunque venga confirm_proof_loss, porque una prueba es evidencia de dos partes y una sola no renuncia por las dos. Sin disputa pero en uso = despublicar + programar. App\\Console\\Commands\\PurgeScheduledAccounts revalida al purgar. AccountDisputeDeletionGuardTest (17 tests).",
+        "status": "built"
+      },
+      {
+        "id": "BR-3",
+        "title": "Codigos de rechazo: 409 por estado, 422 por payload, 404 en vez de 403",
+        "rule": "409 cuando el ESTADO del objeto prohibe la accion (esta en uso, ya esta liquidado, hay conflicto). 422 SOLO cuando el payload en si esta mal formado o es estructuralmente imposible de satisfacer. 404 —nunca 403— cuando responder otra cosa confirmaria que la fila existe. Cada 409 lleva `error_code` estable (ALREADY_EXISTS, OBJECT_IN_USE, CONFIRMATION_REQUIRED, CONFLICTING_STATE) para que el frontend ramifique por codigo y no por el texto del mensaje.",
+        "why": "[owner 2026-08-03] \"Cuando la API rechaza porque el objeto esta EN USO o en un ESTADO conflictivo, el status es 409.\" Y §21 regla 2: un 403 sobre un objeto de otra cuenta confirma que ese objeto existe y filtra su existencia. La separacion importa porque el cliente reacciona distinto: un 422 se arregla corrigiendo el formulario, un 409 se arregla cambiando el mundo (resolver la disputa, liberar el espacio), y un 404 no se arregla.",
+        "appliesTo": [
+          "toda la API",
           "§21",
-          "UC-43",
-          "WALK-2"
-        ]
+          "§8",
+          "§12"
+        ],
+        "enforcedBy": "App\\Enums\\ApiErrorCode · Provider\\SpaceController::destroy · AccountController::destroy · Payments\\PaymentController::refuseIfLocked · Services\\RefundProcessor::refusalFor (422 solo cuando no hay a quien acreditar) · Admin\\PayoutInterventionController::clawback (422 solo cuando no hay proveedor) · tests: AuthorizationNegativeTest, OwnershipChainTest",
+        "status": "built"
       },
       {
-        "id": "Q40",
-        "question": "¿El boton factura -> Soporte con el pago adjunto entra en WALK-1?",
-        "oneLiner": "Seria un quinto punto de entrada al chat, de la misma familia que los que CHAT-4 ya construyo, y el backend ya acepta el adjunto. Recomendado incluirlo; pendiente de confirmar junto con el guion de WALK-1.",
-        "impacts": [
-          "F08",
-          "F09",
-          "UC-9",
-          "WALK-1"
-        ]
+        "id": "BR-4",
+        "title": "A un proveedor no se le obliga a devolver dinero ya depositado",
+        "rule": "Revertir un payout YA LIBERADO es un CLAWBACK (UC-32): un acto administrativo explicito, con motivo obligatorio, escrito como su PROPIA entrada NEGATIVA en el libro. Nunca es un refund, nunca es automatico y nunca es un cambio de estado a secas. `PaymentController::refund` responde 409 sobre `released`/`refunded` y dice en el mensaje que lo que se pide es un clawback.",
+        "why": "Una vez que el dinero salio hacia el proveedor, es suyo hasta que una persona decida lo contrario; la plataforma no lo recupera en silencio. Antes, la clave de idempotencia impedia el DOBLE refund pero no impedia un refund DESPUES de la liberacion: se acreditaba la wallet del cliente con el proveedor ya cobrado, la plataforma se comia el importe y ninguna entrada del libro lo decia. El stop (antes de que el dinero se mueva) y el clawback (despues) son dos acciones distintas y no deben ser alcanzables la una desde la otra.",
+        "appliesTo": [
+          "payments",
+          "wallet_entries",
+          "UC-32",
+          "§8"
+        ],
+        "enforcedBy": "Services\\RefundProcessor::refusalFor (409 sobre Payment::TERMINAL) · Payments\\PaymentController::refund · Admin\\PayoutInterventionController::stop / ::clawback (motivo obligatorio, importe completo, clave `clawback:payment:{id}`) · Payment::payoutStopDeadline()",
+        "status": "built"
+      },
+      {
+        "id": "BR-5",
+        "title": "El libro no se netea",
+        "rule": "Una reversion es una FILA NUEVA con importe negativo, jamas una edicion ni un borrado de la original. `wallet_entries` es append-only: la entrada `escrow_release` queda intacta y al lado aparece la `clawback` en negativo, cada una con su propia clave de idempotencia.",
+        "why": "Un libro donde dos hechos se cancelan entre si deja de registrar lo que paso. Netear la reversion contra la liberacion borraria el hecho de que al proveedor se le pago alguna vez, que es exactamente el hecho sobre el que gira un caso de fraude. El saldo se calcula sumando; la historia se lee fila por fila.",
+        "appliesTo": [
+          "wallet_entries",
+          "§8",
+          "UC-32"
+        ],
+        "enforcedBy": "Admin\\PayoutInterventionController::clawback (`amount => -$amount`, type `clawback`, ref al payment, no toca la fila de release) · WalletEntry con `idempotency_key` unico · Services\\RefundProcessor::apply",
+        "status": "built"
+      },
+      {
+        "id": "BR-6",
+        "title": "`payments.status` es la unica autoridad sobre el dinero",
+        "rule": "Donde esta el dinero lo dice `payments.status` y nada mas. Un flag de chat ANOTA el porque; no decide. Y dos estados que se confundieron una vez no vuelven a confundirse: `free_payment` = el cliente acepto la prueba, el payout es liberable y espera a Payments; `held` = congelado dentro de una disputa viva. No son sinonimos ni se pintan igual.",
+        "why": "Cuando la autoridad vivia repartida, un usuario de Payments podia coger un pago congelado por el rechazo de una prueba —tres chats de disputa abiertos, flag `payment_held` activo— y pasarlo a `completed` de un clic: los chats seguian diciendo \"payout retenido\" y la autoridad decia \"pagado\". Nada fallaba y nada se registraba, porque para el codigo no habia pasado nada raro.",
+        "appliesTo": [
+          "payments",
+          "chat flags",
+          "§2",
+          "§8"
+        ],
+        "enforcedBy": "App\\Models\\Payment (STATUS_* + TERMINAL + LOCKED_AGAINST_SETTLE) · PaymentController::releasePayout (exige FREE_PAYMENT) · frontend PaymentStatus + paymentStatusLabel() · tests: PaymentsVisibilityTest, DisputeReviewFlowTest",
+        "status": "built"
+      },
+      {
+        "id": "BR-7",
+        "title": "Una guarda existe en TODOS los caminos gemelos, no en uno",
+        "rule": "Cuando dos endpoints mutan el mismo objeto, sus precondiciones se escriben juntas y se comparan. Si `holdPayout()` mira el estado, `approve()`/`reject()` tambien. La comprobacion vive en un metodo compartido (`refuseIfLocked`) para que anadir un estado nuevo no obligue a acordarse de tres sitios.",
+        "why": "`holdPayout()` tenia guarda de estado y `settle()` no, asi que approve/reject podian sobrescribir un pago en disputa. Una guarda a medias es peor que ninguna: da la sensacion de que el caso esta cubierto.",
+        "appliesTo": [
+          "payments",
+          "spaces",
+          "toda mutacion con hermanas"
+        ],
+        "enforcedBy": "Payments\\PaymentController::refuseIfLocked() usado por approve/reject/hold · Payment::LOCKED_AGAINST_SETTLE",
+        "status": "built"
+      },
+      {
+        "id": "BR-8",
+        "title": "Dueno de una cuenta",
+        "rule": "Un dueno es la persona que ABRIO la cuenta y que puede anadir colaboradores. Eso es todo — no hay un rol \"owner\" aparte ni una jerarquia. `GET /me` expone las DOS mitades del hecho: `account_id` + `is_owner` (mi cuenta) y `collaborating_on` (las cuentas AJENAS donde soy colaborador). Bajo el indice UNIQUE del MVP sobre `users.account_id` todo cliente o proveedor registrado posee exactamente una cuenta, asi que `is_owner` se reduce a \"tengo cuenta\" y NO distingue por si solo a un dueno de alguien que ademas colabora en otra cuenta: la mitad que distingue es `collaborating_on`.",
+        "why": "[owner 2026-08-04] \"un dueno es la persona que abre la cuenta y puede anadir colaboradores, asi de simple.\" Poseer mi cuenta y ayudar a llevar la tuya son dos hechos distintos, y una pantalla que no los separa ensena el menu equivocado. Antes `GET /me` solo devolvia nombre/email/rol, asi que el frontend APROXIMABA la propiedad preguntando por el permiso `collaborators.create` — y una aproximacion en una decision con forma de autorizacion acaba adivinando mal, porque el permiso es de ROL y no de CUENTA. Cuando lleguen las cuentas multi-dueno se cae ese indice unico y `is_owner` pasa a ser una comparacion de verdad, en un solo sitio.",
+        "appliesTo": [
+          "accounts",
+          "collaborators",
+          "GET /me",
+          "§3"
+        ],
+        "enforcedBy": "BACKEND: AuthController::me devuelve `account_id` + `is_owner` + `collaborating_on` (2026-08-04); `account_id` NO fillable, indice UNIQUE = la regla MVP 1 usuario = 1 cuenta. FRONTEND: AuthService expone isAccountOwner/collaboratingOn desde /me y sidebar.component.ts abre Colaboradores con `is_owner` (ya no con el permiso collaborators.create). login()/register() pasan por startSession() para que un recien logueado no quede sin contexto de cuenta. OJO al leerlo: bajo el indice unico TODO cliente/proveedor registrado es dueno de su propia cuenta, incluido quien ademas colabora en otra; `is_owner` separa \"tiene cuenta\" de \"staff\", y `collaborating_on` es lo que separa los dos papeles cuando se apilan en una persona.",
+        "status": "built"
+      },
+      {
+        "id": "BR-9",
+        "title": "Toda accion de staff (✏/$) se audita, y las dos mitades de un par simetrico tambien",
+        "rule": "Cada escritura de Support, Payments o Admin deja fila de auditoria, con before/after real, en la MISMA transaccion que el cambio y sin secretos dentro. Y si la accion tiene gemela (approve/reject, hold/release, stop/clawback, freeze/unfreeze, takedown/restore), se auditan LAS DOS.",
+        "why": "Auditar solo un lado se lee como \"eso nunca paso\": el registro muestra las aprobaciones y no los rechazos, o las retenciones y no las liberaciones, y cualquiera que lo lea saca una conclusion falsa sobre lo que hizo el equipo. Que la fila y el cambio compartan transaccion es parte de la regla — una auditoria que sobrevive a un rollback miente igual.",
+        "appliesTo": [
+          "audit_logs",
+          "payments",
+          "admin",
+          "support",
+          "§2",
+          "§12",
+          "UC-31"
+        ],
+        "enforcedBy": "AuditLog::record/recordChange/recordOn · tests/Feature/AuditWritersTest.php (AU-record-02) · tests/Feature/SupportEditAuditTest.php",
+        "status": "built"
+      },
+      {
+        "id": "BR-10",
+        "title": "UI, endpoints y planeacion se mueven juntos",
+        "rule": "Cuando la API gana un estado, el conjunto de acciones de la UI y la entrada de design.json viajan en el MISMO patch. Un boton que solo existe para ser rechazado se lee como permiso.",
+        "why": "[owner] \"Asegurate que el UI siempre vaya de la mano con los endpoints y que vayan ambos con la planeacion.\" Los tres desincronizados producen exactamente los fallos mas caros de este proyecto: la UI ofreciendo `paid_at` que no existe, un `<select>` con subroles que el backend rechaza, o la planeacion describiendo un enum de bookings que la base nunca tuvo (y por tanto filtros que devolvian cero filas).",
+        "appliesTo": [
+          "frontend",
+          "endpoints[]",
+          "design.json",
+          "todo el proyecto"
+        ],
+        "enforcedBy": "Convencion de trabajo, no codigo. Lo mas cerca de una verificacion automatica: backend/tests/test_all_endpoints.py y errorHunt EH-2 (campos fantasma) / EH-7 (vocabulario inventado).",
+        "status": "partial"
+      },
+      {
+        "id": "BR-11",
+        "title": "Las decisiones se cierran y se testean, no se reabren",
+        "rule": "Una decision registrada aqui esta zanjada. Volver a discutirla exige un fallo NUEVO y fechado del owner, que gana sobre el anterior. Y toda decision zanjada carga con un test que falla si alguien la deshace en silencio.",
+        "why": "[owner] \"En algunas cosas siento que estamos dando vueltas en circulos, cerremos decisiones y testeamos.\" Sin test, una decision es una frase en un documento: el codigo se refactoriza, la regla se cae y nadie se entera hasta que un cliente la encuentra. El marcador `[owner YYYY-MM-DD]` existe para que el ultimo fallo sea identificable sin leer todo el historial. El circulo tiene ademas una causa concreta y barata de evitar: Q35, Q38 y Q40 estuvieron abiertas semanas ESPERANDO AL OWNER cuando la regla que las respondia ya estaba escrita (`walkthroughs.convention`: un Fxx no pasa a `done` mientras su WALK siga `pending`). Una pregunta redactada como si necesitara un fallo nuevo, cuando en realidad solo hay que aplicar una regla existente, bloquea trabajo sin aportar nada — antes de abrir una pregunta hay que buscar la regla que ya la contesta.",
+        "appliesTo": [
+          "openQuestions.resolved",
+          "specs[]",
+          "businessRules",
+          "tests"
+        ],
+        "enforcedBy": "`.openQuestions.resolved[]` (una linea por decision cerrada) · marcadores `[owner YYYY-MM-DD]` · la suite de tests de backend/tests/Feature",
+        "status": "partial"
+      },
+      {
+        "id": "BR-12",
+        "title": "De aqui en adelante se pule desde los WALKs",
+        "rule": "El trabajo nuevo nace de que una PERSONA recorra la UI real y encuentre algo, no de disenar en abstracto. Un Fxx no pasa a `done` mientras su WALK siga pendiente.",
+        "why": "[owner] \"a partir de ahi pulimos desde los walks solamente, nada de teoria en codigo seco.\" La teoria produjo campos que no existian, claves de configuracion que nadie leia y enums inventados: todos habrian muerto en el primer recorrido humano.",
+        "appliesTo": [
+          "walkthroughs",
+          "todos[]",
+          "mvpSprint"
+        ],
+        "enforcedBy": "`.walkthroughs.items[]` (cada WALK declara que Fxx cierra) · vista Recorridos del dashboard",
+        "status": "partial"
+      },
+      {
+        "id": "BR-13",
+        "title": "Un estado que ningun payload debe poder tocar se saca de `$fillable`",
+        "rule": "Los atributos de moderacion y de propiedad (`taken_down_at`, `takedown_reason`, `frozen_at`, `freeze_reason`, `delete_scheduled_at`, `publication_status`, `users.account_id`) NO son fillable. Quien tiene derecho a escribirlos los nombra atributo por atributo.",
+        "why": "Esa ausencia ES la garantia: el PUT del propio proveedor, el edit-any de Support y cualquier asignacion masiva futura pasan por `$fillable`, asi que ninguno puede limpiar un takedown de admin ni sacar un listado de un borrado programado ni por accidente. Una guarda escrita en un controlador solo protege ese controlador; una columna fuera de `$fillable` protege todos los que aun no existen.",
+        "appliesTo": [
+          "spaces",
+          "users",
+          "§3",
+          "§12",
+          "UC-29",
+          "UC-37"
+        ],
+        "enforcedBy": "Space::$fillable + Space::booted() (mantiene `is_active` y `publication_status` en paso, dejando `unpublished` fuera del mapeo) · User::$fillable + User::booted() · Admin\\ModerationController como unico escritor",
+        "status": "built"
+      },
+      {
+        "id": "BR-14",
+        "title": "El contenido autorado sobrevive a su autor; la propiedad y el dinero bloquean",
+        "rule": "Al borrar un usuario: mensajes y pruebas de un COLABORADOR se conservan con la autoria a NULL (`ON DELETE SET NULL`). Campanas, espacios, bookings y wallet_entries son `ON DELETE RESTRICT` y bloquean el borrado. La unica excepcion es el DUENO de la cuenta con sus propias pruebas, y tiene que decirlo: `confirm_proof_loss: true`, y la confirmacion se audita.",
+        "why": "[owner 2026-08-03] \"Si, a menos que el autor sea el dueno de la cuenta, no un usuario collaborator, que confirma que sabe que sin pruebas no se le hara el pago.\" Una prueba es la evidencia de que la exhibicion ocurrio: es con lo que se argumenta un payout en una disputa. Un instalador que se va no puede llevarsela. Los mensajes se conservan siempre porque un chat es un registro COMPARTIDO — agujerear la mitad de una parte corrompe la copia de la contraparte, que es justo la conversacion que se lee en la disputa.",
+        "appliesTo": [
+          "users",
+          "proofs",
+          "messages",
+          "campaigns",
+          "spaces",
+          "bookings",
+          "wallet_entries",
+          "§3",
+          "§12"
+        ],
+        "enforcedBy": "AccountController::destroy (409 ConfirmationRequired + AuditLog `confirm_proof_loss` antes de borrar) · FKs RESTRICT/SET NULL en las migraciones · AccountController::blockingCounts() (se lee DESPUES del rechazo, para explicarlo, nunca para decidirlo)",
+        "status": "built"
       }
-    ],
+    ]
+  },
+  "errorHunt": {
+    "convention": "CACERIA DE ERRORES: patrones de fallo que YA aparecieron en este repositorio, con el caso real que los delato y con la forma concreta de ir a buscar los que queden. Cada uno describe una CLASE de error, no un incidente: el valor esta en `howToFind`, que es la busqueda que se puede repetir manana sobre codigo nuevo. `whyItHides` explica por que ninguna prueba fallaba mientras el error estaba vivo — casi siempre porque el codigo equivocado no rompia nada, solo mentia.",
+    "items": [
+      {
+        "id": "EH-1",
+        "pattern": "Codigo muerto que sigue pareciendo la autoridad",
+        "howToFind": "Por cada simbolo exportado, buscar quien lo importa (`grep -rn \"nombreDelSimbolo\" src/ | grep -v \"el propio archivo\"`). Cero importadores = borrarlo. Y despues —esto es la mitad util— ir a buscar DONDE vive de verdad ese comportamiento, porque sigue vivo en algun sitio.",
+        "whyItHides": "El archivo se lee como la fuente de verdad: tiene nombre de helper, esta bien escrito y contiene la lista completa. Quien audita lo encuentra, lo corrige y se va convencido de haber arreglado el bug. La UI no cambia, porque nunca leyo ese archivo.",
+        "realExample": "`frontend/src/app/features/client/campaigns/collaborator-role.helper.ts` listaba `installator` como subrol de cliente y no lo importaba NADIE. La lista equivocada que de verdad se enviaba estaba hardcodeada en el `<select>` de campaign-detail.component.ts. Arreglar el helper no habria cambiado ni un pixel. El helper se borro y el `<select>` se quito de campaign-detail (los colaboradores viven en su propia pantalla, por cuenta).",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-2",
+        "pattern": "Campos fantasma en el modelo del frontend",
+        "howToFind": "Enfrentar campo a campo cada `interface` de `frontend/src/app/core/models/` contra las migraciones de `backend/database/migrations/`. Todo campo sin columna detras es fantasma. Para los que se usan en plantilla: buscar `@if (x.campo)` — si la columna no existe, esa rama esta muerta desde el dia uno.",
+        "whyItHides": "TypeScript valida contra la INTERFAZ, no contra la base. El JSON llega sin la clave, la propiedad es `undefined`, el `@if` da falso y la columna pinta \"-\". No hay error, no hay warning, no hay excepcion: hay una funcionalidad que simplemente nunca se ve, y se confunde con \"todavia no hay datos\".",
+        "realExample": "`Payment.paid_at`, `Invoice.paid_at`, `Booking.notes` y `Booking.book_for_later` estaban declarados sin columna detras: `@if (booking.payment.paid_at)` era permanentemente falso y la columna \"Pagado\" de facturas mostraba \"-\" para siempre. En el mismo modelo, `Payment.status` declaraba `'pending' | 'approved' | 'rejected'`, tres valores de los cuales dos NO EXISTEN en el backend, mientras faltaban `free_payment`, `held`, `released` y `refunded`.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-3",
+        "pattern": "Una clave de configuracion que nadie lee",
+        "howToFind": "Por cada clave sembrada o editable en la pantalla de admin, buscar su lectura (`SystemConfiguration::get('clave'`). Cero lecturas = la clave miente. Al reves tambien: por cada `::get('clave')`, comprobar que la clave esta en la lista conocida y sembrada, o el default silencioso pasa a ser la politica real.",
+        "whyItHides": "La pantalla de admin la muestra, se puede editar y se guarda. Todo el circuito visible funciona. Lo unico que no ocurre es el efecto — y el efecto no se comprueba desde la pantalla, se comprueba semanas despues cuando alguien se pregunta por que cambiar el valor no cambio nada.",
+        "realExample": "`reupload_window_hours` seguia sembrado en 48 y ajustable en admin despues de que §7 retirara el requisito de re-subida. Un ajuste que miente es peor que uno que falta: el que falta se anade, el que miente se cree. Hoy la clave esta fuera de DatabaseSeeder con la razon escrita al lado, y SystemConfiguration documenta que una clave entra en la lista SOLO cuando algo la lee.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-4",
+        "pattern": "Una guarda en un camino y no en su gemelo",
+        "howToFind": "Por cada mutacion, listar sus hermanas (las que tocan el mismo objeto o el mismo campo) y comparar sus precondiciones linea a linea. Si una comprueba el estado y otra no, el bug esta en la que no. Sospechosos habituales: los pares approve/reject, hold/release, stop/clawback, freeze/unfreeze.",
+        "whyItHides": "El camino con guarda es el que se prueba, porque es el que alguien penso. El gemelo tiene el mismo aspecto desde fuera —mismo verbo, misma ruta, mismo formulario— asi que se asume cubierto por la misma revision.",
+        "realExample": "`holdPayout()` tenia guarda de estado; `settle()` no. Payments podia coger un pago congelado por una disputa (tres chats abiertos, flag `payment_held` activo) y aprobarlo o rechazarlo de un clic: los chats seguian diciendo \"payout retenido\" y `payments.status`, que es la autoridad, decia pagado. Se cerro con `refuseIfLocked()` compartido por approve/reject y `Payment::LOCKED_AGAINST_SETTLE`.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-5",
+        "pattern": "Una comprobacion de permisos sin ambito",
+        "howToFind": "Buscar toda consulta de permisos/grants que no lleve un `account_id`, `user_id` o id de objeto en el WHERE. La pregunta \"¿tiene este usuario este grant?\" casi siempre esta incompleta: la buena es \"¿lo tiene AQUI?\".",
+        "whyItHides": "Con un solo proveedor o una sola cuenta en la base de pruebas, la version sin ambito da exactamente la misma respuesta que la version correcta. El fallo solo aparece con DOS cuentas y un colaborador en una de ellas — que es un escenario que un seed de demo rara vez monta.",
+        "realExample": "`Chat::userOnProviderSide()` preguntaba si el usuario sostenia el grant EN CUALQUIER SITIO, sin cuenta contra la que acotar, asi que un grant de sales sobre UN proveedor abria los chats de TODOS. §3 dio `account_id` a los colaboradores y ahora el lado del proveedor hace la misma comparacion de una sola columna que ya hacia el lado del cliente. Cubierto por ChatAclMatrixTest.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-6",
+        "pattern": "Un CASCADE que la aplicacion no puede ver",
+        "howToFind": "Leer las FKs de las migraciones y clasificarlas: propiedad y registro de dinero deben ser RESTRICT, contenido autorado SET NULL, y CASCADE solo para lo que de verdad es una parte del padre. Despues, por cada guarda de borrado en un controlador, comprobar que el motor la respalda — si el motor no acompana, la guarda es teatro.",
+        "whyItHides": "El CASCADE actua DENTRO del `DELETE`, antes de que corra ningun `if` de la aplicacion. El codigo PHP se lee correcto y completo. Y lo que pasa a nivel de motor tambien se lo lleva por delante una sesion de psql, un seeder o un controlador futuro que nadie ha escrito aun.",
+        "realExample": "`bookings.space_id` era CASCADE y `payments.booking_id` tambien: un `DELETE FROM spaces WHERE id = ?` destruia cada booking del listado y cada pago de esos bookings en una sola sentencia. La migracion 2026_08_03_000030 lo paso a RESTRICT. Caso hermano ya resuelto: `ads.adset_id` era `cascadeOnDelete` cuando un adset es SOLO una etiqueta de agrupacion — §21 lo lleva a `nullOnDelete` para que borrar la etiqueta no destruya los anuncios.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-7",
+        "pattern": "Documentacion que describe un vocabulario que el codigo no usa",
+        "howToFind": "Por cada enum de `schema.entities.*`, extraer los valores y compararlos con la migracion y con las constantes del modelo. Los que sobran son inventados; los que faltan son estados reales sin planear. Igual con los nombres de ruta y de permiso.",
+        "whyItHides": "El documento se lee coherente consigo mismo, y quien planea a partir de el escribe filtros y pantallas con esos nombres. El resultado no es una excepcion: es una consulta que devuelve CERO filas, que se interpreta como \"aun no hay datos\" en vez de como \"este estado no existe\".",
+        "realExample": "`bookings.status` en design.json llevaba cinco valores inventados (draft, waiting-approval, waiting-booking-confirmation, live, proof-pending...) y omitia cuatro reales. La migracion que se \"decidio\" el 2026-06-25 nunca se escribio: la columna es y siempre fue pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected. Cualquier filtro escrito desde la planeacion devolvia cero filas. La entidad ya refleja los 8 valores reales.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-8",
+        "pattern": "Un boton que solo existe para ser rechazado",
+        "howToFind": "Por cada accion de la UI, buscar el estado que el endpoint exige y comprobar que la UI la oculta o la deshabilita cuando el estado no se cumple. Al reves tambien: por cada 409 nuevo del backend, buscar quien lo dispara desde la pantalla.",
+        "whyItHides": "Tecnicamente todo funciona: se pulsa, la API responde 409, sale un toast. Nadie lo cuenta como bug porque no hay excepcion. Pero un boton visible se lee como PERMISO, asi que la pantalla esta prometiendo algo que la API no concede.",
+        "realExample": "Clase abierta por BR-10 al partir `held` de `free_payment`: cada estado nuevo del backend anade un rechazo que la UI tiene que dejar de provocar. Se busca recorriendo las pantallas (BR-12), no leyendo codigo.",
+        "status": "open"
+      }
+    ]
+  },
+  "openQuestions": {
+    "convention": "Decisiones que solo el dueño del producto puede tomar. `items` son las que siguen ABIERTAS: mientras una este aqui, ningun agente debe inventarse la respuesta ni construir sobre ella. Cuando se responde, la pregunta SALE de `items` y queda una sola linea en `resolved`, para que nadie la vuelva a plantear sin saber que ya se decidio. El razonamiento largo de cada decision vive fechado en history.md, no aqui.",
+    "items": [],
     "resolved": [
       {
         "id": "Q33",
@@ -382,6 +632,24 @@
         "id": "Q53",
         "oneLiner": "El enum se colapsa a tres valores (Q42). El codigo y los tests usan hoy `pending_review`; el texto de §12 decia `pending`/`uploaded`. Se pidio quitar `pending_r",
         "resolution": "El estado inicial se llama `proof_uploaded`: nombra el hecho que ocurrio (el proveedor subio) en vez de una cola de revision que nadie atiende — el cliente revisa, no Support. El enum queda en tres: proof_uploaded | client_accepted | client_rejected. El `free_payment` que pidio el dueno no cabia aqui (una prueba no opina sobre el dinero) pero destapo un defecto real y vive en payments.status: antes `held` significaba a la vez \"listo para pagar\" y \"congelado en disputa\". Aplicado en codigo: migraciones q53_collapse_proof_status y add_free_payment_to_payments_status, Proof::STATUS_UPLOADED, Payment::STATUS_FREE_PAYMENT."
+      },
+      {
+        "id": "Q35",
+        "oneLiner": "¿Se puede cerrar F08 y F09 sin el recorrido humano?",
+        "resolution": "No. No hacia falta decision nueva: `walkthroughs.convention` ya dice que un Fxx no pasa a `done` mientras el WALK que lo cierra siga `pending`. F08 y F09 quedan en `review` — construidos, sin codigo pendiente — hasta que se ejecute WALK-1.",
+        "answeredOn": "2026-08-04"
+      },
+      {
+        "id": "Q38",
+        "oneLiner": "¿§21 puede pasar de wip a done sin recorrido humano?",
+        "resolution": "No. Es la misma pregunta que Q35 del lado de campañas, y la contesta la misma regla ya escrita. §21 queda en `review` hasta que se ejecute WALK-2 (crear, mover y borrar adsets y anuncios; los huerfanos sobreviven; nada ajeno responde 403).",
+        "answeredOn": "2026-08-04"
+      },
+      {
+        "id": "Q40",
+        "oneLiner": "¿El boton factura -> Soporte con el pago adjunto entra en WALK-1?",
+        "resolution": "Si. Es un quinto punto de entrada de la misma familia que WALK-1 ya recorre, el backend ya acepta el adjunto y anadirlo cuesta un paso. Es el paso W1-6 de WALK-1.",
+        "answeredOn": "2026-08-04"
       }
     ]
   },
@@ -411,7 +679,7 @@
           {
             "id": "W1-1",
             "role": "cliente",
-            "action": "Abrir un chat desde cada punto de entrada: Soporte en la barra, boton hacia el proveedor en el listado, ficha de anuncio, reserva, y factura con el pago adjunto (este ultimo depende de Q40).",
+            "action": "Abrir un chat desde cada punto de entrada: Soporte en la barra, boton hacia el proveedor en el listado, ficha de anuncio y reserva (la factura se recorre aparte en W1-6).",
             "expected": "El objeto aparece colgado del hilo como contexto y los datos de contacto salen enmascarados."
           },
           {
@@ -437,6 +705,12 @@
             "role": "admin",
             "action": "Entrar a cualquier hilo desde la vista de solo lectura.",
             "expected": "No hay caja de escritura. La entrada queda registrada en el log de auditoria y NO aparece anunciada dentro del hilo."
+          },
+          {
+            "id": "W1-6",
+            "role": "cliente",
+            "action": "Desde el listado de facturas, pulsar el boton que abre un chat con Soporte llevando el pago de esa factura adjunto (Q40).",
+            "expected": "El chat de Soporte se abre con el PAGO de la factura ya colgado del hilo como objeto de chat, visible como contexto sin tener que buscarlo, y la contraparte es Soporte porque la fija el punto de entrada — no el dueño del objeto adjuntado."
           }
         ],
         "notes": "Es lo unico que separa a F08 y F09 de `done`: no queda codigo pendiente en ninguno de los dos."
@@ -529,7 +803,7 @@
             "id": "W4-3",
             "role": "stakeholder",
             "action": "Abrir una pregunta del glosario y seguir su puntero (§N o UC-N) hasta la seccion citada.",
-            "expected": "El puntero llega a una seccion que existe. Ningun `design:NNN` ni `design.md` sobrevive."
+            "expected": "El puntero llega a una seccion que existe. Ningun `design:NNN` ni puntero al documento retirado sobrevive."
           }
         ],
         "notes": "Nacio como el UC propuesto DASH-1. No cierra ningun Fxx: el dashboard es documentacion, no producto. Se ejecuta cuando la planeacion cambia de forma, no en cada sprint."
@@ -1421,7 +1695,7 @@
         "F14"
       ],
       "kanban": {
-        "status": "backlog",
+        "status": "review",
         "weight": "M",
         "impacts": [
           "F02",
@@ -6046,14 +6320,14 @@
     {
       "id": "F08",
       "title": "Chat y enmascarado de PII",
-      "status": "in_progress",
+      "status": "review",
       "tags": [
         "F08"
       ],
       "groups": [
         "mensajeria-soporte"
       ],
-      "note": "Funcionalmente construido y su entrada en featureReview esta `resolved` (la spec es clara); se mantiene `in_progress` a proposito hasta que se ejecute el recorrido humano WALK-1 sobre Mensajes.",
+      "note": "Funcionalmente construido y su entrada en featureReview esta `resolved` (la spec es clara). Queda en `review`, no en `done`: lo unico que falta es ejecutar el recorrido humano WALK-1 sobre Mensajes (Q35, cerrada 2026-08-04 aplicando `walkthroughs.convention`).",
       "specs": [
         "§10"
       ],
@@ -6083,14 +6357,14 @@
     {
       "id": "F09",
       "title": "Soporte como chat (tickets retirados)",
-      "status": "in_progress",
+      "status": "review",
       "tags": [
         "F09"
       ],
       "groups": [
         "mensajeria-soporte"
       ],
-      "note": "Unificado en el primitivo chat y funcionalmente construido; su entrada en featureReview esta `resolved` (la spec es clara). Se mantiene `in_progress` a proposito hasta que se ejecute el recorrido humano WALK-1.",
+      "note": "Unificado en el primitivo chat y funcionalmente construido; su entrada en featureReview esta `resolved` (la spec es clara). Queda en `review`, no en `done`: falta ejecutar WALK-1 (Q35, cerrada 2026-08-04 aplicando `walkthroughs.convention`).",
       "specs": [
         "§10",
         "§11"
@@ -7050,7 +7324,7 @@
         "design.json (the canonical design — it absorbed cases.md; on conflict the specs win over the §19 stories)"
       ],
       "audit_2026_06_18": {
-        "method": "4 read-only agents: client / provider / staff / doc+contract-logic, comparing design.md+cases.md (hoy design.json) vs ARCHITECTURE.md + actual routes/controllers/components.",
+        "method": "4 read-only agents: client / provider / staff / doc+contract-logic, comparing los dos documentos canonicos de entonces (hoy design.json) vs ARCHITECTURE.md + actual routes/controllers/components.",
         "verdict": "Original 26-item list was UI-focused; the audit found whole DESIGN subsystems with NO schema/route backing. MVP demo works, but design-completeness is far from done.",
         "conflicts_design_wins": [
           "Date-flexibility (+/-X days) filter: cases.md asks for it but design.json §5 says dates are EXACT, no flex filter. DROP it (do not build)."
@@ -7176,7 +7450,7 @@
         }
       ],
       "reconciliation_2026_06_20": {
-        "trigger": "Owner asked why agreed changes 'aren't applied' though everything seemed 'solved on paper'. 3 read-only agents reconciled design.md+cases.md+platform-graph+todos (hoy todo en design.json) vs actual code.",
+        "trigger": "Owner asked why agreed changes 'aren't applied' though everything seemed 'solved on paper'. 3 read-only agents reconciled los documentos canonicos de entonces + platform-graph + todos (hoy todo en design.json) vs actual code.",
         "answer": "Most agreed UI/behavior is PLANNED-ONLY (B2-B7 + N1-N8) — never coded. SHIPPED so far: B1 (map split-view, campaign spec edit, per-ad Book, conversation spinner), B1b (contract shape bugs), client lands on /client/spaces, '+ Ad Space', human-readable dates, new-campaign modal name fix, admin config label styling, invoice PDF (server dompdf). Everything else is backlog. A few items are PARTIAL (backend exists, UI doesn't render): 'doesn't coincide' tag + budget filter (SpaceSearchController computes, UI ignores), wallet read-only (no withdraw), mismatch-flag opens ticket but doesn't hold payout.",
         "already_built_not_a_gap": "Provider Messages ARE linked to the conversation's space (ConversationController eager-loads space; list renders conv.space?.name). The missing piece is CONTEXTUAL per-ad/adset/campaign chat buttons (B3), not 'messages not linked'.",
         "real_gaps_owner_hit": [
@@ -7206,7 +7480,7 @@
           "id": "B9-proof-payment-rework",
           "title": "Proof/payment flow per 2026-06-20 decision",
           "status": "todo",
-          "note": "Remove Payments proof-content review; add 'payment' as ticketable; proof reject -> auto-hold payment; proof accept -> releasable + manual release; held-payment -> open Support ticket w/ payment attached. Update design.md/cases.md prose too (they still say Payments reviews proofs)."
+          "note": "Remove Payments proof-content review; add 'payment' as ticketable; proof reject -> auto-hold payment; proof accept -> releasable + manual release; held-payment -> open Support ticket w/ payment attached. Update the canonical prose too (it still says Payments reviews proofs)."
         },
         {
           "id": "B10-autoapprove",
@@ -7216,14 +7490,14 @@
         }
       ],
       "doc_fixes_done_2026_06_20": [
-        "design.md: Proof of Display rewritten (client reviews, Payments money-only, dual Support/Payments ticket on reject); Collaborator Roles prose now states account-scoped + two separate ecosystems; RBAC notes drop per-campaign; new == Dashboards == section (per-role metrics); multi-file marked deferred (1 file MVP).",
+        "Canonical doc: Proof of Display rewritten (client reviews, Payments money-only, dual Support/Payments ticket on reject); Collaborator Roles prose now states account-scoped + two separate ecosystems; RBAC notes drop per-campaign; new == Dashboards == section (per-role metrics); multi-file marked deferred (1 file MVP).",
         "cases.md: date-flexibility dropped (#2); held-slot 'auto-assigned' -> provider-picks (#8 alert); proof ALERT-TABLE rows fixed AND prose fixed (PROVIDER #7, PAYMENTS #1-2, journey #8 -> client reviews, dual Support/Payments ticket).",
         "ARCHITECTURE.md: 26->29 migrations, 18->19 models, Paris/EUR seed note -> Monterrey/MXN, Payments proof routes (329-331) marked DEPRECATED (B9).",
         "platform-graph: proof/payment, PDF, dashboards, account collaborators.",
         "Verified by Team#1 congruence audit 2026-06-20: doc-set + docs<->todos now congruent (defects A1/A2/A4/A5 fixed)."
       ],
       "doc_fixes_still_pending": [
-        "ARCHITECTURE.md: add Admin ConfigurationController+OversightController to folder tree. (DONE 2026-06-25 at DOC level: dead Manager\\UserController noted in CLAUDE.md; proofs/bookings status enums reconciled to design.md canonical — CODE migrations still pending [RESUELTO 2026-08-03: proofs colapso a proof_uploaded|client_accepted|client_rejected con migracion; bookings NO se migro y la planeacion se corrigio al enum real], see session_2026_06_25.) (ratings table later via N1; ad_files deferred.)",
+        "ARCHITECTURE.md: add Admin ConfigurationController+OversightController to folder tree. (DONE 2026-06-25 at DOC level: dead Manager\\UserController noted in CLAUDE.md; proofs/bookings status enums reconciled to the canonical ones — CODE migrations still pending [RESUELTO 2026-08-03: proofs colapso a proof_uploaded|client_accepted|client_rejected con migracion; bookings NO se migro y la planeacion se corrigio al enum real], see session_2026_06_25.) (ratings table later via N1; ad_files deferred.)",
         "Frontend: booking-list currency 'EUR' -> 'MXN'; reseed demo spaces in Monterrey (MvpDemoSeeder).",
         "CODE (not doc): Timezone (owner decision 2026-06-25) — keep storage in UTC/epoch; add a users.timezone column for per-user DISPLAY; compute deadline math against an Admin System-Configurations default tz (America/Monterrey at launch), NOT the hardcoded config/app.php value.",
         "CODE (not doc): create the accounts table + Account model (one per owner user for MVP) so collaborators can FK account_id instead of campaign_id."
@@ -7231,8 +7505,8 @@
       "open_decisions_top5": "ALL RESOLVED 2026-06-20: (1) proof-review reversal RATIFIED — see decisions; (2) collaborators ACCOUNT-scoped, kill proof_uploader; (3) dashboard metrics defined in design.json §19 Dashboards; (4) multi-file DEFERRED, 1 file MVP; (5) booking queue = provider-picks.",
       "session_2026_06_23": {
         "owner_reaffirmed": "[pre-CHAT-1] Re-confirmed earlier decisions (collaborators account-wide BOTH client+provider, proof/payment B9 reversal, conversations = object with attached object + multi-role + admin-silent/support-announced, provider approve->installer OR reject-with-note). Working style: momentum over perfection, latest-decision-wins on soft conflicts, ~90% doc compliance, only stop on HARD stoppers (now in CLAUDE.md learnings).",
-        "NEW_decision_money": "MONEY = DECIMAL MXN PESOS everywhere, no centavos ('forget cents'). design.md updated. Code is already decimal(10,2) for bookings/payments/ads/spaces/campaigns; ONLY wallet_entries.amount_centavos uses integer cents -> align it to decimal pesos (amount column) + drop the *100 / /100 conversions in PaymentController/WalletController/wallet.component.",
-        "doc_updates_done": "design.md: cases-v2->cases refs, money->decimal pesos (3 spots), appended 'REVISIONS & ROADMAP (2026-06-15, owner)' section. CLAUDE.md: cases.md key-file note + 'momentum over perfection / soft-vs-hard stops' learning.",
+        "NEW_decision_money": "MONEY = DECIMAL MXN PESOS everywhere, no centavos ('forget cents'). The canonical doc was updated. Code is already decimal(10,2) for bookings/payments/ads/spaces/campaigns; ONLY wallet_entries.amount_centavos uses integer cents -> align it to decimal pesos (amount column) + drop the *100 / /100 conversions in PaymentController/WalletController/wallet.component.",
+        "doc_updates_done": "Canonical doc: cases-v2->cases refs, money->decimal pesos (3 spots), appended 'REVISIONS & ROADMAP (2026-06-15, owner)' section. CLAUDE.md: cases.md key-file note + 'momentum over perfection / soft-vs-hard stops' learning.",
         "build_order_chosen": "Endpoints-first then UI, feature by feature (backend-first minimizes IDE save-conflicts while owner uses the app). Order: [M] money pesos alignment (small, closes newest decision) -> B9 proof/payment rework (owner contradiction) -> B6 account collaborators + Configurations tab (owner's opening question) -> B3 nav/header (drop Dashboard, welcome+name, Help) -> B-avail availability text -> B4 support powers+audit log -> B5 admin eagle-eye/Activity -> B7 invoices -> N* deferred subsystems by need.",
         "batch_M_money": "DONE 2026-06-23: wallet_entries amount_centavos -> decimal(12,2) amount (migration converts existing data); WalletEntry model, PaymentController refund+releasePayout, WalletController, wallet.component all drop *100//100. Verified: /client/wallet balance=77500 pesos, no centavos keys, frontend recompiled clean."
       },
@@ -7241,12 +7515,12 @@
         "investigation_doc": "[DELETED 2026-06-26, folded into spec_backlog below] Was .claude/plans/investigation-planning-to-code-gap.md — diagnosis: the planning-vs-code gap is NOT mock data but SELECTIVE IMPLEMENTATION DEPTH (CRUD-shaped features ship end-to-end; rules buried in prose evaporate) + backend-ahead-of-UI half-features. Root cause: no case-ID->route->component traceability spine — now built as spec_backlog.",
         "collaborator_scope_FINAL": "Account-scoped (owner reaffirmed 2026-06-24). All SPEC docs flipped: cases.md #11 + invite alert; ARCHITECTURE schema (account_user_id + role string) + relationship map (proof_uploader dropped); la linea de UI de cliente (hoy §3 en design.json). Gap-note docs (compliance-report/ui-endpoint-audit/investigation) left as-is (they correctly describe current campaign-scoped CODE).",
         "soft_conflicts_resolved": "Money centavos->decimal MXN pesos (ARCHITECTURE wallet, platform-graph ledger, design precision 12,2) + struck compliance-report action#5 (wrong-direction). Roles: proof_uploader/publisher typos->installator/publicist/manager; CLAUDE.md 3->5 roles; Support proof power = mismatch-only; platform-graph subrole prose. Map: design 3x Google->Leaflet/OSM+w3w (Google swappable). Nav: dashboard=non-client stats/client none; 50% bar->3-pane; collaborators under Configurations. Adsets geo cols marked LEGACY. Proofs ARCHITECTURE enum->B9 client-accept. Media 300->150 DPI; pricing day/week/month->day/month/custom.",
-        "HARD_decision_booking_enum_2026_06_25": "Owner chose: el enum canonico de design.md gana (draft|waiting-approval|waiting-booking-confirmation|live|proof-pending|proof-uploaded|completed|rejected|cancelled); 'payout-held' is PAYMENTS-only (not a booking state); ADS keep a SEPARATE enum (not unified with bookings). Reconciled design.md prose + canonical block + ARCHITECTURE (target annotated). [CORRECCION 2026-08-03] Esa migracion NUNCA se escribio. El enum canonico que se eligio aqui (draft|waiting-booking-confirmation|live|proof-pending|proof-uploaded) no existe en la base: bookings.status es y siempre fue pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected. schema.entities.bookings quedo describiendo el enum elegido en vez del construido, asi que cualquier filtro de estados escrito desde la planeacion devolvia cero filas. La entidad ya refleja los 8 valores reales; esta decision queda como registro de por que divergieron.",
+        "HARD_decision_booking_enum_2026_06_25": "Owner chose: el enum canonico del documento gana (draft|waiting-approval|waiting-booking-confirmation|live|proof-pending|proof-uploaded|completed|rejected|cancelled); 'payout-held' is PAYMENTS-only (not a booking state); ADS keep a SEPARATE enum (not unified with bookings). Reconciled la prosa canonica + el bloque canonico + ARCHITECTURE (target annotated). [CORRECCION 2026-08-03] Esa migracion NUNCA se escribio. El enum canonico que se eligio aqui (draft|waiting-booking-confirmation|live|proof-pending|proof-uploaded) no existe en la base: bookings.status es y siempre fue pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected. schema.entities.bookings quedo describiendo el enum elegido en vez del construido, asi que cualquier filtro de estados escrito desde la planeacion devolvia cero filas. La entidad ya refleja los 8 valores reales; esta decision queda como registro de por que divergieron.",
         "CODE_migrations_pending": "Docs now lead code on these items — (1) NEW accounts table (owner_user_id unique, type) + collaborators FK campaign_id->account_id; for MVP 1 user = 1 account (B6). (2) bookings.status -> canonical enum. (3) proofs.status -> pending|uploaded|client_accepted|client_rejected (B9). (4) Timezone: store UTC/epoch, add users.timezone (per-user display), deadline math against an Admin System-Config default tz (America/Monterrey at launch) — NOT a hardcoded config/app.php value. NOTHING committed/pushed.",
         "next": "Either (a) build the case-ID->route->component traceability table (attacks the root cause), or (b) resume the build order at B9/B6 which now carry the schema migrations the docs are waiting on."
       },
       "session_2026_06_27_consolidation": {
-        "what": "Merged ARCHITECTURE.md + cases.md + platform-graph.md + useful compliance-report.md into ONE design.md (20 numbered sections, 1052 lines). Deleted those 4 files (backed up in session scratchpad). design.md is now THE single canonical doc. Repointed CLAUDE.md/README.md/ui-endpoint-audit.md/5yo-skill to design.md. Verified no content lost (21 tables, 34 alert rows, media-spec table, 30 cases, all [owner] markers, integrity invariants).",
+        "what": "Merged ARCHITECTURE.md + cases.md + platform-graph.md + useful compliance-report.md into ONE document (20 numbered sections, 1052 lines). Deleted those 4 files (backed up in session scratchpad). That document became THE single canonical doc. Repointed CLAUDE.md/README.md/ui-endpoint-audit.md/5yo-skill to it. Verified no content lost (21 tables, 34 alert rows, media-spec table, 30 cases, all [owner] markers, integrity invariants).",
         "owner_decisions_2026_06_27": "Pre-pay OPTIONAL + provider can reject file repeatedly + client can cancel. Proof deadlock -> Support leans client, default cancel+full-refund+rebook. ONE account per email. Refunds 100% unless in-process (supersedes 90/5/5; add to T&C). Ratings immutable/transparent. Provider subroles = installator/sales/supervisor (Sales=messages-only; Supervisor=all-except-remove-people/configs/delete-spaces).",
         "OPEN_decision_strike_reversal": "When a reversed strike already triggered a freeze that auto-cancelled+refunded upcoming bookings: (A) immediate cancel, reversal restores only future (past permanent); or (B, recommended) freeze pauses new bookings now but DELAYS auto-cancel of upcoming for a configurable appeal window (48-72h) so a reversal within the window is a clean undo. AWAITING owner pick; then write to §7/§12 (design.json) + add todos.",
         "next": "Owner picks strike-reversal A/B. Then resume backend-first build from spec_backlog critical_path_P1 (accounts table -> account collaborators -> enum migrations -> B9 removal -> audit log...). Nothing committed."
@@ -7254,7 +7528,7 @@
       "mvp_focus_2026_06_23": {
         "deliberation": "3-lens team (mvp-pragmatist/backend-architect/product-flow) + synth: VERDICT continue-backend-first, sequence by money-loop + visibility, ruthlessly cut to ship ASAP.",
         "strike_reversal_now_MOOT": "OPEN_decision_strike_reversal no longer blocks: strikes are CUT to after-MVP. Build can start with no pending owner decision.",
-        "state_verified_2026_06_23": "design.md = single canonical doc (1052 lines; ARCHITECTURE/cases/platform-graph/compliance-report consolidated in + deleted). B9 NOT started: proofs.status=pending_review|approved|rejected, bookings.status=original 8-state, payments.status already has held|released, wallet already decimal pesos (Batch M). /payments/proofs still wired in proof-review-list.component.ts + sidebar.component.ts.",
+        "state_verified_2026_06_23": "single canonical doc (1052 lines; ARCHITECTURE/cases/platform-graph/compliance-report consolidated in + deleted). B9 NOT started: proofs.status=pending_review|approved|rejected, bookings.status=original 8-state, payments.status already has held|released, wallet already decimal pesos (Batch M). /payments/proofs still wired in proof-review-list.component.ts + sidebar.component.ts.",
         "MVP_minimal_order": [
           "M (money->pesos) — DONE.",
           "B9-schema (MINIMAL, not full enum rewrite): add proofs.status client_accepted|client_rejected; add bookings.rejection_reason text nullable. (payments.held/released already exist.)",
@@ -7266,8 +7540,7 @@
           "Verify book->approve->prove->accept->release loop runtime on the live publisher stack."
         ],
         "AFTER_MVP_cut_or_defer": "ALL already tracked elsewhere in this file (new_subsystems N1-N8 + spec_backlog) — flagged AFTER-MVP here, DO NOT build for v1: N1 ratings, N6 notifications/SMS/Twilio, N7 strikes+cron+auto-cancel, N8/RT tiered refund engine, N4 prepay-escrow+waitlist+sibling-cancel, N5/AU audit_logs, B6 account collaborators+account_grants, N2 media-spec HARD-FAIL validator (keep only basic format/size), N3 campaign checkout+invoice line-items, B4 support edit-any, B5 admin eagle-eye per-object+filters, B10 auto-approve toggle, WT wallet withdraw, SB-overlap gist EXCLUDE (use a lightweight app-level double-book guard if needed), gateway webhooks/FX/clawback/rate-limits/calendar-staleness/multi-file."
-      },
-      "datedLogConvention": "Todo lo que cuelga de uiPhase y de sessionNotes es un REGISTRO FECHADO: dice lo que era cierto el dia que se escribio, no lo que es cierto hoy. Por eso varias entradas siguen nombrando design.md, ARCHITECTURE.md o cases.md — esos archivos existian entonces y describir su fusion o su borrado exige poder nombrarlos. Donde la frase apuntaba a CONTENIDO se redirigio a su §N de design.json, que es donde el contenido acabo; donde narraba un EVENTO se dejo intacta. Para saber que es cierto hoy: specs[], schema, endpoints — nunca este bloque."
+      }
     },
     "workstreams": [
       {
@@ -7345,7 +7618,8 @@
     "futureDebt": [
       "UC-37 · la purga es MANUAL a proposito (owner 2026-08-03: \"Manual por el momento en la fase mvp, anotalo para un futuro\"). `php artisan spaces:purge --confirm`. Cuando haya scheduler, el comando ya revalida bloqueos en el momento de purgar, asi que automatizarlo es registrarlo en el kernel y nada mas.",
       "UC-32 · §8 dice que una ventana de retencion vencida libera sola. No hay scheduler en el MVP, asi que hoy simplemente espera a Payments. Mismo enganche que la purga.",
-      "§2 promete un auto-aprobado (toggle + umbral, por defecto OFF). NO existe clave de config y ningun codigo lo lee; deliberadamente no se sembro una clave muerta. Es una funcion, no un ajuste."
+      "§2 promete un auto-aprobado (toggle + umbral, por defecto OFF). NO existe clave de config y ningun codigo lo lee; deliberadamente no se sembro una clave muerta. Es una funcion, no un ajuste.",
+      "BR-10 no tiene verificacion automatica: que UI, endpoints y planeacion viajen juntos es hoy una convencion. Lo mas cerca esta backend/tests/test_all_endpoints.py. Un test que compare las rutas de routes/api.php contra .endpoints[] y contra las URLs que el frontend llama cerraria EH-2/EH-7 de raiz."
     ]
   }
 }

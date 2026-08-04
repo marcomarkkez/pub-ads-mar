@@ -295,7 +295,7 @@ def main():
             # Get user ID from /me
             _, me = api("GET", "/me", token=token)
             provider_tokens.append(token)
-            provider_ids.append(me.get("id") if me else None)
+            provider_ids.append((me.get("user") or {}).get("id") if me else None)
             print(f"  + {name}")
         else:
             print(f"  ! Failed: {name}")
@@ -321,7 +321,7 @@ def main():
         if token:
             _, me = api("GET", "/me", token=token)
             client_tokens.append(token)
-            client_ids.append(me.get("id") if me else None)
+            client_ids.append((me.get("user") or {}).get("id") if me else None)
             print(f"  + {name}")
         else:
             print(f"  ! Failed: {name}")

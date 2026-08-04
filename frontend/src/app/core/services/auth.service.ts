@@ -13,9 +13,32 @@ export class AuthService {
   private currentUser = signal<User | null>(null);
   private permissions = signal<Permissions>({});
 
+  // BR-8 · §3 — the ACCOUNT CONTEXT, straight from GET /me. Before this the SPA had no
+  // owner signal at all and approximated it with the permission map.
+  private accountIdSig = signal<number | null>(null);
+  private isOwnerSig = signal(false);
+  private collaboratingOnSig = signal<number[]>([]);
+
   readonly user = this.currentUser.asReadonly();
   readonly isLoggedIn = computed(() => !!this.currentUser());
   readonly userRole = computed(() => this.currentUser()?.role ?? null);
+
+  /** The caller's OWN account id; null for staff roles, which have no account. */
+  readonly accountId = this.accountIdSig.asReadonly();
+
+  /**
+   * §3 — the caller owns an account (`account_id !== null`). Under the MVP unique index
+   * on `users.account_id` this is true for EVERY registered client and provider, so it
+   * means "has an account of their own", not "is not a collaborator".
+   */
+  readonly isAccountOwner = this.isOwnerSig.asReadonly();
+
+  /** Accounts belonging to OTHER people that this user collaborates on (accepted). */
+  readonly collaboratingOn = this.collaboratingOnSig.asReadonly();
+
+  /** True when this human ALSO acts as someone else's collaborator. Never exclusive
+   *  with `isAccountOwner()` — the two roles stack on one person. */
+  readonly isCollaborator = computed(() => this.collaboratingOnSig().length > 0);
 
   /** Landing route after login, by role. Clients land on the Spaces map, not the dashboard. */
   landingRoute(role: string | null = this.userRole()): string {
@@ -30,22 +53,27 @@ export class AuthService {
 
   login(credentials: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.api}/login`, credentials).pipe(
-      tap(res => {
-        localStorage.setItem(this.TOKEN_KEY, res.token);
-        this.currentUser.set(res.user);
-        this.permissions.set(res.permissions);
-      })
+      tap(res => this.startSession(res)),
     );
   }
 
   register(data: RegisterRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.api}/register`, data).pipe(
-      tap(res => {
-        localStorage.setItem(this.TOKEN_KEY, res.token);
-        this.currentUser.set(res.user);
-        this.permissions.set(res.permissions);
-      })
+      tap(res => this.startSession(res)),
     );
+  }
+
+  /**
+   * /login and /register return the user + permissions but NOT the account context
+   * (BR-8: account_id / is_owner / collaborating_on live on /me). The APP_INITIALIZER
+   * only runs on a full page load, so without this follow-up a user who just logged in
+   * would carry an empty account context for the whole session.
+   */
+  private startSession(res: AuthResponse): void {
+    localStorage.setItem(this.TOKEN_KEY, res.token);
+    this.currentUser.set(res.user);
+    this.permissions.set(res.permissions);
+    this.loadUser().subscribe();
   }
 
   logout(): Observable<void> {
@@ -64,6 +92,12 @@ export class AuthService {
       tap(res => {
         this.currentUser.set(res.user);
         this.permissions.set(res.permissions);
+        // BR-8 — only /me carries the account context; login/register do not, which is
+        // why they chain a loadUser() above. Without it a freshly logged-in client had
+        // no account signal until the next full page load.
+        this.accountIdSig.set(res.account_id ?? null);
+        this.isOwnerSig.set(!!res.is_owner);
+        this.collaboratingOnSig.set(res.collaborating_on ?? []);
       }),
       catchError(() => {
         this.clearSession();
@@ -84,6 +118,9 @@ export class AuthService {
     localStorage.removeItem(this.TOKEN_KEY);
     this.currentUser.set(null);
     this.permissions.set({});
+    this.accountIdSig.set(null);
+    this.isOwnerSig.set(false);
+    this.collaboratingOnSig.set([]);
     this.router.navigate(['/login']);
   }
 }

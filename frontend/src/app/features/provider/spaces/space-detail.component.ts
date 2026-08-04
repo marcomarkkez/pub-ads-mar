@@ -39,7 +39,7 @@ import { Space, SpacePhoto } from '../../../core/models';
           </div>
           <div class="detail-item">
             <span class="detail-label">Location</span>
-            <span>{{ space()!.location_name || 'N/A' }}</span>
+            <span>{{ space()!.location_text || 'N/A' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Coordinates</span>

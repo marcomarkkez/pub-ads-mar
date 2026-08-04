@@ -49,9 +49,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // own — hence no {id} here and no delete verb anywhere else in the API. Staff
     // roles have no account (accounts.type is client|provider), so they are not
     // in the role list. DELETE takes `confirm_proof_loss` — see AccountController.
+    //
+    // AD-delguard-09 · UC-37: DELETE no longer always deletes. With an open dispute it
+    // refuses (409, whatever the confirmation says); with other objects in use it
+    // unpublishes and programs a date, which `cancel-deletion` undoes and the manual
+    // `php artisan accounts:purge` eventually executes.
     Route::middleware('role:client,provider')->group(function () {
         Route::get('account', [AccountController::class, 'show']);
         Route::delete('account', [AccountController::class, 'destroy']);
+        Route::post('account/cancel-deletion', [AccountController::class, 'cancelDeletion']);
     });
 
     // ── Client routes ───────────────────────────────────────

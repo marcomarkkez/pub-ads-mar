@@ -350,7 +350,7 @@ export class SpaceFormComponent implements OnInit {
         this.form.type = s.type;
         this.form.latitude = s.latitude;
         this.form.longitude = s.longitude;
-        this.form.location_text = s.location_text || s.location_name || '';
+        this.form.location_text = s.location_text || '';
         this.form.price_per_day = s.price_per_day;
         this.form.width = s.width;
         this.form.height = s.height;

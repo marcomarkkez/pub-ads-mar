@@ -42,7 +42,7 @@ import { Invoice } from '../../../core/models';
                 <tr>
                   <td><strong>{{ invoice.invoice_number }}</strong></td>
                   <td>{{ invoice.campaign?.name || 'Campaign #' + invoice.campaign_id }}</td>
-                  <td><strong>\${{ invoice.amount }}</strong></td>
+                  <td><strong>\${{ invoice.total_amount }}</strong></td>
                   <td>
                     <span class="badge" [class]="'badge badge-' + invoice.status">{{ invoice.status }}</span>
                   </td>
@@ -62,16 +62,6 @@ import { Invoice } from '../../../core/models';
             </tbody>
           </table>
         </div>
-
-        @if (lastPage() > 1) {
-          <div class="pagination">
-            <button [disabled]="currentPage() <= 1" (click)="loadPage(currentPage() - 1)">Prev</button>
-            @for (p of pages(); track p) {
-              <button [class.active]="p === currentPage()" (click)="loadPage(p)">{{ p }}</button>
-            }
-            <button [disabled]="currentPage() >= lastPage()" (click)="loadPage(currentPage() + 1)">Next</button>
-          </div>
-        }
       </div>
     }
   `,
@@ -82,9 +72,6 @@ export class InvoiceListComponent implements OnInit {
   invoices = signal<Invoice[]>([]);
   loading = signal(true);
   downloadingId = signal<number | null>(null);
-  currentPage = signal(1);
-  lastPage = signal(1);
-  pages = signal<number[]>([]);
 
   constructor(
     private http: HttpClient,
@@ -92,10 +79,14 @@ export class InvoiceListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadPage(1);
+    this.load();
   }
 
-  loadPage(_page?: number): void {
+  // GET /client/invoices returns a PLAIN ARRAY (InvoiceController::index -> ->get()).
+  // The Prev/Next controls and the page signals that used to live here could never
+  // render, because `lastPage` was pinned at 1 forever: paging UI for an endpoint that
+  // does not paginate. If invoices ever paginate, the endpoint changes first.
+  load(): void {
     this.loading.set(true);
     this.http.get<Invoice[]>(`${this.api}/client/invoices`).subscribe({
       next: (res) => {

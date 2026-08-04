@@ -336,6 +336,32 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .walk-expect span { text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
 .walk-note { color: var(--muted); margin-top: 10px; }
 
+/* Reglas de negocio (.businessRules) y Caceria de errores (.errorHunt). Same container as the
+   glossary/questions/walks views; only the row shape is new. The left border carries the
+   status, because "esta regla es una promesa que el codigo aun no cumple" is the single most
+   important thing to see at a glance — same colour code as .sprint-item. */
+.rule, .hunt { padding: 14px 16px; margin: 12px 0; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--card); border-left: 3px solid var(--border); }
+.rule.is-built   { border-left-color: #22c55e; }
+.rule.is-partial { border-left-color: #f59e0b; }
+.rule.is-missing { border-left-color: #94a3b8; }
+.hunt { border-left-color: #22c55e; }
+.hunt.is-open { border-left-color: #f59e0b; }
+.rule-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.rule-title { font-weight: 600; }
+.tag.rule-state { text-transform: none; }
+.tag.rule-state.is-built { background: color-mix(in srgb, #22c55e 16%, transparent); color: #22c55e;
+  border-color: color-mix(in srgb, #22c55e 45%, var(--border)); }
+.tag.rule-state.is-partial { background: color-mix(in srgb, #f59e0b 16%, transparent); color: #f59e0b;
+  border-color: color-mix(in srgb, #f59e0b 45%, var(--border)); }
+.tag.rule-state.is-missing { color: var(--muted); }
+.rule-rule { margin: 2px 0 8px; }
+.rule-why, .rule-by, .hunt-find, .hunt-hide, .hunt-real { font-size: 13px; color: var(--muted); margin: 6px 0; }
+.rule-by { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.lbl { display: inline-block; text-transform: uppercase; font-size: 10px; letter-spacing: .06em;
+  color: var(--accent); margin-right: 6px; font-family: system-ui, sans-serif; }
+.hunt-find { color: var(--fg, inherit); }
+
 /* UC .satisfiedBy — the code that already honours a story (p77). */
 .tag.tag-satisfied { background: var(--ok-bg, #0f3d24); color: var(--ok-fg, #7ee2a8); border-color: transparent; cursor: help; }
 .satisfied-by { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; padding: 8px 10px; border-left: 3px solid var(--ok-fg, #7ee2a8); background: rgba(126, 226, 168, 0.07); border-radius: 0 6px 6px 0; }

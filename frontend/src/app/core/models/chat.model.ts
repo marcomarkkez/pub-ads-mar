@@ -85,6 +85,17 @@ export interface Chat {
   status: ChatStatus;
   nature?: ChatNature;
   subject?: string | null;
+  // §10 — real columns the server sends, and the ones the ACTION buttons must read:
+  // close is the OPENER's or staff's (ChatController::close), and join only applies to a
+  // client↔provider chat that support has not picked up yet.
+  opened_by_user_id?: number | null;
+  client_user_id?: number | null;
+  provider_user_id?: number | null;
+  support_joined_at?: string | null;
+  resolved_at?: string | null;
+  closed_at?: string | null;
+  closed_by_user_id?: number | null;
+  last_message_at?: string | null;
   created_at: string;
   updated_at: string;
   participants?: ChatParticipant[];
@@ -132,9 +143,12 @@ export interface Invoice {
   id: number;
   campaign_id: number;
   invoice_number: string;
-  amount: number;
+  // The column is `total_amount`. `amount` never existed on `invoices`, so the money
+  // cell in the invoice list rendered "$" followed by nothing.
+  total_amount: number;
   status: 'draft' | 'issued' | 'paid' | 'cancelled';
   issued_at: string | null;
+  due_at: string | null;
   // No `paid_at`: the column does not exist on `invoices`; `status === 'paid'` is the fact.
   created_at: string;
   updated_at: string;

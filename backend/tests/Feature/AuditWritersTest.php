@@ -311,6 +311,34 @@ class AuditWritersTest extends TestCase
         $this->assertSame('7', $deadline->after['proof_deadline_days']);
     }
 
+    /**
+     * §2 · the config whitelist is CLOSED (Rule::in(SystemConfiguration::KNOWN_KEYS)).
+     *
+     * An admin typo has to 422 and change nothing. Without the whitelist,
+     * `setMany()`'s updateOrCreate happily inserts `proof_deadline_day` as a brand-new
+     * row: the screen then shows two near-identical keys, the admin edits the dead one,
+     * and the deadline silently never moves — a misconfiguration that reads like a
+     * successful save. 422 and not 409: the PAYLOAD is malformed, no state refuses it.
+     */
+    public function test_an_unknown_config_key_is_422_and_creates_no_row(): void
+    {
+        SystemConfiguration::create(['key' => 'proof_deadline_days', 'value' => '3']);
+
+        Sanctum::actingAs($this->admin);
+        $this->putJson('/api/admin/configurations', [
+            'configs' => [
+                ['key' => 'proof_deadline_days', 'value' => '7'],
+                ['key' => 'proof_deadline_day', 'value' => '99'], // the typo
+            ],
+            'apply_scope' => 'new_only',
+        ])->assertStatus(422)->assertJsonValidationErrors('configs.1.key');
+
+        // Nothing was written — not the typo, and not the valid key that travelled with it.
+        $this->assertNull(SystemConfiguration::where('key', 'proof_deadline_day')->first());
+        $this->assertSame('3', SystemConfiguration::where('key', 'proof_deadline_days')->value('value'));
+        $this->assertSame(0, AuditLog::count());
+    }
+
     public function test_a_config_write_that_changes_no_value_writes_no_entry(): void
     {
         SystemConfiguration::create(['key' => 'proof_deadline_days', 'value' => '3']);

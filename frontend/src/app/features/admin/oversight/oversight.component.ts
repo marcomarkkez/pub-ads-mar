@@ -205,7 +205,10 @@ export class OversightComponent implements OnInit {
   }
 
   reopen(c: Chat): void { // UC-28 — Admin's ONLY chat write-power
-    this.http.post(`${this.api}/chats/${c.id}/reopen`, {}).subscribe({
+    // The route is admin-scoped: POST /api/admin/chats/{chat}/reopen. There is no
+    // shared /chats/{id}/reopen — reopen is deliberately absent from the shared block,
+    // so the old URL 404'd and the button never worked.
+    this.http.post(`${this.api}/admin/chats/${c.id}/reopen`, {}).subscribe({
       next: () => { this.notify.success('Chat reopened.'); this.open(c); this.load(); },
       error: (err) => this.notify.error(err.error?.message || 'Failed to reopen chat.'),
     });

@@ -323,4 +323,105 @@ class OwnershipChainTest extends TestCase
         // The adset survives a refused delete.
         $this->assertNotNull(Adset::find($mine['adset']->id));
     }
+
+    // ── §21 + §7: a PROOF is reached through proof -> booking -> space -> user ──
+    //
+    // Provider\ProofController used to gate on `uploaded_by_user_id`, i.e. on
+    // AUTHORSHIP. §7 has the INSTALLATOR subrole uploading the proof of display, so
+    // that gate 404s the provider OWNER on a proof taken on their own space the moment
+    // provider collaborators ship. §21 says access derives from the ownership chain;
+    // the uploader stays an allowed reader on top of it.
+
+    /**
+     * Builds a booking on `$provider`'s space carrying a proof uploaded by `$uploader`.
+     */
+    private function proofUploadedBy(User $provider, User $uploader): array
+    {
+        $client = User::factory()->create(['role' => 'client']);
+
+        $space = Space::create([
+            'user_id' => $provider->id,
+            'name' => 'Owner Space',
+            'latitude' => 25.6597,
+            'longitude' => -100.4023,
+        ]);
+
+        $ad = Ad::create([
+            'space_id' => $space->id,
+            'provider_user_id' => $provider->id,
+            'name' => 'Owner Ad',
+            'media_type' => 'image',
+            'status' => 'active',
+        ]);
+
+        $booking = Booking::create([
+            'client_user_id' => $client->id,
+            'space_id' => $space->id,
+            'ad_id' => $ad->id,
+            'start_date' => '2026-07-01',
+            'end_date' => '2026-07-31',
+            'total_price' => 500,
+            'status' => 'waiting_proof',
+        ]);
+
+        $proof = \App\Models\Proof::create([
+            'ad_id' => $ad->id,
+            'booking_id' => $booking->id,
+            'uploaded_by_user_id' => $uploader->id,
+            'media_type' => 'image',
+            'file_path' => 'proofs/x.jpg',
+            'file_name' => 'x.jpg',
+            'status' => \App\Models\Proof::STATUS_UPLOADED,
+        ]);
+
+        return compact('space', 'ad', 'booking', 'proof');
+    }
+
+    public function test_provider_owner_reads_a_proof_someone_else_uploaded_on_their_space(): void
+    {
+        $owner = User::factory()->create(['role' => 'provider']);
+        $installator = User::factory()->create(['role' => 'provider']);
+
+        $s = $this->proofUploadedBy($owner, $installator);
+
+        Sanctum::actingAs($owner);
+
+        $this->getJson("/api/provider/proofs/{$s['proof']->id}")
+            ->assertStatus(200)
+            ->assertJsonPath('id', $s['proof']->id);
+
+        $this->getJson('/api/provider/proofs')
+            ->assertStatus(200)
+            ->assertJsonPath('0.id', $s['proof']->id);
+    }
+
+    public function test_the_uploader_still_reads_the_proof_they_uploaded(): void
+    {
+        $owner = User::factory()->create(['role' => 'provider']);
+        $installator = User::factory()->create(['role' => 'provider']);
+
+        $s = $this->proofUploadedBy($owner, $installator);
+
+        Sanctum::actingAs($installator);
+
+        $this->getJson("/api/provider/proofs/{$s['proof']->id}")->assertStatus(200);
+        $this->getJson('/api/provider/proofs')
+            ->assertStatus(200)
+            ->assertJsonPath('0.id', $s['proof']->id);
+    }
+
+    public function test_an_unrelated_provider_gets_404_on_someone_elses_proof(): void
+    {
+        $owner = User::factory()->create(['role' => 'provider']);
+        $installator = User::factory()->create(['role' => 'provider']);
+        $stranger = User::factory()->create(['role' => 'provider']);
+
+        $s = $this->proofUploadedBy($owner, $installator);
+
+        Sanctum::actingAs($stranger);
+
+        // 404, not 403 — rule 2: a 403 would confirm the proof exists.
+        $this->getJson("/api/provider/proofs/{$s['proof']->id}")->assertStatus(404);
+        $this->getJson('/api/provider/proofs')->assertStatus(200)->assertJsonCount(0);
+    }
 }

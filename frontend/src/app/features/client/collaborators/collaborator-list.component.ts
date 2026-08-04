@@ -102,7 +102,7 @@ import {
                   </td>
                   <td>
                     @if (collab.status !== 'revoked') {
-                      <button class="btn btn-sm btn-danger" (click)="removeCollaborator(collab)">Remove</button>
+                      <button class="btn btn-sm btn-danger" (click)="removeCollaborator(collab)">Revoke</button>
                     }
                   </td>
                 </tr>
@@ -187,12 +187,20 @@ export class CollaboratorListComponent implements OnInit {
     });
   }
 
+  /**
+   * §3 UC-19 — DELETE /client/collaborators/{id} REVOKES; it does not delete the row.
+   * "Revoked, not deleted: the grant is the record of who had access and when it was
+   * taken away." The list dropping the row was a lie the next reload undid — the
+   * collaborator reappeared, now marked `revoked`. Mark it in place instead.
+   */
   removeCollaborator(collab: Collaborator): void {
-    if (!confirm(`Remove collaborator "${collab.email}"?`)) return;
+    if (!confirm(`Revoke access for "${collab.email}"? The grant stays on record as revoked.`)) return;
     this.http.delete(`${this.api}/client/collaborators/${collab.id}`).subscribe({
       next: () => {
-        this.collaborators.update((list) => list.filter((c) => c.id !== collab.id));
-        this.notify.success('Collaborator removed.');
+        this.collaborators.update((list) =>
+          list.map((c) => (c.id === collab.id ? { ...c, status: 'revoked' } : c)),
+        );
+        this.notify.success('Collaborator revoked.');
       },
       error: (err) => this.notify.error(err.error?.message || 'Failed to remove the collaborator.'),
     });

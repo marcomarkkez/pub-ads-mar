@@ -195,8 +195,8 @@ const SPACE_ICON_SELECTED = L.divIcon({
                   <h3 style="font-size:16px;font-weight:600;margin:0;">{{ space.name }}</h3>
                   <span class="badge badge-active" style="white-space:nowrap;">{{ formatType(space.type) }}</span>
                 </div>
-                @if (space.location_name || space.location_text) {
-                  <p style="color:var(--text-muted);font-size:12px;margin-bottom:6px;">{{ space.location_name || space.location_text }}</p>
+                @if (space.location_text) {
+                  <p style="color:var(--text-muted);font-size:12px;margin-bottom:6px;">{{ space.location_text }}</p>
                 }
                 <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;margin-bottom:8px;">
                   <div>

@@ -22,6 +22,17 @@ class Booking extends Model
      */
     public const UPCOMING_STATUSES = ['pending', 'waiting_approval', 'confirmed'];
 
+    /**
+     * §12 · UC-37 — bookings that are still LIVE in the client's sense of the word:
+     * somebody is counting on them. Terminal ones (completed/cancelled/rejected) are
+     * history and hold nothing up.
+     *
+     * This lives on Booking and not on whoever asks first: Space::deletionBlockers()
+     * and Account::deletionBlockers() must mean the same thing by "live", and two
+     * copies of a status list are two lists that drift.
+     */
+    public const LIVE_STATUSES = ['pending', 'waiting_approval', 'confirmed', 'active', 'waiting_proof'];
+
     protected $fillable = [
         'client_user_id',
         'space_id',

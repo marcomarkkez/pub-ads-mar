@@ -44,8 +44,8 @@ import { Booking, Proof, paymentStatusLabel } from '../../../core/models';
                       @if (booking.space?.type) {
                         <span style="display:block;font-size:11px;color:var(--text-muted);">{{ booking.space!.type }}</span>
                       }
-                      @if (booking.space?.location_name) {
-                        <span style="display:block;font-size:11px;color:var(--text-muted);">{{ booking.space!.location_name }}</span>
+                      @if (booking.space?.location_text) {
+                        <span style="display:block;font-size:11px;color:var(--text-muted);">{{ booking.space!.location_text }}</span>
                       }
                     </div>
                   </td>
@@ -124,16 +124,6 @@ import { Booking, Proof, paymentStatusLabel } from '../../../core/models';
             </tbody>
           </table>
         </div>
-
-        @if (lastPage() > 1) {
-          <div class="pagination">
-            <button [disabled]="currentPage() <= 1" (click)="loadPage(currentPage() - 1)">Prev</button>
-            @for (p of pages(); track p) {
-              <button [class.active]="p === currentPage()" (click)="loadPage(p)">{{ p }}</button>
-            }
-            <button [disabled]="currentPage() >= lastPage()" (click)="loadPage(currentPage() + 1)">Next</button>
-          </div>
-        }
       </div>
     }
   `,
@@ -145,9 +135,6 @@ export class BookingListComponent implements OnInit {
 
   bookings = signal<Booking[]>([]);
   loading = signal(true);
-  currentPage = signal(1);
-  lastPage = signal(1);
-  pages = signal<number[]>([]);
   expandedId = signal<number | null>(null);
   actionLoading = signal(false);
 
@@ -157,10 +144,12 @@ export class BookingListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadPage(1);
+    this.load();
   }
 
-  loadPage(_page?: number): void {
+  // GET /client/bookings returns a PLAIN ARRAY (ClientBookingController::index -> ->get()),
+  // so the Prev/Next controls that used to sit under this table could never appear.
+  load(): void {
     this.loading.set(true);
     this.http.get<Booking[]>(`${this.api}/client/bookings`).subscribe({
       next: (res) => {
@@ -211,7 +200,7 @@ export class BookingListComponent implements OnInit {
       next: () => {
         this.actionLoading.set(false);
         this.notify.success(ok);
-        this.loadPage(this.currentPage());
+        this.load();
       },
       error: (err) => {
         this.actionLoading.set(false);

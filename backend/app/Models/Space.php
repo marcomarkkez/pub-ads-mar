@@ -99,10 +99,10 @@ class Space extends Model
      * counting on this listing. Terminal ones (completed/cancelled/rejected) are history
      * and hold nothing up.
      */
-    public const LIVE_BOOKING_STATUSES = ['pending', 'waiting_approval', 'confirmed', 'active', 'waiting_proof'];
+    public const LIVE_BOOKING_STATUSES = Booking::LIVE_STATUSES;
 
     /** Money that has not finished moving. A payout still owed is a reason to keep the row. */
-    public const UNSETTLED_PAYMENT_STATUSES = ['pending', 'completed', 'free_payment', 'held'];
+    public const UNSETTLED_PAYMENT_STATUSES = Payment::UNSETTLED_STATUSES;
 
     /**
      * §12 · UC-37 — why this listing cannot be destroyed yet, in the words a human needs.
@@ -156,8 +156,11 @@ class Space extends Model
      * 2. admin took it down            → taken_down_at is set
      * 3. admin froze the account       → the OWNER's frozen_at is set
      * 4. a deletion is programmed      → publication_status = unpublished (UC-37)
+     * 5. the OWNER's ACCOUNT is queued for deletion → accounts.publication_status
+     *    = unpublished (AD-delguard-09). One column takes the whole catalog of a
+     *    departing provider out at once, with no per-listing write to undo later.
      *
-     * Kept in one scope so a new listing surface cannot honour three of the four.
+     * Kept in one scope so a new listing surface cannot honour four of the five.
      */
     public function scopeBookable(Builder $query): Builder
     {
@@ -165,7 +168,13 @@ class Space extends Model
             ->where('is_active', true)
             ->where('publication_status', '!=', self::PUBLICATION_UNPUBLISHED)
             ->whereNull('taken_down_at')
-            ->whereHas('user', fn (Builder $q) => $q->whereNull('frozen_at'));
+            ->whereHas('user', fn (Builder $q) => $q->whereNull('frozen_at'))
+            // whereDoesntHave, not whereHas: a listing whose owner somehow has no
+            // account row must not silently vanish from the catalog.
+            ->whereDoesntHave(
+                'user.account',
+                fn (Builder $q) => $q->where('publication_status', Account::PUBLICATION_UNPUBLISHED),
+            );
     }
 
     public function user(): BelongsTo

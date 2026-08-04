@@ -75,9 +75,15 @@ class AccountDeletionGuardrailsTest extends TestCase
         return compact('provider', 'space', 'ad', 'client', 'booking');
     }
 
-    // ── The database refuses, the API says 409 ────────────────────────────────
+    // ── In use: the deletion becomes a DATE, and nothing is destroyed ─────────
+    //
+    // AD-delguard-09 (owner 2026-08-04). These two used to assert a flat 409 — the
+    // engine's FK refusal surfaced as "no". A dead end is not an answer, and §12/UC-37
+    // already had the better one for a listing: unpublish it and program the deletion.
+    // The account now does the same, so the assertion moved from "refused" to
+    // "programmed, and everything still there".
 
-    public function test_an_owner_with_live_campaigns_cannot_be_deleted(): void
+    public function test_an_owner_with_live_campaigns_is_programmed_not_deleted(): void
     {
         $client = User::factory()->create(['role' => 'client']);
         $campaign = Campaign::create(['user_id' => $client->id, 'name' => 'Verano', 'status' => 'active']);
@@ -85,17 +91,20 @@ class AccountDeletionGuardrailsTest extends TestCase
         Sanctum::actingAs($client);
 
         $this->deleteJson('/api/account')
-            ->assertStatus(409)
-            ->assertJsonPath('error_code', 'OBJECT_IN_USE')
-            ->assertJsonPath('blocking.campaigns', 1);
+            ->assertOk()
+            ->assertJsonPath('blockers.0.kind', 'campaigns');
 
-        // Nothing was half-deleted: the whole attempt rolled back.
+        // Nothing was destroyed — the account merely left circulation with a date on it.
         $this->assertNotNull(User::find($client->id));
-        $this->assertNotNull(Account::find($client->account_id));
         $this->assertNotNull(Campaign::find($campaign->id));
+
+        $account = Account::find($client->account_id);
+        $this->assertNotNull($account);
+        $this->assertSame(Account::PUBLICATION_UNPUBLISHED, $account->publication_status);
+        $this->assertNotNull($account->delete_scheduled_at);
     }
 
-    public function test_a_provider_with_spaces_and_a_client_with_a_ledger_cannot_be_deleted(): void
+    public function test_a_provider_with_spaces_and_a_client_with_a_ledger_are_programmed_not_deleted(): void
     {
         $provider = User::factory()->create(['role' => 'provider']);
         Space::create([
@@ -107,8 +116,9 @@ class AccountDeletionGuardrailsTest extends TestCase
 
         Sanctum::actingAs($provider);
         $this->deleteJson('/api/account')
-            ->assertStatus(409)
-            ->assertJsonPath('blocking.spaces', 1);
+            ->assertOk()
+            ->assertJsonPath('blockers.0.kind', 'spaces');
+        $this->assertNotNull(User::find($provider->id));
 
         // A wallet ledger that can be deleted is not a ledger (§8).
         $client = User::factory()->create(['role' => 'client']);
@@ -121,11 +131,13 @@ class AccountDeletionGuardrailsTest extends TestCase
 
         Sanctum::actingAs($client);
         $this->deleteJson('/api/account')
-            ->assertStatus(409)
-            ->assertJsonPath('blocking.wallet_entries', 1);
+            ->assertOk()
+            ->assertJsonPath('blockers.0.kind', 'wallet_entries');
 
         $this->assertSame(1, WalletEntry::count());
+        $this->assertNotNull(User::find($client->id));
     }
+
 
     public function test_the_database_itself_refuses_before_any_application_check(): void
     {

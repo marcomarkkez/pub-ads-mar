@@ -210,7 +210,7 @@
       setView(itemViews[head]);
       return goto(head === "uc" ? "story" : head, id); // opens the item's drawer
     }
-    var views = ["specs", "todos", "flow", "er", "classes", "stories", "sprint", "glossary", "questions", "walks"];
+    var views = ["specs", "todos", "flow", "er", "classes", "stories", "sprint", "glossary", "rules", "errors", "questions", "walks"];
     setView(views.indexOf(head) !== -1 ? head : "specs");
   }
 
@@ -324,7 +324,7 @@
       if (b.getAttribute("data-view") === v) b.setAttribute("aria-selected", "true");
       else b.removeAttribute("aria-selected");
     });
-    var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories", sprint: "Sprint", glossary: "Glosario", questions: "Preguntas abiertas", walks: "Recorridos humanos" };
+    var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories", sprint: "Sprint", glossary: "Glosario", rules: "Reglas de negocio", errors: "Cacería de errores", questions: "Preguntas abiertas", walks: "Recorridos humanos" };
     els.title.textContent = titles[v] || v;
     writeHash(v);
     render();
@@ -342,6 +342,8 @@
       case "stories": return renderStories();
       case "sprint": return renderSprint();
       case "glossary": return renderGlossary();
+      case "rules": return renderBusinessRules();
+      case "errors": return renderErrorHunt();
       case "questions": return renderQuestions();
       case "walks": return renderWalks();
     }
@@ -431,6 +433,100 @@
           '<div><p class="prose">' + esc(t.meaning) + '</p></div></div>';
       });
       html += '</div>';
+      box.innerHTML = html;
+    }
+  }
+
+  /* ---------------- Reglas de negocio ----------------
+     design.json .businessRules — los guardrailes que el owner ya fallo y que el codigo debe
+     hacer ciertos. Cada regla nombra en `enforcedBy` lo que la sostiene HOY, y `status`
+     (built/partial/missing) dice si eso existe: una regla `partial` es trabajo pendiente,
+     no un hecho. */
+  function renderBusinessRules() {
+    var br = state.data.businessRules;
+    els.content.innerHTML = "";
+    if (!br) { els.content.innerHTML = '<div class="empty">No <code>businessRules</code> block in design.json.</div>'; return; }
+
+    var q = "";
+    var search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Buscar reglas…";
+    search.addEventListener("input", function () { q = search.value.toLowerCase(); paint(); });
+    els.tools.appendChild(search);
+
+    var box = document.createElement("div");
+    box.className = "sprint";
+    els.content.appendChild(box);
+    paint();
+
+    function paint() {
+      var items = (br.items || []).filter(function (r) {
+        var hay = r.id + " " + r.title + " " + r.rule + " " + r.why + " " +
+          (r.appliesTo || []).join(" ") + " " + r.enforcedBy + " " + r.status;
+        return !q || hay.toLowerCase().indexOf(q) !== -1;
+      });
+      var html = '<p class="prose" style="color:var(--muted)">' + esc(br.convention || "") + '</p>';
+      html += '<h3>Reglas <span class="badge">' + items.length + '</span></h3>';
+      items.forEach(function (r) {
+        html += '<div class="rule is-' + esc(r.status) + '"><div class="rule-head">' +
+          '<span class="q-id">' + esc(r.id) + '</span>' +
+          '<span class="rule-title">' + esc(r.title) + '</span>' +
+          '<span class="tag rule-state is-' + esc(r.status) + '">' + esc(r.status) + '</span>' +
+          '</div>' +
+          '<p class="prose rule-rule">' + esc(r.rule) + '</p>' +
+          '<p class="prose rule-why"><span class="lbl">por que</span> ' + esc(r.why) + '</p>' +
+          '<p class="prose rule-by"><span class="lbl">lo sostiene</span> ' + esc(r.enforcedBy) + '</p>' +
+          '<div class="row-tags">' + (r.appliesTo || []).map(function (a) {
+            return '<span class="tag">' + esc(a) + '</span>';
+          }).join('') + '</div></div>';
+      });
+      if (!items.length) html += '<div class="empty">Ninguna regla coincide.</div>';
+      box.innerHTML = html;
+    }
+  }
+
+  /* ---------------- Caceria de errores ----------------
+     design.json .errorHunt — patrones de fallo que YA aparecieron aqui, cada uno con el caso
+     real que lo delato. Lo util es `howToFind`: la busqueda que se puede repetir manana sobre
+     codigo nuevo. `whyItHides` explica por que ninguna prueba fallaba mientras el error vivia. */
+  function renderErrorHunt() {
+    var eh = state.data.errorHunt;
+    els.content.innerHTML = "";
+    if (!eh) { els.content.innerHTML = '<div class="empty">No <code>errorHunt</code> block in design.json.</div>'; return; }
+
+    var q = "";
+    var search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Buscar patrones de error…";
+    search.addEventListener("input", function () { q = search.value.toLowerCase(); paint(); });
+    els.tools.appendChild(search);
+
+    var box = document.createElement("div");
+    box.className = "sprint";
+    els.content.appendChild(box);
+    paint();
+
+    function paint() {
+      var items = (eh.items || []).filter(function (e) {
+        var hay = e.id + " " + e.pattern + " " + e.howToFind + " " + e.whyItHides + " " +
+          e.realExample + " " + e.status;
+        return !q || hay.toLowerCase().indexOf(q) !== -1;
+      });
+      var html = '<p class="prose" style="color:var(--muted)">' + esc(eh.convention || "") + '</p>';
+      html += '<h3>Patrones <span class="badge">' + items.length + '</span></h3>';
+      items.forEach(function (e) {
+        var open = e.status === "open";
+        html += '<div class="hunt' + (open ? " is-open" : "") + '"><div class="rule-head">' +
+          '<span class="q-id">' + esc(e.id) + '</span>' +
+          '<span class="rule-title">' + esc(e.pattern) + '</span>' +
+          '<span class="tag q-state ' + (open ? "open" : "done") + '">' + esc(e.status) + '</span>' +
+          '</div>' +
+          '<p class="prose hunt-find"><span class="lbl">como buscarlo</span> ' + esc(e.howToFind) + '</p>' +
+          '<p class="prose hunt-hide"><span class="lbl">por que se esconde</span> ' + esc(e.whyItHides) + '</p>' +
+          '<p class="prose hunt-real"><span class="lbl">caso real</span> ' + esc(e.realExample) + '</p>' +
+          '</div>';
+      });
+      if (!items.length) html += '<div class="empty">Ningun patron coincide.</div>';
       box.innerHTML = html;
     }
   }

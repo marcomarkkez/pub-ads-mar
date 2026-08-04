@@ -22,6 +22,7 @@ export class UserListComponent implements OnInit {
   currentPage = signal(1);
   lastPage = signal(1);
   total = signal(0);
+  togglingId = signal<number | null>(null);
 
   constructor(
     private http: HttpClient,
@@ -52,18 +53,33 @@ export class UserListComponent implements OnInit {
     });
   }
 
-  deleteUser(user: User): void {
-    if (!confirm(`Are you sure you want to delete "${user.name}"? This action cannot be undone.`)) {
+  /**
+   * §3/§12 (owner 2026-08-03) — there is NO `DELETE /admin/users/{id}` any more: an admin
+   * takes a person off their roles, only the account owner deletes an account. The Delete
+   * button that used to live here fired at a route that no longer exists (404 every time),
+   * and its confirm promised something the platform refuses to do.
+   *
+   * The capability the admin actually holds is `is_active` on PUT /admin/users/{id}.
+   */
+  toggleActive(user: User): void {
+    const activate = !user.is_active;
+    const verb = activate ? 'Reactivate' : 'Deactivate';
+
+    if (!confirm(`${verb} "${user.name}"? Their account and all its data are kept either way.`)) {
       return;
     }
 
-    this.http.delete(`${this.api}/admin/users/${user.id}`).subscribe({
-      next: () => {
-        this.notify.success(`User "${user.name}" deleted successfully.`);
-        this.loadUsers(this.currentPage());
+    this.togglingId.set(user.id);
+
+    this.http.put<User>(`${this.api}/admin/users/${user.id}`, { is_active: activate }).subscribe({
+      next: (res) => {
+        this.users.update(list => list.map(u => (u.id === user.id ? { ...u, ...res } : u)));
+        this.notify.success(`User "${user.name}" ${activate ? 'reactivated' : 'deactivated'}.`);
+        this.togglingId.set(null);
       },
       error: (err) => {
-        this.notify.error(err.error?.message || 'Failed to delete user.');
+        this.notify.error(err.error?.message || `Failed to ${verb.toLowerCase()} the user.`);
+        this.togglingId.set(null);
       },
     });
   }

@@ -5,8 +5,11 @@ namespace Tests\Feature;
 use App\Models\Ad;
 use App\Models\Campaign;
 use App\Models\Proof;
+use App\Models\RolePermission;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsBookingScenario;
 use Tests\TestCase;
@@ -78,5 +81,37 @@ class AuthorizationNegativeTest extends TestCase
         ]);
         $this->postJson("/api/chats/{$chatId}/objects", ['object_type' => 'ad', 'object_id' => $foreignAd->id])
             ->assertStatus(403);
+    }
+
+    /**
+     * design.json §10/§17 — `chats.update` is not a capability anybody holds.
+     *
+     * The seeder used to grant it to client and provider while ZERO routes read it: the
+     * whole chat lifecycle (message/attach/detach/flag/resolve/close) is gated on
+     * `chats,create` and `join` on `role:support`. A grant no route reads looks like a
+     * policy and enforces nothing, and the next `chats,update` route silently inherits a
+     * yes for two roles nobody re-examined.
+     *
+     * Both halves are asserted on purpose: the grant is gone AND no route has appeared to
+     * justify bringing it back. Adding such a route makes this test fail, which is the
+     * moment to grant the permission deliberately rather than by inheritance.
+     */
+    public function test_no_role_holds_chats_update_and_no_route_is_gated_on_it(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+
+        $this->assertSame(
+            0,
+            RolePermission::where('resource', 'chats')->where('action', 'update')->count(),
+            'chats.update is granted to a role but no route reads it.'
+        );
+
+        foreach (Route::getRoutes() as $route) {
+            $this->assertNotContains(
+                'permission:chats,update',
+                $route->gatherMiddleware(),
+                'A route is gated on chats,update — grant the permission deliberately in RolePermissionSeeder.'
+            );
+        }
     }
 }

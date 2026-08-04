@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ApiErrorCode;
+use App\Models\Collaborator;
 use App\Models\RolePermission;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -88,12 +89,37 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out.']);
     }
 
+    /**
+     * §3 (owner 2026-08-04) — "un dueño es la persona que abre la cuenta y puede añadir
+     * colaboradores, así de simple."
+     *
+     * `is_owner` says exactly that and nothing more. Until now this response carried only
+     * name/email/role, so the frontend had no way to tell an account owner from one of
+     * their collaborators — both are `client`-role users — and the Collaborators screen had
+     * to approximate it with the `collaborators.create` permission. An approximation is a
+     * guess, and a guess in an authorization-shaped decision eventually guesses wrong.
+     *
+     * The link is `users.account_id` (not `accounts.owner_user_id` — owner ruling 2026-08-01),
+     * and it carries a UNIQUE index, which IS the MVP "1 user = 1 account" rule. So the single
+     * user pointing at an account is its owner, and `is_owner` reduces to "I have an account".
+     * Staff carry `account_id = NULL` and are never owners. When multi-owner accounts arrive
+     * that unique index is dropped and this line becomes a real comparison — one place.
+     *
+     * `collaborating_on` is the other half, and the half the UI actually needed: the accounts
+     * where I am someone ELSE's collaborator. Owning my account and helping run yours are two
+     * different facts, and a screen that cannot tell them apart shows the wrong menu.
+     */
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
 
         return response()->json([
             'user' => $user,
+            'account_id' => $user->account_id,
+            'is_owner' => $user->account_id !== null,
+            'collaborating_on' => Collaborator::where('user_id', $user->id)
+                ->where('status', 'accepted')
+                ->pluck('account_id'),
             'permissions' => RolePermission::getCachedPermissions($user->role),
         ]);
     }

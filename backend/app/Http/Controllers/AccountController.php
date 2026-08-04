@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ApiErrorCode;
+use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\Booking;
 use App\Models\Campaign;
 use App\Models\Proof;
 use App\Models\Space;
+use App\Models\SystemConfiguration;
 use App\Models\User;
 use App\Models\WalletEntry;
 use Illuminate\Database\QueryException;
@@ -51,6 +53,44 @@ use Illuminate\Support\Facades\DB;
  * is worded about proofs and payment; a chat is a shared record, and punching
  * holes in one party's half would corrupt the counterparty's copy of the very
  * conversation a dispute is read from.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * AD-delguard-09 · UC-37 (owner 2026-08-04) — WHAT THE CONFIRMATION CANNOT BUY.
+ *
+ * "Si el dueño de la cuenta es el proveedor, borrarse a sí mismo destruye la
+ *  evidencia de disputas que quizá afecten a clientes que ya pagaron. Aquí
+ *  volvemos a los guardrails tipo 'programar para destruir' donde no se puede
+ *  borrar algo por completo, solo despublicarse si es que hay elementos en
+ *  disputa."
+ *
+ * Refusal 2 above reads a proof as a thing the OWNER loses. In a dispute it is
+ * not: it is the record two parties argue from, and the client on the other side
+ * never agreed to lose it. `confirm_proof_loss` is a consent, and a consent is
+ * only ever worth the consenter's own half. So DELETE now has three outcomes and
+ * the flag can only decide the third:
+ *
+ *   1. AN OPEN DISPUTE      409, always. Not with the flag, not with any flag.
+ *      (Account::disputeBlockers)   Nothing is unpublished, nothing is scheduled,
+ *                                   nothing is touched. The blockers travel with
+ *                                   the refusal so the owner knows what to close.
+ *
+ *   2. IN USE, NOT DISPUTED 200 — but a deletion is PROGRAMMED, not performed.
+ *      (Account::inUseBlockers)     Same shape as one listing under §12/UC-37:
+ *                                   the account goes `unpublished` (its whole
+ *                                   catalog leaves circulation through
+ *                                   Space::scopeBookable) and gets a
+ *                                   `delete_scheduled_at` at `deletion_grace_days`.
+ *                                   Nothing is destroyed HERE, by anyone —
+ *                                   `accounts:purge` is a separate manual command
+ *                                   that re-asks every blocker at the moment it
+ *                                   runs.
+ *
+ *   3. NOTHING ATTACHED     the immediate delete this method always did.
+ *
+ * The proof confirmation is demanded BEFORE branching between 2 and 3, and when
+ * it is given on the way into 2 it is PERSISTED (`accounts.proof_loss_confirmed_at`)
+ * — the purge that finally destroys those proofs runs weeks later and must be able
+ * to point at the acknowledgement rather than trust a boolean nobody kept.
  */
 class AccountController extends Controller
 {
@@ -74,7 +114,33 @@ class AccountController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        $proofCount = Proof::where('uploaded_by_user_id', $user->id)->count();
+        // ── 1. An open dispute refuses outright ──────────────────────────────
+        //
+        // FIRST, and before the confirmation is even read: the whole point is that
+        // `confirm_proof_loss=true` must not reach this decision. 409 and not 422 —
+        // the payload is fine, it is the state that says no (owner 2026-08-03).
+        $disputes = $account->disputeBlockers();
+
+        if ($disputes !== []) {
+            return response()->json([
+                'error_code' => ApiErrorCode::ObjectInUse->value,
+                'message' => 'This account is party to an open dispute and cannot be deleted — '
+                    . 'not even with confirm_proof_loss. The chats, messages and proofs under a dispute '
+                    . 'are the other party\'s record too, and your confirmation only covers your own loss. '
+                    . 'Close the dispute first; Support can tell you where it stands.',
+                'blockers' => $disputes,
+            ], 409);
+        }
+
+        if ($account->isScheduledForDeletion()) {
+            return response()->json([
+                'error_code' => ApiErrorCode::AlreadyExists->value,
+                'message' => 'A deletion is already programmed on this account.',
+                'delete_scheduled_at' => $account->delete_scheduled_at,
+            ], 409);
+        }
+
+        $proofCount = $account->ownerProofCount();
         $confirmed = $request->boolean('confirm_proof_loss');
 
         if ($proofCount > 0 && ! $confirmed) {
@@ -88,6 +154,14 @@ class AccountController extends Controller
             ], 409);
         }
 
+        // ── 2. In use but not disputed: unpublish and program a date ─────────
+        $inUse = $account->inUseBlockers();
+
+        if ($inUse !== []) {
+            return $this->scheduleDeletion($request, $account, $proofCount, $confirmed, $inUse);
+        }
+
+        // ── 3. Nothing attached: the immediate delete ────────────────────────
         try {
             DB::transaction(function () use ($request, $user, $account, $proofCount, $confirmed) {
                 if ($proofCount > 0) {
@@ -137,6 +211,124 @@ class AccountController extends Controller
         }
 
         return response()->json(['message' => 'Account deleted.']);
+    }
+
+    /**
+     * AD-delguard-09 · UC-37 — the space treatment, one level up. Nothing is destroyed
+     * here: the account leaves circulation and acquires a date, and a human running
+     * `accounts:purge` is the only thing that can act on that date.
+     */
+    private function scheduleDeletion(
+        Request $request,
+        Account $account,
+        int $proofCount,
+        bool $confirmed,
+        array $blockers,
+    ): JsonResponse {
+        $graceDays = (int) SystemConfiguration::get('deletion_grace_days', 30);
+
+        DB::transaction(function () use ($request, $account, $proofCount, $confirmed, $graceDays, $blockers) {
+            $before = [
+                'publication_status' => $account->publication_status,
+                'delete_scheduled_at' => null,
+            ];
+
+            // Named attributes, not $fillable: no payload can put an account into a
+            // programmed deletion by accident (§12 idiom, same as Space).
+            $account->publication_status = Account::PUBLICATION_UNPUBLISHED;
+            $account->delete_scheduled_at = now()->addDays($graceDays);
+
+            if ($proofCount > 0 && $confirmed) {
+                // The acknowledgement is given NOW and spent WEEKS from now, so it is
+                // written down. Without this the purge would destroy an owner's proofs
+                // on the strength of a boolean that left with the HTTP request.
+                $account->proof_loss_confirmed_at = now();
+
+                AuditLog::recordOn(
+                    $request->user(),
+                    'confirm_proof_loss',
+                    'proofs',
+                    null,
+                    ['uploaded_by_user_id' => $account->owner?->id, 'count' => $proofCount],
+                    null,
+                    'account owner confirmed that the programmed deletion destroys their proofs '
+                    . 'and that no payment can be released without them (§3, owner 2026-08-03)',
+                );
+            }
+
+            $account->save();
+
+            AuditLog::record(
+                $request->user(),
+                'schedule_deletion',
+                $account,
+                $before,
+                [
+                    'publication_status' => $account->publication_status,
+                    'delete_scheduled_at' => $account->delete_scheduled_at,
+                    'blockers' => $blockers,
+                ],
+                'account owner unpublished their account and programmed its deletion in '
+                . $graceDays . ' days; objects still in use (§3 · §12 · UC-37)',
+            );
+        });
+
+        return response()->json([
+            'message' => 'Account unpublished and programmed for deletion. '
+                . 'Objects still in use keep it alive until then; nothing has been destroyed.',
+            'blockers' => $blockers,
+            'account' => $account->fresh(),
+        ]);
+    }
+
+    /**
+     * The way back. Without it the only exit from `unpublished` would be the purge,
+     * and an owner who changed their mind would have no move at all.
+     */
+    public function cancelDeletion(Request $request): JsonResponse
+    {
+        $account = $request->user()->account;
+
+        if ($account === null) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        if (! $account->isScheduledForDeletion()) {
+            return response()->json([
+                'error_code' => ApiErrorCode::ConflictingState->value,
+                'message' => 'No deletion is programmed on this account.',
+            ], 409);
+        }
+
+        DB::transaction(function () use ($request, $account) {
+            $before = [
+                'publication_status' => $account->publication_status,
+                'delete_scheduled_at' => $account->delete_scheduled_at,
+                'proof_loss_confirmed_at' => $account->proof_loss_confirmed_at,
+            ];
+
+            $account->publication_status = Account::PUBLICATION_PUBLISHED;
+            $account->delete_scheduled_at = null;
+            // The acknowledgement dies with the decision it was given for. If the owner
+            // programs another deletion later they are asked again — a stale "yes" to
+            // destroying evidence is not a "yes" anybody should be able to bank.
+            $account->proof_loss_confirmed_at = null;
+            $account->save();
+
+            AuditLog::record(
+                $request->user(),
+                'cancel_deletion',
+                $account,
+                $before,
+                ['publication_status' => $account->publication_status, 'delete_scheduled_at' => null],
+                'account owner cancelled the programmed deletion (§3 · UC-37)',
+            );
+        });
+
+        return response()->json([
+            'message' => 'Programmed deletion cancelled.',
+            'account' => $account->fresh(),
+        ]);
     }
 
     /**

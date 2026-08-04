@@ -113,10 +113,15 @@ import { ObjectPickerComponent, PickedObject } from './object-picker.component';
           </section>
 
           <!-- Support actions (UC-21 join, UC-22 raise/change flag, resolve) -->
-          @if (isSupport() && !isClosed()) {
+          @if (isStaff() && !isClosed()) {
             <section class="panel actions">
               <h3>Acciones de Soporte</h3>
-              <button type="button" class="btn btn-sm" [disabled]="busy()" (click)="join()">Unirse (announced)</button>
+              <!-- UC-21 — join() 422s on anything that is not a client↔provider chat, and
+                   Support is already in once support_joined_at is stamped. Offering it on a
+                   dispute chat or a second time was a button whose only outcome was an error. -->
+              @if (canJoin()) {
+                <button type="button" class="btn btn-sm" [disabled]="busy()" (click)="join()">Unirse (announced)</button>
+              }
               <button type="button" class="btn btn-sm" [disabled]="busy()" (click)="resolve()">Resolver</button>
               <div class="flag-form">
                 <select [(ngModel)]="flagType">
@@ -289,9 +294,36 @@ export class ChatDetailComponent implements OnInit, AfterViewChecked {
   isClosed(): boolean { return this.chat()?.status === 'closed'; }
   flags(): ChatFlag[] { const c = this.chat(); return c ? activeFlags(c) : []; }
   isSupport(): boolean { return this.auth.userRole() === 'support'; }
-  canClose(): boolean {
+
+  /**
+   * §10 — the roles that may WRITE staff actions on a chat: support and payments.
+   * Admin is read-only/incognito (R1) and holds only `chats.read`, so every
+   * create-gated mutation 403s for it at the middleware.
+   */
+  isStaff(): boolean {
     const role = this.auth.userRole();
-    return !this.isClosed() && (role === 'client' || role === 'provider');
+    return role === 'support' || role === 'payments';
+  }
+
+  /**
+   * ChatController::join 422s unless the chat's nature is client↔provider, and Support
+   * is already in once `support_joined_at` is stamped.
+   */
+  canJoin(): boolean {
+    const c = this.chat();
+    return !!c && this.isSupport() && c.nature === 'client_provider' && !c.support_joined_at;
+  }
+
+  /**
+   * ChatController::close accepts the OPENER or staff — not "any client or provider".
+   * The old rule offered the button to every client/provider in the thread (a 403 for a
+   * participant who did not open it) and hid it from the staff who may force-close.
+   */
+  canClose(): boolean {
+    const c = this.chat();
+    if (!c || this.isClosed()) return false;
+    const isOpener = this.currentUserId !== null && c.opened_by_user_id === this.currentUserId;
+    return isOpener || this.isStaff();
   }
   title(): string {
     const c = this.chat();

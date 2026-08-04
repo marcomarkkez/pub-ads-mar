@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Payments;
 
+use App\Enums\ApiErrorCode;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Payment;
@@ -144,11 +145,24 @@ class PaymentController extends Controller
     {
         $payment->loadMissing('booking.space');
 
-        // B9 gate, now read off the payment itself. It used to re-derive the client's verdict
-        // from booking.proofs on every call — the authority over money living in a table that
-        // holds none. `free_payment` IS "the client accepted", written once by the client's
-        // own accept, so a held payment now fails this for the right reason instead of
-        // accidentally passing because some other proof on the booking was accepted.
+        // UC-32 — an admin payout stop ALSO writes `status = held`, so today this check is
+        // unreachable and the one below would catch it anyway. It is here because the
+        // protection otherwise rests on two columns never drifting apart, and EH-4 is the
+        // pattern where exactly that assumption fails: one write path forgets the second
+        // field and the guard silently stops guarding. The stop is its own fact; read it.
+        if ($payment->payout_stopped_at !== null) {
+            return response()->json([
+                'error_code' => ApiErrorCode::ConflictingState->value,
+                'message' => 'An admin stopped this payout. It cannot be released until the stop is lifted.',
+                'payout_stopped_at' => $payment->payout_stopped_at,
+            ], 409);
+        }
+
+        // B9 gate, read off the payment itself. It used to re-derive the client's verdict from
+        // booking.proofs on every call — the authority over money living in a table that holds
+        // none. `free_payment` IS "the client accepted", written once by the client's own
+        // accept, so a held payment now fails for the right reason instead of accidentally
+        // passing because some OTHER proof on the same booking happened to be accepted.
         if ($payment->status !== Payment::STATUS_FREE_PAYMENT) {
             return response()->json([
                 'message' => $payment->status === Payment::STATUS_HELD
