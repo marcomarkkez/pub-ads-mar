@@ -21,6 +21,13 @@ export class SidebarComponent {
   role = this.auth.userRole;
   menuOpen = false;
 
+  /**
+   * Owner-only surfaces. §3: the account OWNER manages collaborators (UC-19); a
+   * collaborator never can. The permission map is the only owner signal the SPA has
+   * today (there is no `is_owner` on /me yet) — the API re-checks ownership anyway.
+   */
+  canManageCollaborators = computed(() => this.auth.hasPermission('collaborators', 'create'));
+
   // design.json §10 — ONE "Messages" area for ALL roles; no separate Support/Tickets menu.
   navItems = computed<NavItem[]>(() => {
     const role = this.role();
@@ -34,6 +41,12 @@ export class SidebarComponent {
           { label: 'Invoices', icon: '📄', route: '/client/invoices' },
           { label: 'Wallet', icon: '👛', route: '/client/wallet' },
           { label: 'Messages', icon: '💬', route: '/messages' },
+          // design.json §2/§3 (UC-19) — Collaborators is its OWN account-scoped tab under
+          // Configurations, shown only to the account OWNER (the one who may invite/revoke:
+          // `collaborators.create`). It is no longer a card inside campaign-detail.
+          ...(this.canManageCollaborators()
+            ? [{ label: 'Collaborators', icon: '👥', route: '/client/collaborators' }]
+            : []),
         ];
       case 'provider':
         return [
@@ -50,6 +63,9 @@ export class SidebarComponent {
           { label: 'Permissions', icon: '🔐', route: '/admin/permissions' },
           // design.json §12 — admin's Messages surface is the read-only oversight screen.
           { label: 'Messages', icon: '💬', route: '/admin/oversight' },
+          // design.json §12/§8 (UC-29, UC-32) — takedown/freeze + payout stop/clawback:
+          // the only actions Admin may take on the platform, every one audited.
+          { label: 'Moderation', icon: '🛑', route: '/admin/moderation' },
           // design.json §12 (UC-31) — the append-only log; Admin is its only reader.
           { label: 'Audit Log', icon: '📜', route: '/admin/audit' },
           { label: 'Configurations', icon: '⚙️', route: '/admin/config' },

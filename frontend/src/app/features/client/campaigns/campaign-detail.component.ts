@@ -5,7 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
-import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
+import { Campaign, Adset, Ad } from '../../../core/models';
 
 @Component({
   selector: 'app-campaign-detail',
@@ -241,51 +241,12 @@ import { Campaign, Adset, Ad, Collaborator } from '../../../core/models';
         }
       </div>
 
-      <!-- Collaborators Section -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Collaborators</h2>
-        </div>
-
-        <!-- Add Collaborator -->
-        <div style="display:flex;gap:8px;margin-bottom:16px;">
-          <input
-            type="email"
-            [(ngModel)]="newCollabEmail"
-            name="newCollabEmail"
-            placeholder="Collaborator email..."
-            style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;"
-          />
-          <select [(ngModel)]="newCollabRole" name="newCollabRole"
-            style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
-            <option value="installator">Installator (proofs only)</option>
-            <option value="publicist">Publicist (campaigns/ads, no money)</option>
-            <option value="manager">Manager (everything incl. money)</option>
-          </select>
-          <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
-            (click)="addCollaborator()" [disabled]="addingCollab()">
-            @if (addingCollab()) {
-              <span class="spinner"></span>
-            } @else {
-              Add
-            }
-          </button>
-        </div>
-
-        @if (collaborators().length === 0) {
-          <p style="color:var(--text-muted);font-size:13px;">No collaborators added yet.</p>
-        } @else {
-          @for (collab of collaborators(); track collab.id) {
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
-              <div>
-                <span style="font-weight:600;">{{ collab.user?.name || collab.email }}</span>
-                <span style="color:var(--text-muted);font-size:12px;margin-left:8px;">{{ collab.email }}</span>
-              </div>
-              <button class="btn btn-sm btn-danger" (click)="removeCollaborator(collab)">Remove</button>
-            </div>
-          }
-        }
-      </div>
+      <!--
+        design.json §2/§3 (UC-19) — the Collaborators card that used to sit here is GONE.
+        Collaborators are ACCOUNT-scoped: they act across every campaign of the account, so
+        managing them from inside ONE campaign implied a per-campaign scope that does not
+        exist. They now live on their own owner-only tab at /client/collaborators.
+      -->
     }
   `,
 })
@@ -296,17 +257,11 @@ export class CampaignDetailComponent implements OnInit {
 
   campaign = signal<Campaign | null>(null);
   adsets = signal<Adset[]>([]);
-  collaborators = signal<Collaborator[]>([]);
   loading = signal(true);
 
   // Adset form
   newAdsetName = '';
   addingAdset = signal(false);
-
-  // Collaborator form
-  newCollabEmail = '';
-  newCollabRole: 'installator' | 'publicist' | 'manager' = 'publicist';
-  addingCollab = signal(false);
 
   // Campaign spec edit (#3)
   editingCampaign = signal(false);
@@ -341,7 +296,6 @@ export class CampaignDetailComponent implements OnInit {
     this.campaignId = Number(this.route.snapshot.paramMap.get('id'));
     this.loadCampaign();
     this.loadAdsets();
-    this.loadCollaborators();
     this.loadOrphans();
   }
 
@@ -363,13 +317,6 @@ export class CampaignDetailComponent implements OnInit {
   loadAdsets(): void {
     this.http.get<Adset[]>(`${this.api}/client/campaigns/${this.campaignId}/adsets`).subscribe({
       next: (res) => this.adsets.set(res),
-      error: () => {},
-    });
-  }
-
-  loadCollaborators(): void {
-    this.http.get<Collaborator[]>(`${this.api}/client/campaigns/${this.campaignId}/collaborators`).subscribe({
-      next: (res) => this.collaborators.set(res),
       error: () => {},
     });
   }
@@ -545,42 +492,6 @@ export class CampaignDetailComponent implements OnInit {
         this.notify.success('Ad deleted.');
       },
       error: (err) => this.notify.error(err.error?.message || 'Failed to delete ad.'),
-    });
-  }
-
-  /* ── Collaborators ── */
-
-  addCollaborator(): void {
-    if (!this.newCollabEmail.trim()) {
-      this.notify.warning('Please enter an email address.');
-      return;
-    }
-    this.addingCollab.set(true);
-    this.http.post<Collaborator>(`${this.api}/client/campaigns/${this.campaignId}/collaborators`, {
-      email: this.newCollabEmail.trim(),
-      role: this.newCollabRole,
-    }).subscribe({
-      next: (res) => {
-        this.collaborators.update(list => [...list, res]);
-        this.newCollabEmail = '';
-        this.addingCollab.set(false);
-        this.notify.success('Collaborator added.');
-      },
-      error: (err) => {
-        this.addingCollab.set(false);
-        this.notify.error(err.error?.message || 'Failed to add collaborator.');
-      },
-    });
-  }
-
-  removeCollaborator(collab: Collaborator): void {
-    if (!confirm(`Remove collaborator "${collab.email}"?`)) return;
-    this.http.delete(`${this.api}/client/campaigns/${this.campaignId}/collaborators/${collab.id}`).subscribe({
-      next: () => {
-        this.collaborators.update(list => list.filter(c => c.id !== collab.id));
-        this.notify.success('Collaborator removed.');
-      },
-      error: (err) => this.notify.error(err.error?.message || 'Failed to remove collaborator.'),
     });
   }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Payment;
 use App\Models\WalletEntry;
+use App\Services\RefundProcessor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,10 +41,14 @@ class PaymentController extends Controller
 
     public function approve(Request $request, Payment $payment): JsonResponse
     {
+        if ($refusal = $this->refuseIfLocked($payment, 'approve')) {
+            return $refusal;
+        }
+
         $this->settle($request, $payment, 'approve', [
             'approved_by_payments' => true,
             'approved_by_user_id' => $request->user()->id,
-            'status' => 'completed',
+            'status' => Payment::STATUS_COMPLETED,
         ]);
 
         return response()->json($payment->load('approvedBy'));
@@ -51,13 +56,44 @@ class PaymentController extends Controller
 
     public function reject(Request $request, Payment $payment): JsonResponse
     {
+        if ($refusal = $this->refuseIfLocked($payment, 'reject')) {
+            return $refusal;
+        }
+
         $this->settle($request, $payment, 'reject', [
             'approved_by_payments' => false,
             'approved_by_user_id' => $request->user()->id,
-            'status' => 'failed',
+            'status' => Payment::STATUS_FAILED,
         ]);
 
         return response()->json($payment->load('approvedBy'));
+    }
+
+    /**
+     * §8 — the state guard `settle()` never had, while `holdPayout()` did.
+     *
+     * Without it, a Payments user could take a payment that was frozen by a client's proof
+     * rejection — three dispute chats open, `payment_held` flag active — and flip it to
+     * `completed` with one click. The chats kept saying "payout held"; `payments.status`,
+     * which §2 makes the authority, said the opposite. Nothing errored and nothing logged
+     * a conflict, because as far as the code was concerned nothing unusual had happened.
+     *
+     * 409 and not 422 (owner 2026-08-03): the payload is fine — it is the payment's state
+     * that forbids the move. To settle a disputed payment, resolve the dispute first.
+     */
+    private function refuseIfLocked(Payment $payment, string $action): ?JsonResponse
+    {
+        if (! in_array($payment->status, Payment::LOCKED_AGAINST_SETTLE, true)) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => $payment->status === Payment::STATUS_HELD
+                ? 'This payout is held in an open dispute. Resolve the dispute before settling it.'
+                : 'This payment is already ' . $payment->status . ' and cannot be settled again.',
+            'status' => $payment->status,
+            'attempted' => $action,
+        ], 409);
     }
 
     /**
@@ -83,40 +119,20 @@ class PaymentController extends Controller
     /**
      * Refund a payment (mocked gateway): credit the client's wallet and mark refunded.
      * Idempotent via a deterministic idempotency_key on the unique wallet entry.
+     *
+     * The decision ("may this be refunded?") and the money ("credit + audit in one
+     * txn") live in App\Services\RefundProcessor, because UC-29's account freeze
+     * auto-refunds through the SAME path (§12). This method is the human entry point
+     * to it and nothing more — a second refund implementation is a second source of
+     * truth about money.
      */
-    public function refund(Request $request, Payment $payment): JsonResponse
+    public function refund(Request $request, Payment $payment, RefundProcessor $refunds): JsonResponse
     {
-        $payment->loadMissing('booking');
-        $clientId = $payment->booking?->client_user_id;
-
-        if (! $clientId) {
-            return response()->json(['message' => 'Booking client not found.'], 422);
+        if ($refusal = $refunds->refusalFor($payment)) {
+            return response()->json($refusal['body'], $refusal['http']);
         }
 
-        $amount = (float) $payment->amount;
-        $key = "refund:payment:{$payment->id}";
-
-        DB::transaction(function () use ($request, $payment, $clientId, $amount, $key) {
-            $entry = WalletEntry::firstOrCreate(
-                ['idempotency_key' => $key],
-                [
-                    'user_id' => $clientId,
-                    'amount' => $amount,
-                    'type' => 'refund',
-                    'ref_type' => Payment::class,
-                    'ref_id' => $payment->id,
-                ]
-            );
-
-            $payment->fill(['status' => 'refunded']);
-            AuditLog::recordChange(
-                $request->user(),
-                $payment,
-                'payments refund → wallet entry #' . $entry->id . ' (§2 $)',
-                'refund',
-            );
-            $payment->save();
-        });
+        $refunds->apply($request->user(), $payment, 'payments refund (§2 $)');
 
         return response()->json($payment->fresh()->load('approvedBy'));
     }
@@ -126,17 +142,22 @@ class PaymentController extends Controller
      */
     public function releasePayout(Request $request, Payment $payment): JsonResponse
     {
-        $payment->loadMissing('booking.space', 'booking.proofs');
+        $payment->loadMissing('booking.space');
 
-        // B9 gate: payout only releases after the CLIENT accepted the proof.
-        $clientAccepted = $payment->booking?->proofs
-            ?->contains(fn ($p) => $p->status === 'client_accepted') ?? false;
-
-        abort_unless(
-            $clientAccepted,
-            422,
-            'Payout can only be released after the client accepts the proof of display.'
-        );
+        // B9 gate, now read off the payment itself. It used to re-derive the client's verdict
+        // from booking.proofs on every call — the authority over money living in a table that
+        // holds none. `free_payment` IS "the client accepted", written once by the client's
+        // own accept, so a held payment now fails this for the right reason instead of
+        // accidentally passing because some other proof on the booking was accepted.
+        if ($payment->status !== Payment::STATUS_FREE_PAYMENT) {
+            return response()->json([
+                'message' => $payment->status === Payment::STATUS_HELD
+                    ? 'This payout is held in an open dispute and cannot be released.'
+                    : 'Payout can only be released after the client accepts the proof of display.',
+                'status' => $payment->status,
+                'required_status' => Payment::STATUS_FREE_PAYMENT,
+            ], 409);
+        }
 
         $providerId = $payment->booking?->space?->user_id;
 
@@ -159,7 +180,7 @@ class PaymentController extends Controller
                 );
             }
 
-            $payment->fill(['status' => 'released']);
+            $payment->fill(['status' => Payment::STATUS_RELEASED]);
             AuditLog::recordChange(
                 $request->user(),
                 $payment,
@@ -179,8 +200,8 @@ class PaymentController extends Controller
     {
         // Don't drag a settled payment back into escrow — a released or refunded
         // payment is terminal (mirrors accept/reject + Support's flagPayoutHold).
-        if (! in_array($payment->status, ['released', 'refunded'], true)) {
-            $this->settle($request, $payment, 'hold_payout', ['status' => 'held']);
+        if (! in_array($payment->status, Payment::TERMINAL, true)) {
+            $this->settle($request, $payment, 'hold_payout', ['status' => Payment::STATUS_HELD]);
         }
 
         return response()->json($payment->fresh()->load('approvedBy'));

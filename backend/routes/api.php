@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\ConfigurationController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\ModerationController;
 use App\Http\Controllers\Admin\OversightController;
+use App\Http\Controllers\Admin\PayoutInterventionController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Client\AdController;
@@ -17,7 +20,6 @@ use App\Http\Controllers\Client\InvoiceController;
 use App\Http\Controllers\Client\ProofFlagController;
 use App\Http\Controllers\Client\SpaceSearchController;
 use App\Http\Controllers\Client\WalletController;
-use App\Http\Controllers\Manager\UserController;
 use App\Http\Controllers\Payments\DashboardController as PaymentsDashboardController;
 use App\Http\Controllers\Payments\PaymentController;
 use App\Http\Controllers\Provider\BookingController as ProviderBookingController;
@@ -41,6 +43,16 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
+    // ── The caller's own account (design.json §3) ───────────────────
+    // Owner 2026-08-03: only the account OWNER deletes an account, and only their
+    // own — hence no {id} here and no delete verb anywhere else in the API. Staff
+    // roles have no account (accounts.type is client|provider), so they are not
+    // in the role list. DELETE takes `confirm_proof_loss` — see AccountController.
+    Route::middleware('role:client,provider')->group(function () {
+        Route::get('account', [AccountController::class, 'show']);
+        Route::delete('account', [AccountController::class, 'destroy']);
+    });
 
     // ── Client routes ───────────────────────────────────────
     Route::middleware('role:client')->prefix('client')->group(function () {
@@ -79,10 +91,13 @@ Route::middleware('auth:sanctum')->group(function () {
         // Space search
         Route::get('spaces/search', [SpaceSearchController::class, 'search'])->middleware('permission:spaces,read');
 
-        // Collaborators
-        Route::get('campaigns/{campaign}/collaborators', [CollaboratorController::class, 'index'])->middleware('permission:collaborators,read');
-        Route::post('campaigns/{campaign}/collaborators', [CollaboratorController::class, 'store'])->middleware('permission:collaborators,create');
-        Route::delete('campaigns/{campaign}/collaborators/{collaborator}', [CollaboratorController::class, 'destroy'])->middleware('permission:collaborators,delete');
+        // Collaborators — ACCOUNT-scoped (§3, AC-collab-04). The campaign-nested
+        // routes are RETIRED: §3 says a collaborator "points to account_id (never
+        // a campaign or space)", and nesting them under a campaign is what let the
+        // same person be invited once per campaign under unique(campaign_id,email).
+        Route::get('collaborators', [CollaboratorController::class, 'index'])->middleware('permission:collaborators,read');
+        Route::post('collaborators', [CollaboratorController::class, 'store'])->middleware('permission:collaborators,create');
+        Route::delete('collaborators/{collaborator}', [CollaboratorController::class, 'destroy'])->middleware('permission:collaborators,delete');
 
         // Invoices
         Route::get('invoices', [InvoiceController::class, 'index'])->middleware('permission:invoices,read');
@@ -111,7 +126,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('spaces', [SpaceController::class, 'store'])->middleware('permission:spaces,create');
         Route::get('spaces/{space}', [SpaceController::class, 'show'])->middleware('permission:spaces,read');
         Route::put('spaces/{space}', [SpaceController::class, 'update'])->middleware('permission:spaces,update');
+        // UC-37 — DELETE unpublishes and PROGRAMS a deletion; it does not destroy. The
+        // purge is `php artisan spaces:purge`, run by a human.
         Route::delete('spaces/{space}', [SpaceController::class, 'destroy'])->middleware('permission:spaces,delete');
+        Route::post('spaces/{space}/cancel-deletion', [SpaceController::class, 'cancelDeletion'])->middleware('permission:spaces,update');
 
         // Space photos
         Route::post('spaces/{space}/photos', [SpacePhotoController::class, 'store'])->middleware('permission:space_photos,create');
@@ -148,7 +166,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('users', [AdminUserController::class, 'store'])->middleware('permission:users,create');
         Route::get('users/{user}', [AdminUserController::class, 'show'])->middleware('permission:users,read');
         Route::put('users/{user}', [AdminUserController::class, 'update'])->middleware('permission:users,update');
-        Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->middleware('permission:users,delete');
+        // No DELETE users/{user} (owner 2026-08-03). An admin takes a person off their roles;
+        // only the account owner deletes an account. See Admin\UserController for why.
 
         // Permissions management (NO permission middleware — prevent lockout)
         Route::get('permissions', [PermissionController::class, 'index']);
@@ -168,6 +187,24 @@ Route::middleware('auth:sanctum')->group(function () {
         // There is no write verb here by design: entries are written by the actions
         // themselves, in their own transaction.
         Route::get('audit', [AuditController::class, 'index'])->middleware('permission:audit,read');
+
+        // UC-29 · design.json §12/§17 — ADMIN MODERATION. The only writes Admin has,
+        // and each one is audited (slugs: takedown / restore / freeze / unfreeze).
+        // §12's three levels stay distinct: the provider's own pause is
+        // PUT /provider/spaces/{s} {is_active}, which cannot clear a takedown (409).
+        Route::get('moderation', [ModerationController::class, 'index'])->middleware('permission:moderation,read');
+        Route::post('spaces/{space}/takedown', [ModerationController::class, 'takedown'])->middleware('permission:moderation,update');
+        Route::post('spaces/{space}/restore', [ModerationController::class, 'restore'])->middleware('permission:moderation,update');
+        Route::post('providers/{user}/freeze', [ModerationController::class, 'freeze'])->middleware('permission:moderation,update');
+        Route::post('providers/{user}/unfreeze', [ModerationController::class, 'unfreeze'])->middleware('permission:moderation,update');
+
+        // UC-32 · design.json §8 — the payout-stop window and the clawback. Admin has
+        // no other money power (§12: "no money-execution role beyond the payout-stop
+        // window"); the clawback is separately gated on moderation.refund because it
+        // is the one action here that takes money BACK from a provider already paid.
+        Route::get('payouts', [PayoutInterventionController::class, 'index'])->middleware('permission:moderation,read');
+        Route::post('payments/{payment}/payout/stop', [PayoutInterventionController::class, 'stop'])->middleware('permission:moderation,update');
+        Route::post('payments/{payment}/clawback', [PayoutInterventionController::class, 'clawback'])->middleware('permission:moderation,refund');
 
         // System configurations (C12)
         Route::get('configurations', [ConfigurationController::class, 'index'])->middleware('permission:configurations,read');

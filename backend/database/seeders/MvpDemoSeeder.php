@@ -78,12 +78,12 @@ class MvpDemoSeeder extends Seeder
         $today = Carbon::create(2026, 6, 15);
         $plan = [
             // provider1 spaces booked by client1
-            [$p1Spaces->get(0), $client1, $adset1, 'image', 'active',         'completed', 'approved'],
-            [$p1Spaces->get(1), $client1, $adset1, 'video', 'waiting_proof',  'completed', 'pending_review'],
+            [$p1Spaces->get(0), $client1, $adset1, 'image', 'active',         'completed', 'client_accepted'],
+            [$p1Spaces->get(1), $client1, $adset1, 'video', 'waiting_proof',  'completed', 'proof_uploaded'],
             [$p1Spaces->get(2), $client1, $adset1, 'image', 'waiting_approval','pending',   null],
             // provider2 spaces booked by client2
-            [$p2Spaces->get(0), $client2, $adset2, 'image', 'active',         'completed', 'rejected'],
-            [$p2Spaces->get(1) ?? $p2Spaces->get(0), $client2, $adset2, 'video', 'completed', 'completed', 'approved'],
+            [$p2Spaces->get(0), $client2, $adset2, 'image', 'active',         'completed', 'client_rejected'],
+            [$p2Spaces->get(1) ?? $p2Spaces->get(0), $client2, $adset2, 'video', 'completed', 'completed', 'client_accepted'],
             [$p1Spaces->get(0), $client2, $adset2, 'image', 'cancelled',      'refunded',  null],
         ];
 
@@ -132,10 +132,10 @@ class MvpDemoSeeder extends Seeder
                     'media_type' => $mediaType === 'video' ? 'video' : 'image',
                     'file_path' => 'proofs/demo-' . $booking->id . ($mediaType === 'video' ? '.mp4' : '.jpg'),
                     'file_name' => 'proof-' . $booking->id . ($mediaType === 'video' ? '.mp4' : '.jpg'),
-                    'notes' => $proofStatus === 'rejected' ? 'La imagen no coincide con el anuncio aprobado.' : null,
+                    'notes' => $proofStatus === 'client_rejected' ? 'La imagen no coincide con el anuncio aprobado.' : null,
                     'status' => $proofStatus,
-                    'reviewed_by_user_id' => $proofStatus === 'pending_review' ? null : $payments?->id,
-                    'reviewed_at' => $proofStatus === 'pending_review' ? null : $today,
+                    'reviewed_by_user_id' => $proofStatus === 'proof_uploaded' ? null : $payments?->id,
+                    'reviewed_at' => $proofStatus === 'proof_uploaded' ? null : $today,
                     'deadline' => (clone $start)->addDays(5),
                 ]);
                 $bookingsForProof[] = $booking;

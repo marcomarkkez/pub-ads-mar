@@ -153,6 +153,10 @@ class AuditWritersTest extends TestCase
             'status' => 'client_accepted',
         ]);
 
+        // §8 — the gate now reads the PAYMENT, not the proofs. `free_payment` is what the
+        // client's accept writes; this fixture builds the proof directly, so it must say so.
+        $payment->update(['status' => \App\Models\Payment::STATUS_FREE_PAYMENT]);
+
         Sanctum::actingAs($this->payments);
         $this->postJson("/api/payments/payments/{$payment->id}/payout/release")->assertOk();
 
@@ -223,19 +227,50 @@ class AuditWritersTest extends TestCase
         $this->assertSame('provider', $entry->after['role']);
     }
 
-    public function test_admin_deleting_an_account_is_audited_before_the_row_disappears(): void
+    /**
+     * §2 (owner 2026-08-03) — the admin has no delete at all. This replaces the old test
+     * that asserted the deletion was audited: auditing was never the protection, because
+     * every root FK still cascades and the log recorded a loss it could not undo.
+     */
+    public function test_admin_cannot_delete_an_account_at_all(): void
     {
         $user = User::factory()->create(['role' => 'client', 'email' => 'gone@pubads.test']);
 
         Sanctum::actingAs($this->admin);
-        $this->deleteJson("/api/admin/users/{$user->id}")->assertOk();
+        $this->deleteJson("/api/admin/users/{$user->id}")->assertStatus(405);
 
-        $entry = $this->lastEntry();
-        $this->assertSame('delete', $entry->action);
-        $this->assertSame($user->id, $entry->target_id);
-        $this->assertSame('gone@pubads.test', $entry->before['email']);
-        $this->assertNull($entry->after);
-        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+        $this->assertDatabaseHas('users', ['id' => $user->id]);
+    }
+
+    /** The capability itself is ungrantable, so no future route can inherit a standing yes. */
+    public function test_users_delete_cannot_be_granted_back_to_any_role(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->patchJson('/api/admin/permissions/admin/users', ['actions' => ['read', 'update', 'delete']])
+            ->assertStatus(422)
+            ->assertJsonPath('rejected_action', 'delete');
+
+        $this->patchJson('/api/admin/permissions/support/users', ['actions' => ['delete']])
+            ->assertStatus(422);
+
+        $this->assertDatabaseMissing('role_permissions', ['resource' => 'users', 'action' => 'delete']);
+    }
+
+    /** …and the admin cannot edit itself out of the only sanctioned way to manage users. */
+    public function test_admin_cannot_drop_its_own_user_management(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->patchJson('/api/admin/permissions/admin/users', ['actions' => ['read']])
+            ->assertStatus(422)
+            ->assertJsonPath('required_actions.0', 'update');
+
+        // A whole-matrix rewrite that simply OMITS `users` is the same lockout by another route.
+        $this->putJson('/api/admin/permissions/admin', ['permissions' => ['dashboard' => ['read']]])
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('role_permissions', ['role' => 'admin', 'resource' => 'users', 'action' => 'update']);
     }
 
     public function test_a_no_op_account_edit_writes_no_entry(): void
@@ -258,7 +293,9 @@ class AuditWritersTest extends TestCase
         $this->putJson('/api/admin/configurations', [
             'configs' => [
                 ['key' => 'proof_deadline_days', 'value' => '7'],
-                ['key' => 'auto_approve_threshold', 'value' => '500'],
+                // A REAL key. `auto_approve_threshold` is promised by §2 but no code reads
+                // it, so it is deliberately not whitelisted — see the §2 note in design.json.
+                ['key' => 'strike_window_days', 'value' => '500'],
             ],
             'apply_scope' => 'new_only',
         ])->assertOk();

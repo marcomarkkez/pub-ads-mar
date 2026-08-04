@@ -9,6 +9,7 @@ use App\Models\SystemConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ConfigurationController extends Controller
 {
@@ -23,7 +24,7 @@ class ConfigurationController extends Controller
     {
         $validated = $request->validate([
             'configs' => 'required|array|min:1',
-            'configs.*.key' => 'required|string|max:255',
+            'configs.*.key' => ['required', 'string', Rule::in(SystemConfiguration::KNOWN_KEYS)],
             'configs.*.value' => 'nullable',
             'apply_scope' => 'required|in:new_only,all',
         ]);
@@ -51,12 +52,19 @@ class ConfigurationController extends Controller
 
                 $inFlight = ['pending', 'waiting_approval', 'confirmed', 'active', 'waiting_proof'];
 
-                Booking::whereIn('status', $inFlight)->get()->each(function (Booking $booking) use ($deadline, &$patched) {
-                    $snapshot = $booking->config_snapshot ?? [];
-                    $snapshot['proof_deadline_days'] = $deadline;
-                    $booking->update(['config_snapshot' => $snapshot]);
-                    $patched++;
-                });
+                // Each row needs its OWN snapshot merged (the other keys must survive), so this
+                // stays one UPDATE per booking — but chunked, not loaded whole. `get()->each()`
+                // pulled every in-flight booking into memory at once, which is fine with the
+                // seeder's handful and is not fine on a real season.
+                Booking::whereIn('status', $inFlight)
+                    ->chunkById(200, function ($bookings) use ($deadline, &$patched) {
+                        foreach ($bookings as $booking) {
+                            $snapshot = $booking->config_snapshot ?? [];
+                            $snapshot['proof_deadline_days'] = $deadline;
+                            $booking->update(['config_snapshot' => $snapshot]);
+                            $patched++;
+                        }
+                    });
             }
 
             // §2 · System config is Admin's 🟢 and a staff write, so it is 📝-logged:

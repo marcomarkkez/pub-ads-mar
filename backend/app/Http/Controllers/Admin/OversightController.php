@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Chat;
 use App\Services\ChatObjectAuthorizer;
 use Illuminate\Http\JsonResponse;
@@ -72,10 +73,25 @@ class OversightController extends Controller
      * UC-28 — one chat, FULL unmasked history incl. flags + closed chats. Admin
      * bypasses the participant guard and PII masking (the eagle-eye exception).
      */
-    public function chat(Chat $chat): JsonResponse
+    public function chat(Request $request, Chat $chat): JsonResponse
     {
         $chat->load(['client', 'provider', 'opener', 'closedBy', 'flags.createdBy', 'objects.objectable', 'participants.user', 'messages.sender']);
         $chat->setAttribute('nature', $chat->deriveNature());
+
+        // §2 marks this row 🤫📝 — the read is SILENT to the participants, which is exactly
+        // why it cannot also be silent to the record. This endpoint hands an admin a client's
+        // unmasked phone number and the internal Support↔Payments money chat, with no system
+        // message and no announced participant; the audit row is the only trace that the
+        // incognito power was used at all. There is no `before`/`after`: nothing changed —
+        // what is being logged is the access itself.
+        AuditLog::record(
+            $request->user(),
+            'chat_oversight_read',
+            $chat,
+            null,
+            null,
+            'Admin read chat #' . $chat->id . ' unmasked via eagle-eye oversight (§12 · UC-28)',
+        );
 
         return response()->json($chat);
     }

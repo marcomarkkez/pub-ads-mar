@@ -221,7 +221,7 @@ table {
   text-transform: uppercase;
   letter-spacing: 0.3px;
 
-  &.badge-active, &.badge-confirmed, &.badge-approved, &.badge-available {
+  &.badge-active, &.badge-confirmed, &.badge-approved, &.badge-available, &.badge-accepted {
     background: #dcfce7; color: #166534;
   }
   &.badge-pending, &.badge-draft, &.badge-open {
@@ -238,6 +238,27 @@ table {
   }
   &.badge-blocked {
     background: #f3f4f6; color: #6b7280;
+  }
+
+  /* === Payment states (§8) ===
+     `payments.status` is the only authority over where the money is, so each of its 7
+     values needs its own badge. `free_payment` (client accepted the proof → READY TO PAY)
+     and `held` (frozen inside a live dispute) are the pair that must NEVER look alike:
+     teal "go" vs red "stop", each with its own ring so they differ in shape too. */
+  &.badge-free_payment {
+    background: #ccfbf1; color: #0f766e; box-shadow: inset 0 0 0 1px #14b8a6;
+  }
+  &.badge-held {
+    background: #ffe4e6; color: #9f1239; box-shadow: inset 0 0 0 2px #f43f5e;
+  }
+  &.badge-released {
+    background: #dcfce7; color: #166534;
+  }
+  &.badge-refunded {
+    background: #ede9fe; color: #5b21b6;
+  }
+  &.badge-failed {
+    background: #fee2e2; color: #991b1b;
   }
 }
 

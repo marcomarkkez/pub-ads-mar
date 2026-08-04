@@ -10,6 +10,18 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Booking extends Model
 {
+    /**
+     * UC-29 · §12 — the bookings an account FREEZE auto-cancels and refunds:
+     * agreed or awaiting agreement, and not started yet.
+     *
+     * `active` and `waiting_proof` are deliberately absent. A display that is
+     * already running is not "upcoming": cancelling it would refund a client for
+     * work the provider has performed, and would delete the record a proof and a
+     * payout are argued from. Those bookings keep their money state and are
+     * reported back to the admin instead.
+     */
+    public const UPCOMING_STATUSES = ['pending', 'waiting_approval', 'confirmed'];
+
     protected $fillable = [
         'client_user_id',
         'space_id',

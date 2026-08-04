@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
-import { Booking, Proof } from '../../../core/models';
+import { Booking, Proof, paymentStatusLabel } from '../../../core/models';
 
 @Component({
   selector: 'app-booking-list',
@@ -69,12 +69,6 @@ import { Booking, Proof } from '../../../core/models';
                           <span style="color:var(--text-muted);display:block;">Booking ID</span>
                           <strong>#{{ booking.id }}</strong>
                         </div>
-                        @if (booking.notes) {
-                          <div>
-                            <span style="color:var(--text-muted);display:block;">Notes</span>
-                            <span>{{ booking.notes }}</span>
-                          </div>
-                        }
                         <div>
                           <span style="color:var(--text-muted);display:block;">Created</span>
                           <span>{{ booking.created_at | date:'medium' }}</span>
@@ -83,19 +77,13 @@ import { Booking, Proof } from '../../../core/models';
                           <div>
                             <span style="color:var(--text-muted);display:block;">Payment Status</span>
                             <span class="badge" [class]="'badge badge-' + booking.payment.status">
-                              {{ booking.payment.status }}
+                              {{ paymentLabel(booking.payment.status) }}
                             </span>
                           </div>
                           <div>
                             <span style="color:var(--text-muted);display:block;">Payment Amount</span>
                             <strong>\${{ booking.payment.amount }}</strong>
                           </div>
-                          @if (booking.payment.paid_at) {
-                            <div>
-                              <span style="color:var(--text-muted);display:block;">Paid At</span>
-                              <span>{{ booking.payment.paid_at | date:'medium' }}</span>
-                            </div>
-                          }
                         }
                       </div>
 
@@ -114,7 +102,7 @@ import { Booking, Proof } from '../../../core/models';
                               @if (proof.notes) {
                                 <p style="font-size:12px;color:var(--text-muted);margin:8px 0 0;">{{ proof.notes }}</p>
                               }
-                              @if (proof.status === 'pending_review') {
+                              @if (proof.status === 'proof_uploaded') {
                                 <p style="font-size:12px;margin:8px 0;">Review the provider's proof and accept it (payout becomes releasable) or reject it (payout is held and Support reviews the case).</p>
                                 <div style="display:flex;gap:8px;">
                                   <button class="btn btn-sm btn-success" [disabled]="actionLoading()" (click)="acceptProof(proof)">Accept</button>
@@ -152,6 +140,8 @@ import { Booking, Proof } from '../../../core/models';
 })
 export class BookingListComponent implements OnInit {
   private readonly api = environment.apiUrl;
+
+  readonly paymentLabel = paymentStatusLabel;
 
   bookings = signal<Booking[]>([]);
   loading = signal(true);
@@ -197,7 +187,7 @@ export class BookingListComponent implements OnInit {
 
   proofLabel(status: string): string {
     switch (status) {
-      case 'pending_review': return 'Awaiting your review';
+      case 'proof_uploaded': return 'Awaiting your review';
       case 'client_accepted': return 'Accepted';
       case 'client_rejected': return 'Rejected';
       default: return status;

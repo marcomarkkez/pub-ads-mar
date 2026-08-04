@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Ad;
 use App\Models\Campaign;
+use App\Models\Proof;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -28,7 +29,7 @@ class AuthorizationNegativeTest extends TestCase
         Sanctum::actingAs($stranger);
         // 404, not 403 — §21 rule 2 (Q37): a stranger must not learn that this proof exists.
         $this->postJson("/api/client/proofs/{$proof->id}/reject", ['reason' => 'nope'])->assertStatus(404);
-        $this->assertSame('pending_review', $proof->fresh()->status);
+        $this->assertSame(Proof::STATUS_UPLOADED, $proof->fresh()->status);
     }
 
     public function test_provider_cannot_use_the_client_proof_review_routes(): void

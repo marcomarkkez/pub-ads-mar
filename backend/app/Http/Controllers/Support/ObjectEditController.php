@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Support;
 
+use App\Enums\ApiErrorCode;
 use App\Http\Controllers\Controller;
 use App\Models\Ad;
 use App\Models\AuditLog;
@@ -74,6 +75,22 @@ class ObjectEditController extends Controller
             'calendar_keyword' => 'sometimes|nullable|string|max:100',
             'is_active' => 'sometimes|boolean',
         ]);
+
+        // UC-29 · §12 — an admin TAKEDOWN is not Support's to lift either. Support is
+        // near-admin on content, but the three levels of §12 belong to whoever set
+        // them: `taken_down_at` is admin's and has no route outside
+        // Admin\ModerationController. Structurally Support could not clear it (it is
+        // not fillable and not in this whitelist); this refusal exists so a Support
+        // agent re-publishing a moderated listing is told why nothing happened
+        // instead of reading a 200 that changed nothing visible.
+        if ($space->isTakenDown() && ($validated['is_active'] ?? false) === true) {
+            return response()->json([
+                'error_code' => ApiErrorCode::ConflictingState->value,
+                'message' => 'This listing is under an admin takedown (§12 · UC-29). Only an admin can restore it: POST /admin/spaces/' . $space->id . '/restore.',
+                'taken_down_at' => $space->taken_down_at,
+                'takedown_reason' => $space->takedown_reason,
+            ], 409);
+        }
 
         return $this->applyEdit($request, $space, $validated);
     }

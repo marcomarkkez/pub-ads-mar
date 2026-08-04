@@ -10,12 +10,11 @@
     "version": "2",
     "preamble": "This file is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed ARCHITECTURE.md, cases.md, platform-graph.md and the useful parts of\ncompliance-report.md (2026-06-27), then design.md and .claude/todos/mvp-sprint.json (2026-08-02).\nThere is no second document: schema, routes, specs, decisions, the role/object graph, user\nstories and the build backlog all live here.\n\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSpecs 1-18 are the SPECS (kept tight); spec 19 is the verbose USER STORIES, also structured in\n`userStories[]`. Spec 0 lives in `notation` — read it first to parse the `kanban` state.\n\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering.\n\nCode traceability: every file/class/method implementing a behavior here carries a short comment\nnaming the spec it satisfies (e.g. `design.json §7 proof`). Older comments say `design.md §N` —\nthe number still resolves, it is `specs[].id`.\n\nFeature codes: each spec carries `features` (`[Fxx]`) matching `todos[]`; `[infra]`/`[dev]`/\n`[all]` mark cross-cutting specs that are not a single feature. The granular build backlog and\nits `mvp-sprint:` prefixed ids are under `mvpSprint`.",
     "sectionRefConvention": "Code comments say \"design.md §N\". design.md is gone; §N still resolves — it is specs[].id N in this file. New comments should say \"design.json §N\".",
-    "provenancePointersConvention": "Many strings under mvpSprint carry provenance pointers such as `design:412`, \"design.md\" or `cases#…`/`journey#…`: they cite files that were folded into design.json and deleted on 2026-08-02, so those LINE NUMBERS are dead and are deliberately left unedited as historical citations — the `§` id is the authoritative reference.",
     "preambleHistory": "This document is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed the former ARCHITECTURE.md, cases.md, platform-graph.md, and the\nuseful parts of compliance-report.md (consolidated 2026-06-27) — design.md is now the one\nhome for schema, routes, specs, decisions, the role/object graph, and user stories.\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSections 1–18 are the SPECS (kept tight); section 19 is the verbose USER STORIES.\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering. Code traceability: every file/class/method implementing a\nbehavior here carries a short comment naming the spec it satisfies (e.g. `design.md §7 proof`).\nFeature codes: section/sub-section headers carry a `[Fxx]` tag matching the feature index in\n`.claude/todos/mvp-sprint.json` → `feature_review` (e.g. `[F06]` = booking action & per-ad\ngo-live). Use these shared codes when referring to a feature. `[infra]`/`[dev]`/`[all]` mark\ncross-cutting sections that are not a single feature.\nSpec-Kanban: every spec header ALSO carries a one-line `kanban:` state tag (status/weight/\nimpacts/deps/ids) so this doc doubles as a live board — **read §0 first** for the notation."
   },
   "notation": {
     "title": "Spec-Kanban (how to read this file)",
-    "body": "Every spec header carries a one-line `kanban:` tag right under it, so this doc IS the board — no\nsecond tool, no status duplicated elsewhere. It renders as tidy chips and parses cleanly for a\nfuture visual-kanban UI.\n\nLine grammar (stable — a renderer can rely on it):\n  kanban: `status:VALUE` · `weight:VALUE` · `impacts:LIST` · `deps:LIST` · `ids:LIST`\n  - one line, starts literally with `kanban:` (grep the board: `grep '^kanban:' design.md`).\n  - each field is a backticked `key:value` chip; chips are separated by ` · ` (middot).\n  - parser: take every backtick span matching `([a-z]+):([^`]*)`; a LIST is comma-separated with\n    no spaces; `-` means none.\n\nFields:\n  - status — lifecycle; NOTHING is `done` until it clears the DOUBLE gate:\n      · `backlog` — specced, not started.\n      · `wip`     — being implemented (code in flight).\n      · `review`  — implemented AND under verification. `review` is a WEIGHTED state, not a rubber\n                    stamp: cleared ONLY by BOTH (a) automated tests green on Postgres AND (b) a\n                    human walkthrough of the flow. Missing either → it stays in review.\n      · `done`    — verified: tests green + human-confirmed. A regression sends it back to `wip`.\n  - weight — total effort incl. build + automated tests + human verification: `S | M | L | XL`.\n  - impacts — features/specs this ENABLES or breaks downstream (→).\n  - deps    — what must land first, upstream (←).\n  - ids     — granular task ids in `mvp-sprint.json → spec_backlog` (design ↔ todos trace).\n\nProse vs kanban: the PROSE is the spec (what to build); the `kanban:` line is the live STATE of\nthat work; `[Fxx]` still tags the feature. When they disagree, fix the lagging one.",
+    "body": "Every spec carries a `kanban` object, so this file IS the board — no second tool, no status\nduplicated elsewhere. The dashboard renders it as tidy chips in the Kanban view of Specs.\n\nShape (stable — a renderer can rely on it):\n  `specs[].kanban` = `{ status, weight, impacts[], deps[], ids[] }`\n  - `status` and `weight` are single strings; `impacts`, `deps` and `ids` are arrays of ids —\n    an empty array means none.\n  - read the board: the dashboard's Kanban view of Specs, or\n    `jq '.specs[] | {id, kanban}' design/design.json`.\n\nFields:\n  - status — lifecycle; NOTHING is `done` until it clears the DOUBLE gate:\n      · `backlog` — specced, not started.\n      · `wip`     — being implemented (code in flight).\n      · `review`  — implemented AND under verification. `review` is a WEIGHTED state, not a rubber\n                    stamp: cleared ONLY by BOTH (a) automated tests green on Postgres AND (b) a\n                    human walkthrough of the flow. Missing either → it stays in review.\n      · `done`    — verified: tests green + human-confirmed. A regression sends it back to `wip`.\n  - weight — total effort incl. build + automated tests + human verification: `S | M | L | XL`.\n  - impacts — features/specs this ENABLES or breaks downstream (→).\n  - deps    — what must land first, upstream (←).\n  - ids     — granular task ids in `mvpSprint.specBacklog.domains` (spec ↔ backlog trace).\n\nProse vs kanban: the PROSE is the spec (what to build); the `kanban` object is the live STATE of\nthat work; `[Fxx]` still tags the feature. When they disagree, fix the lagging one.",
     "bodyFormat": "markdown"
   },
   "legend": {
@@ -233,6 +232,10 @@
       {
         "term": "Conversation / MessageController / tickets",
         "meaning": "RETIRADOS. Nombres de la arquitectura anterior a CHAT-1. Las tablas `conversations` y `tickets` estan borradas por migracion. Hoy todo es un solo primitivo: `chats` + `chat_participants` + `chat_objects` + `chat_flags` + `messages`, servido por `Shared/ChatController`."
+      },
+      {
+        "term": "WALK-n vs DASH-n",
+        "meaning": "Se parecen y no son lo mismo. Un WALK-n es un recorrido humano por el PRODUCTO real: una persona usa la plataforma como la usaria un cliente o un proveedor, y el recorrido cierra un Fxx. Un DASH-n era navegar design/design.html, la HERRAMIENTA de planeacion — no es producto, es entregable de documentacion, y nada de lo que ahi se comprueba afecta a un usuario. La distincion importa porque un WALK bloquea que una funcion pase a `done` y un DASH no bloquea nada. DASH-1 (navegar el dashboard de diseno) se convirtio en WALK-4: seguia siendo un recorrido humano, solo que sobre la herramienta, asi que vive en .walkthroughs y no en el indice de UCs, donde nunca habria podido cerrarse."
       }
     ]
   },
@@ -269,16 +272,6 @@
           "F09",
           "UC-9",
           "WALK-1"
-        ]
-      },
-      {
-        "id": "Q53",
-        "question": "¿Como se llama el estado inicial de una prueba tras colapsar el enum?",
-        "oneLiner": "El enum se colapsa a tres valores (Q42). El codigo y los tests usan hoy `pending_review`; el texto de §12 decia `pending`/`uploaded`. Se pidio quitar `pending_review`, pero el enum necesita SI O SI un tercer estado para \"prueba subida, esperando al cliente\" — si no, no hay forma de distinguir una prueba recien subida de una ya aceptada. La pregunta es solo el NOMBRE: `pending_review` (lo que corre hoy) o `uploaded` (lo que decia §12).",
-        "impacts": [
-          "§12",
-          "F07",
-          "PR-status-02"
         ]
       }
     ],
@@ -384,6 +377,11 @@
         "oneLiner": "No hay cron en el contenedor: nada de lo programado se ejecuta.",
         "resolution": "Para el MVP la purga se dispara a mano con un comando. El cron queda anotado como deuda de infraestructura.",
         "answeredOn": "2026-08-03"
+      },
+      {
+        "id": "Q53",
+        "oneLiner": "El enum se colapsa a tres valores (Q42). El codigo y los tests usan hoy `pending_review`; el texto de §12 decia `pending`/`uploaded`. Se pidio quitar `pending_r",
+        "resolution": "El estado inicial se llama `proof_uploaded`: nombra el hecho que ocurrio (el proveedor subio) en vez de una cola de revision que nadie atiende — el cliente revisa, no Support. El enum queda en tres: proof_uploaded | client_accepted | client_rejected. El `free_payment` que pidio el dueno no cabia aqui (una prueba no opina sobre el dinero) pero destapo un defecto real y vive en payments.status: antes `held` significaba a la vez \"listo para pagar\" y \"congelado en disputa\". Aplicado en codigo: migraciones q53_collapse_proof_status y add_free_payment_to_payments_status, Proof::STATUS_UPLOADED, Payment::STATUS_FREE_PAYMENT."
       }
     ]
   },
@@ -504,6 +502,37 @@
           }
         ],
         "notes": "F11 se cerro con evidencia de tests y su recorrido nunca se ejecuto; por eso baja a `review` hasta que este recorrido pase."
+      },
+      {
+        "id": "WALK-4",
+        "title": "Recorrido humano del dashboard de diseno (antes DASH-1)",
+        "todoId": null,
+        "status": "pending",
+        "closes": [],
+        "specs": [],
+        "ucs": [],
+        "groups": [],
+        "steps": [
+          {
+            "id": "W4-1",
+            "role": "stakeholder",
+            "action": "Servir design/ por HTTP y abrir el dashboard; recorrer las diez vistas (Specs, Todos, Flow, ER, Classes, Stories, Sprint, Glosario, Preguntas, Recorridos).",
+            "expected": "Cada vista carga sin errores de consola y ninguna queda vacia."
+          },
+          {
+            "id": "W4-2",
+            "role": "stakeholder",
+            "action": "Buscar un id conocido (§10, UC-21, F11, WALK-1) en el buscador de cada vista.",
+            "expected": "El filtro reduce la vista al objeto buscado y el id citado resuelve a algo real."
+          },
+          {
+            "id": "W4-3",
+            "role": "stakeholder",
+            "action": "Abrir una pregunta del glosario y seguir su puntero (§N o UC-N) hasta la seccion citada.",
+            "expected": "El puntero llega a una seccion que existe. Ningun `design:NNN` ni `design.md` sobrevive."
+          }
+        ],
+        "notes": "Nacio como el UC propuesto DASH-1. No cierra ningun Fxx: el dashboard es documentacion, no producto. Se ejecuta cuando la planeacion cambia de forma, no en cada sprint."
       }
     ]
   },
@@ -1345,7 +1374,7 @@
         "ids": []
       },
       "summary": "The verbose, story-level source of truth (UC-1..UC-40) — the Use-Case Index, per-role UX notes, the ~35-event notification/alert schema, media-delivery specs by space type, and representative end-to-end journeys. Specs win when a story and a spec disagree.",
-      "body": "> The verbose, story-level source of truth for what each role does. The canonical DESIGN\n> (modules, enums, policies) is in §1–18 — when a story and a spec ever disagree, the spec wins.\n> All `[owner YYYY-MM-DD]` decisions are folded in. This is intentionally the longest section.\n\nScenario prose for each role is folded into §1–14 specs and the journeys below; only the\nnon-redundant UX details unique to stories are kept here.\nEvery user story / case / journey carries a stable **UC-N** code (backend functions/classes tag the\nUC they satisfy — e.g. `design.md UC-7`; chat/dispute/payment UCs are keyed in\n`scratchpad/uc-index.md`). `UC-N — title — primary spec §`:\n\n<!-- [owner 2026-07-29] Promoted two suggested proposals to canonical UCs: F01→UC-41 (actor USER, since every role is a type of user; ACCOUNTS stays reserved for multi-user accounts) and §11→UC-42 (actor CLIENT). UC-42 is framed around user SUCCESS with the unified chat UX, not the tickets→chat merge history. The remaining infra/meta proposals (§0,§1,§15–§20,DASH-1) stay 'suggested' — their actors are docs readers / engineers, not platform users, so they are not user stories. -->\nUSER (cross-cutting — every role is a type of user)\n- UC-41 — User signs in and the platform grants exactly their role's capabilities (RBAC-scoped workspace; failed login is clear & non-leaky) — §1, §14\n- UC-43 — Every screen and endpoint authorizes by the OWNERSHIP CHAIN (user → account → campaign → adset → ad; space → provider account). A break anywhere returns 404, never 403. Cross-account moves are refused; same-account moves carry their bookings. — §21, §14\n\nCLIENT\n- UC-1 — Client searches & multi-selects spaces on the map — §5\n- UC-2 — Client organizes campaign / adset / ads from the backlog — §4, §5\n- UC-3 — Client uploads spec-validated creative — §4, §5\n- UC-4 — Client checks out & pays (ONE invoice per campaign) — §8\n- UC-5 — Client books-for-later / pre-pays into escrow (AFTER-MVP) — §6\n- UC-6 — Client reviews & ACCEPTS proof → payout releasable — §7\n- UC-7 — Client REJECTS proof / flags mismatch → dispute (3 chats + hold) — §7, §10\n- UC-8 — Client opens a provider inquiry FROM the provider's published space/ad listing (space attached; the ONLY path to a provider — providers have no public profile/UI) — §10\n- UC-9 — Client contacts Support from Messages or an ad/adset/campaign object (object = context, provider NOT pulled in); a Billing-opened chat is Support-fronted with the payment attached (Payments looped in via the internal chat) — §10\n- UC-10 — Client cancels a booking (refund per policy) — §8\n- UC-11 — Client views wallet & withdraws — §8\n- UC-12 — Client rates a provider (AFTER-MVP) — §9\n- UC-42 — User resolves everything in one seamless conversation — no juggling tickets vs chat (one uniform chat UI; Support, and Payments when money is involved, join the same thread) — §10, §11\n\nPROVIDER\n- UC-13 — Provider lists a space & declares specs — §4, §5\n- UC-14 — Provider manages availability calendar (iCal sync) — §13\n- UC-15 — Provider approves / rejects a booking request — §5\n- UC-16 — Provider / Installator uploads the PRIMARY proof — §7\n- UC-17 — Provider receives a payout — §8\n- UC-18 — Provider views strike counter / appeals a strike — §7\n\nACCOUNTS & COLLABORATORS\n- UC-19 — Owner invites & manages collaborators — §3, §14\n- UC-20 — Collaborator acts within subrole scope — §3\n\nSUPPORT\n- UC-21 — Support joins a client↔provider chat (announced, PII relax) — §10\n- UC-22 — Support investigates a dispute & RAISES a money flag — §7, §10\n- UC-23 — Support edits a non-money object (audited) — §12\n- UC-24 — Support reverses a strike (audited) — §7\n\nPAYMENTS\n- UC-25 — Payments approves/executes payment & payout (processing queue) — §8\n- UC-26 — Payments executes a refund — §8\n- UC-27 — Payments huddles with Support in the internal chat — §10\n\nADMIN\n- UC-28 — Admin chat oversight (read-only, incognito) — §10, §12\n- UC-29 — Admin moderation: takedown / restore / freeze — §12\n- UC-30 — Admin configures System Configurations + RBAC matrix — §12, §14\n- UC-31 — Admin reviews the immutable audit log — §12\n- UC-32 — Admin payout-stop window & clawback decision — §8\n\nEND-TO-END JOURNEYS (composite — see below)\n- UC-33 — Journey: first-time client, single billboard (UC-1..4, UC-6) — §19\n- UC-34 — Journey: first-time provider (UC-13..17) — §19\n- UC-35 — Journey: disputed proof (UC-7, UC-22, UC-25, UC-27) — §7, §10\n- UC-36 — Journey: ad creative & installation actor boundaries — §5, §7\n- UC-37 — Admin deletion guardrails / \"programmed for deletion\" (no hard-delete with open chat / active booking / unsettled funds) — §12\n- UC-38 — Notifications & alert-schema dispatch (domain events → channel/urgency fan-out) — §13\n- UC-39 — Provider self-pause / unpublish a space (reversible; no new bookings while paused) — §12\n- UC-40 — Proof-deadline cron: day-3/4 reminders → day-5 auto-cancel + full refund + strike — §7\n<!-- [owner 2026-07-17] UC-37..40 added from the design audit; their specs live in §12/§13/§7. \"Dispute opened\" is an ALERT emitted by UC-7's auto-open to Support/Payments, not a separate manual action. -->\n\n\n= CLIENT UX notes (not already in specs) =  (UC-1, UC-2, UC-3, UC-4)\n- Multi-select spaces → \"Add to a new/existing campaign\" + a 10-second \"Go to my new campaign\"\n  toast; selected spaces sit in the backlog until placed in an adset.\n- \"Send all selected to a new adset\"; the campaign view's Orphan-spaces list has a one-click\n  \"Move all to new adset\"; orphans can't reach checkout.\n- The upload control shows the provider's upload-instructions summary inline, kept visible\n  during/after upload; on spec-mismatch the upload is rejected with a clear message (e.g. \"your\n  file must be PDF/X-1a, CMYK, 150 DPI at trim, 1 cm bleed\").\n- Refund policy, terms & conditions, and privacy policy are linked in the footer and on the\n  checkout screen before paying.\n\n= PROVIDER UX notes =  (UC-13, UC-14, UC-15, UC-16, UC-17, UC-18)\n- Media specs auto-populate from a per-type template (provider can tighten) plus free-text rules.\n- Confirmed bookings move to an installation queue (install date + client file), viewable by\n  Installator collaborators.\n- Revenue dashboard: upcoming / held / paid / refunded + trailing-90-day strike counter.\n\n(SUPPORT / PAYMENTS / ADMIN story details are fully covered by §2 powers, §7 proof/strikes,\n§8 money, §10 chats, §12 admin — UC-21..UC-32; not restated here.)\n\n= NOTIFICATION & ALERT SCHEMA =\nColumns: Event | Trigger | Recipients (roles) | Channel | Urgency | Message template (≤140).\n\n| Event | Trigger | Recipients | Channel | Urgency | Template |\n|---|---|---|---|---|---|\n| New booking request | Client checkout completes | Provider | in-app+email | high | \"New booking on {space}: {dates}, {total} MXN. Approve/reject within 48h.\" |\n| Booking approved | Provider approves | Client(+collabs), Support(log) | in-app+email | med | \"Your booking on {space} is approved. Display starts {date}.\" |\n| Booking rejected | Provider rejects | Client(+collabs) | in-app+email | high | \"Booking on {space} rejected: {reason}. Funds returned to wallet.\" |\n| Booking confirmed (provider picks) | Provider approves one from the queue (chooses which offer wins) | Client, Provider | in-app+email | med | \"Booking for {space} on {dates} confirmed. Display begins {date}.\" |\n| Day-3 proof reminder | Display +3d, no proof | Provider | in-app+email | med | \"Upload proof for {ad} in 2 days or it auto-cancels.\" |\n| Day-4 proof reminder | Display +4d, no proof | Provider | in-app+email+SMS | high | \"Last day to upload proof for {ad}. Tomorrow it auto-cancels + strike.\" |\n| Proof uploaded | Provider uploads | Client(+collabs) | in-app+email | low | \"Proof uploaded for {ad}. Review under Campaigns.\" |\n| Proof accepted | CLIENT accepts (not Payments) | Client, Provider, Payments | in-app+email | low | \"Proof accepted for {ad}. Payment now releasable.\" |\n| Proof rejected | CLIENT rejects / collab flags | Provider, Client, Support+Payments (3 chats, payout held) | in-app+email | high | \"Proof on {ad} rejected: {reason}. Payment held; Payments+Support will review the case.\" |\n| Secondary mismatch flagged | Client/collab flags | Provider, Payments, Support | in-app+email | high | \"Mismatch flag on {ad}. Payout held pending review.\" |\n| Cancel by client pre-approval | Client cancels before approval | Provider | in-app+email | low | \"Booking on {space} cancelled before approval. No charge.\" |\n| Cancel by client post-approval | Client cancels after approval, pre-display | Provider, Payments, Support | in-app+email | high | \"Booking on {space} cancelled. Refund per policy.\" |\n| Cancel by provider after confirm | Provider cancels confirmed booking | Client, Payments, Support, Admin | in-app+email+SMS | critical | \"{space} booking cancelled by provider. Full refund to wallet.\" |\n| Auto-cancel on proof miss | Day-5 elapsed, no proof | Client, Provider, Payments, Support | in-app+email | critical | \"{ad} auto-cancelled — no proof. Full refund. Strike on provider.\" |\n| Refund issued | Refund executed | Client, Support | in-app+email | high | \"{amount} MXN refunded to your wallet for {ad}. Withdrawable now.\" |\n| Refund failed | Gateway error | Payments, Support, Admin | in-app+email+SMS | critical | \"Refund for {ad} failed at {gateway}. Manual intervention required.\" |\n| Dispute opened | Client opens dispute | Support, Provider | in-app+email | high | \"Dispute opened on {ad}. Support reviews within 24h.\" |\n| Dispute resolved valid | Support sides with client | Client, Provider, Payments | in-app+email | high | \"Dispute on {ad} resolved for client. Refund processing.\" |\n| Dispute resolved invalid | Support sides with provider | Client, Provider | in-app+email | med | \"Dispute on {ad} closed. Provider payout proceeds.\" |\n| Payout held | Mismatch flag / open dispute | Provider, Payments | in-app+email | high | \"Payout for {ad} held pending review.\" |\n| Payout released | Proof accepted, no holds | Provider | in-app+email | low | \"Payout of {amount} MXN released for {ad}.\" |\n| Strike accrued | Missed proof / provider cancel / upheld mismatch | Provider, Support | in-app+email | high | \"Strike accrued: {reason}. {n}/3 in 90 days.\" |\n| 3-strike admin alert | 3 strikes in 90 days | Support, Admin | in-app+email | critical | \"Provider {name} hit 3 strikes. Review for freeze.\" |\n| Support joined chat | Support enters chat | Client, Provider | in-app | low | \"Support joined this chat. PII masking relaxed.\" |\n| PII attempted | Pattern match phone/email/URL | Sender | in-app | low | \"We masked your message — sharing contact info isn't allowed before Support joins.\" |\n| Collaborator invited | Client adds collaborator email | Invited collaborator | email | low | \"You've been invited to collaborate on {account}. Accept to view its campaigns and proofs.\" |\n| Listing taken down | Admin moderates | Provider | in-app+email | high | \"Your listing {space} was taken down: {reason}.\" |\n| Listing restored | Admin restores | Provider | in-app+email | low | \"Your listing {space} is live again.\" |\n| Provider frozen | Admin freezes | Provider, Payments | in-app+email | critical | \"Your provider account is frozen. New bookings paused, upcoming cancelled (clients refunded).\" |\n| Ad rejected by provider | Provider rejects a file | Client(+collabs) | in-app+email | high | \"Your ad on {space} was rejected: {reason}. No charge. Re-upload a corrected file.\" |\n| Pre-pay offer placed | Client pre-pays a slot | Provider, Client | in-app+email | low | \"Pre-pay offer on {space} for {dates}. {total} MXN in escrow.\" |\n| Pre-pay offer expired | Slot didn't open in window | Client | in-app+email | med | \"Pre-pay offer on {space} expired. {amount} MXN returned to wallet.\" |\n| Calendar setup stale | Calendar older than threshold (7d) | Provider | in-app | low | \"Calendar for {space} is {n} days old. Refresh it or connect a live URL.\" |\n| Collaborator opened a chat | Collaborator opens a support chat | Client(owner), Support | in-app+email | med | \"{collaborator} opened a support chat on {campaign}.\" |\n| Mismatch flag filed (ack) | Client/collab flags mismatch | Flagger | in-app | low | \"Your mismatch flag on {ad} was filed. Payout held; Support will review.\" |\n\n= MEDIA-DELIVERY SPECS BY SPACE TYPE =\nColumns: Space type | Provider declares (physical) | Client must deliver (file).\n\n| Space type | Provider declares (physical) | Client must deliver (file) |\n|---|---|---|\n| Billboard (printed) | W×H cm; substrate (vinyl/paper/mesh); viewing distance; install method | PDF/X-1a or TIFF; CMYK; 150 DPI at trim¹; 1 cm bleed; outlined fonts; ≤200 MB |\n| Digital screen (big, outdoor) | Pixel res (e.g. 1920×1080); orientation; loop slot length (s); brightness (nits); refresh | MP4 H.264 or JPG/PNG; exact res; sRGB; 8–15 s video; ≤50 MB; 30 fps |\n| Little screen (indoor) | Pixel res; orientation; loop slot length; ambient context | MP4 H.264 or PNG/JPG; exact res; sRGB; 6–10 s; ≤25 MB; 30 fps |\n| Radio station | Frequency (MHz); coverage; spot length (15/30 s); daypart | MP3 or WAV; 44.1 kHz/16-bit min; stereo; −14 LUFS²; exactly 15 or 30 s; ≤10 MB |\n| Transit (bus/taxi wrap/car card) | Vehicle type; surface dims cm; substrate; route/fleet size | PDF/X-1a; CMYK; 150 DPI at trim; 1 cm bleed; outlined fonts; ≤150 MB |\n| Kiosk (mall/street furniture) | Panel dims cm; backlit y/n; double-sided y/n | PDF/X-1a; CMYK; 200 DPI at trim; 1 cm bleed; outlined fonts; ≤150 MB |\n\n¹ 150 DPI at trim is standard for large-format outdoor viewed from 3 m+; small panels (kiosk)\nbump to 200 DPI. ² −14 LUFS aligns with common Mexican broadcast loudness; provider can override.\n\n= Representative end-to-end journeys =\nUC-33 — First-time client, single billboard (composes UC-1..UC-4, UC-6): map → detail → new\n   campaign → adset → upload validated PDF → checkout → wait approval → live → proof received →\n   accept → done.\nUC-34 — First-time provider (composes UC-13..UC-17): sign up → list space + declare specs → set\n   calendar via URL → first booking → approve → install → upload proof day 2 → payout released.\nUC-35 — Disputed proof that travels (composes UC-7, UC-22, UC-25, UC-27): inquiry chat → the same\n   chat becomes a confirmed booking chat on approval → client rejects proof for blur → payment\n   auto-held (`payments.status=held`) + a `payment_held` flag + THREE chats auto-open (Support↔Client\n   / ↔Provider / ↔Payments), each anchored to the held payment+booking (masking relaxes when Support\n   joins a client↔provider chat) → Payments+Support review the case across those chats and decide\n   (release to provider, or cancel + full refund) — NO automatic re-upload; each chat is one\n   chronological history with kind=system transition messages.\nUC-36 — Ad creative & installation — WHO does WHAT (actor boundaries; INVARIANT, added to stop the\n   recurring \"client creates a space/ad\" drift):\n   - PROVIDER creates the space (billboard, photo/video panel, radio station) with its own\n     photos + media-delivery specs. A CLIENT never creates a space, never uploads a space photo,\n     and never sets media specs — that is exclusively the provider's job.\n   - CLIENT rents spaces from the map; each rented space becomes an ad in the campaign backlog.\n     The client's ONLY content action is uploading THEIR creative — the image, video, or audio\n     they want shown in that space — for each ad, validated against the space's media-delivery\n     specs. The client never mints a space-less ad (see §5 ad-origin invariant).\n   - PROVIDER approves the booking and dispatches it to an INSTALLATOR (a subrole employee under\n     the provider's own account).\n   - INSTALLATOR physically installs the ad and uploads the PROOF of display (photo, or video for\n     radio/audio), logged in with their installator subrole under the provider's account. Proofs\n     are a provider-side artifact; the client only ACCEPTS or REJECTS a proof, never uploads one.\n",
+      "body": "> The verbose, story-level source of truth for what each role does. The canonical DESIGN\n> (modules, enums, policies) is in §1–18 — when a story and a spec ever disagree, the spec wins.\n> All `[owner YYYY-MM-DD]` decisions are folded in. This is intentionally the longest section.\n\nScenario prose for each role is folded into §1–14 specs and the journeys below; only the\nnon-redundant UX details unique to stories are kept here.\nEvery user story / case / journey carries a stable **UC-N** code (backend functions/classes tag the\nUC they satisfy — e.g. `design.json UC-7`; the full index is\n`userStories[]`). `UC-N — title — primary spec §`:\n\n<!-- [owner 2026-07-29] Promoted two suggested proposals to canonical UCs: F01→UC-41 (actor USER, since every role is a type of user; ACCOUNTS stays reserved for multi-user accounts) and §11→UC-42 (actor CLIENT). UC-42 is framed around user SUCCESS with the unified chat UX, not the tickets→chat merge history. The remaining infra/meta proposals (§0,§1,§15–§20,DASH-1) stay 'suggested' — their actors are docs readers / engineers, not platform users, so they are not user stories. -->\nUSER (cross-cutting — every role is a type of user)\n- UC-41 — User signs in and the platform grants exactly their role's capabilities (RBAC-scoped workspace; failed login is clear & non-leaky) — §1, §14\n- UC-43 — Every screen and endpoint authorizes by the OWNERSHIP CHAIN (user → account → campaign → adset → ad; space → provider account). A break anywhere returns 404, never 403. Cross-account moves are refused; same-account moves carry their bookings. — §21, §14\n\nCLIENT\n- UC-1 — Client searches & multi-selects spaces on the map — §5\n- UC-2 — Client organizes campaign / adset / ads from the backlog — §4, §5\n- UC-3 — Client uploads spec-validated creative — §4, §5\n- UC-4 — Client checks out & pays (ONE invoice per campaign) — §8\n- UC-5 — Client books-for-later / pre-pays into escrow (AFTER-MVP) — §6\n- UC-6 — Client reviews & ACCEPTS proof → payout releasable — §7\n- UC-7 — Client REJECTS proof / flags mismatch → dispute (3 chats + hold) — §7, §10\n- UC-8 — Client opens a provider inquiry FROM the provider's published space/ad listing (space attached; the ONLY path to a provider — providers have no public profile/UI) — §10\n- UC-9 — Client contacts Support from Messages or an ad/adset/campaign object (object = context, provider NOT pulled in); a Billing-opened chat is Support-fronted with the payment attached (Payments looped in via the internal chat) — §10\n- UC-10 — Client cancels a booking (refund per policy) — §8\n- UC-11 — Client views wallet & withdraws — §8\n- UC-12 — Client rates a provider (AFTER-MVP) — §9\n- UC-42 — User resolves everything in one seamless conversation — no juggling tickets vs chat (one uniform chat UI; Support, and Payments when money is involved, join the same thread) — §10, §11\n\nPROVIDER\n- UC-13 — Provider lists a space & declares specs — §4, §5\n- UC-14 — Provider manages availability calendar (iCal sync) — §13\n- UC-15 — Provider approves / rejects a booking request — §5\n- UC-16 — Provider / Installator uploads the PRIMARY proof — §7\n- UC-17 — Provider receives a payout — §8\n- UC-18 — Provider views strike counter / appeals a strike — §7\n\nACCOUNTS & COLLABORATORS\n- UC-19 — Owner invites & manages collaborators — §3, §14\n- UC-20 — Collaborator acts within subrole scope — §3\n\nSUPPORT\n- UC-21 — Support joins a client↔provider chat (announced, PII relax) — §10\n- UC-22 — Support investigates a dispute & RAISES a money flag — §7, §10\n- UC-23 — Support edits a non-money object (audited) — §12\n- UC-24 — Support reverses a strike (audited) — §7\n\nPAYMENTS\n- UC-25 — Payments approves/executes payment & payout (processing queue) — §8\n- UC-26 — Payments executes a refund — §8\n- UC-27 — Payments huddles with Support in the internal chat — §10\n\nADMIN\n- UC-28 — Admin chat oversight (read-only, incognito) — §10, §12\n- UC-29 — Admin moderation: takedown / restore / freeze — §12\n- UC-30 — Admin configures System Configurations + RBAC matrix — §12, §14\n- UC-31 — Admin reviews the immutable audit log — §12\n- UC-32 — Admin payout-stop window & clawback decision — §8\n\nEND-TO-END JOURNEYS (composite — see below)\n- UC-33 — Journey: first-time client, single billboard (UC-1..4, UC-6) — §19\n- UC-34 — Journey: first-time provider (UC-13..17) — §19\n- UC-35 — Journey: disputed proof (UC-7, UC-22, UC-25, UC-27) — §7, §10\n- UC-36 — Journey: ad creative & installation actor boundaries — §5, §7\n- UC-37 — Admin deletion guardrails / \"programmed for deletion\" (no hard-delete with open chat / active booking / unsettled funds) — §12\n- UC-38 — Notifications & alert-schema dispatch (domain events → channel/urgency fan-out) — §13\n- UC-39 — Provider self-pause / unpublish a space (reversible; no new bookings while paused) — §12\n- UC-40 — Proof-deadline cron: day-3/4 reminders → day-5 auto-cancel + full refund + strike — §7\n<!-- [owner 2026-07-17] UC-37..40 added from the design audit; their specs live in §12/§13/§7. \"Dispute opened\" is an ALERT emitted by UC-7's auto-open to Support/Payments, not a separate manual action. -->\n\n\n= CLIENT UX notes (not already in specs) =  (UC-1, UC-2, UC-3, UC-4)\n- Multi-select spaces → \"Add to a new/existing campaign\" + a 10-second \"Go to my new campaign\"\n  toast; selected spaces sit in the backlog until placed in an adset.\n- \"Send all selected to a new adset\"; the campaign view's Orphan-spaces list has a one-click\n  \"Move all to new adset\"; orphans can't reach checkout.\n- The upload control shows the provider's upload-instructions summary inline, kept visible\n  during/after upload; on spec-mismatch the upload is rejected with a clear message (e.g. \"your\n  file must be PDF/X-1a, CMYK, 150 DPI at trim, 1 cm bleed\").\n- Refund policy, terms & conditions, and privacy policy are linked in the footer and on the\n  checkout screen before paying.\n\n= PROVIDER UX notes =  (UC-13, UC-14, UC-15, UC-16, UC-17, UC-18)\n- Media specs auto-populate from a per-type template (provider can tighten) plus free-text rules.\n- Confirmed bookings move to an installation queue (install date + client file), viewable by\n  Installator collaborators.\n- Revenue dashboard: upcoming / held / paid / refunded + trailing-90-day strike counter.\n\n(SUPPORT / PAYMENTS / ADMIN story details are fully covered by §2 powers, §7 proof/strikes,\n§8 money, §10 chats, §12 admin — UC-21..UC-32; not restated here.)\n\n= NOTIFICATION & ALERT SCHEMA =\nColumns: Event | Trigger | Recipients (roles) | Channel | Urgency | Message template (≤140).\n\n| Event | Trigger | Recipients | Channel | Urgency | Template |\n|---|---|---|---|---|---|\n| New booking request | Client checkout completes | Provider | in-app+email | high | \"New booking on {space}: {dates}, {total} MXN. Approve/reject within 48h.\" |\n| Booking approved | Provider approves | Client(+collabs), Support(log) | in-app+email | med | \"Your booking on {space} is approved. Display starts {date}.\" |\n| Booking rejected | Provider rejects | Client(+collabs) | in-app+email | high | \"Booking on {space} rejected: {reason}. Funds returned to wallet.\" |\n| Booking confirmed (provider picks) | Provider approves one from the queue (chooses which offer wins) | Client, Provider | in-app+email | med | \"Booking for {space} on {dates} confirmed. Display begins {date}.\" |\n| Day-3 proof reminder | Display +3d, no proof | Provider | in-app+email | med | \"Upload proof for {ad} in 2 days or it auto-cancels.\" |\n| Day-4 proof reminder | Display +4d, no proof | Provider | in-app+email+SMS | high | \"Last day to upload proof for {ad}. Tomorrow it auto-cancels + strike.\" |\n| Proof uploaded | Provider uploads | Client(+collabs) | in-app+email | low | \"Proof uploaded for {ad}. Review under Campaigns.\" |\n| Proof accepted | CLIENT accepts (not Payments) | Client, Provider, Payments | in-app+email | low | \"Proof accepted for {ad}. Payment now releasable.\" |\n| Proof rejected | CLIENT rejects / collab flags | Provider, Client, Support+Payments (3 chats, payout held) | in-app+email | high | \"Proof on {ad} rejected: {reason}. Payment held; Payments+Support will review the case.\" |\n| Secondary mismatch flagged | Client/collab flags | Provider, Payments, Support | in-app+email | high | \"Mismatch flag on {ad}. Payout held pending review.\" |\n| Cancel by client pre-approval | Client cancels before approval | Provider | in-app+email | low | \"Booking on {space} cancelled before approval. No charge.\" |\n| Cancel by client post-approval | Client cancels after approval, pre-display | Provider, Payments, Support | in-app+email | high | \"Booking on {space} cancelled. Refund per policy.\" |\n| Cancel by provider after confirm | Provider cancels confirmed booking | Client, Payments, Support, Admin | in-app+email+SMS | critical | \"{space} booking cancelled by provider. Full refund to wallet.\" |\n| Auto-cancel on proof miss | Day-5 elapsed, no proof | Client, Provider, Payments, Support | in-app+email | critical | \"{ad} auto-cancelled — no proof. Full refund. Strike on provider.\" |\n| Refund issued | Refund executed | Client, Support | in-app+email | high | \"{amount} MXN refunded to your wallet for {ad}. Withdrawable now.\" |\n| Refund failed | Gateway error | Payments, Support, Admin | in-app+email+SMS | critical | \"Refund for {ad} failed at {gateway}. Manual intervention required.\" |\n| Dispute opened | Client opens dispute | Support, Provider | in-app+email | high | \"Dispute opened on {ad}. Support reviews within 24h.\" |\n| Dispute resolved valid | Support sides with client | Client, Provider, Payments | in-app+email | high | \"Dispute on {ad} resolved for client. Refund processing.\" |\n| Dispute resolved invalid | Support sides with provider | Client, Provider | in-app+email | med | \"Dispute on {ad} closed. Provider payout proceeds.\" |\n| Payout held | Mismatch flag / open dispute | Provider, Payments | in-app+email | high | \"Payout for {ad} held pending review.\" |\n| Payout released | Proof accepted, no holds | Provider | in-app+email | low | \"Payout of {amount} MXN released for {ad}.\" |\n| Strike accrued | Missed proof / provider cancel / upheld mismatch | Provider, Support | in-app+email | high | \"Strike accrued: {reason}. {n}/3 in 90 days.\" |\n| 3-strike admin alert | 3 strikes in 90 days | Support, Admin | in-app+email | critical | \"Provider {name} hit 3 strikes. Review for freeze.\" |\n| Support joined chat | Support enters chat | Client, Provider | in-app | low | \"Support joined this chat. PII masking relaxed.\" |\n| PII attempted | Pattern match phone/email/URL | Sender | in-app | low | \"We masked your message — sharing contact info isn't allowed before Support joins.\" |\n| Collaborator invited | Client adds collaborator email | Invited collaborator | email | low | \"You've been invited to collaborate on {account}. Accept to view its campaigns and proofs.\" |\n| Listing taken down | Admin moderates | Provider | in-app+email | high | \"Your listing {space} was taken down: {reason}.\" |\n| Listing restored | Admin restores | Provider | in-app+email | low | \"Your listing {space} is live again.\" |\n| Provider frozen | Admin freezes | Provider, Payments | in-app+email | critical | \"Your provider account is frozen. New bookings paused, upcoming cancelled (clients refunded).\" |\n| Ad rejected by provider | Provider rejects a file | Client(+collabs) | in-app+email | high | \"Your ad on {space} was rejected: {reason}. No charge. Re-upload a corrected file.\" |\n| Pre-pay offer placed | Client pre-pays a slot | Provider, Client | in-app+email | low | \"Pre-pay offer on {space} for {dates}. {total} MXN in escrow.\" |\n| Pre-pay offer expired | Slot didn't open in window | Client | in-app+email | med | \"Pre-pay offer on {space} expired. {amount} MXN returned to wallet.\" |\n| Calendar setup stale | Calendar older than threshold (7d) | Provider | in-app | low | \"Calendar for {space} is {n} days old. Refresh it or connect a live URL.\" |\n| Collaborator opened a chat | Collaborator opens a support chat | Client(owner), Support | in-app+email | med | \"{collaborator} opened a support chat on {campaign}.\" |\n| Mismatch flag filed (ack) | Client/collab flags mismatch | Flagger | in-app | low | \"Your mismatch flag on {ad} was filed. Payout held; Support will review.\" |\n\n= MEDIA-DELIVERY SPECS BY SPACE TYPE =\nColumns: Space type | Provider declares (physical) | Client must deliver (file).\n\n| Space type | Provider declares (physical) | Client must deliver (file) |\n|---|---|---|\n| Billboard (printed) | W×H cm; substrate (vinyl/paper/mesh); viewing distance; install method | PDF/X-1a or TIFF; CMYK; 150 DPI at trim¹; 1 cm bleed; outlined fonts; ≤200 MB |\n| Digital screen (big, outdoor) | Pixel res (e.g. 1920×1080); orientation; loop slot length (s); brightness (nits); refresh | MP4 H.264 or JPG/PNG; exact res; sRGB; 8–15 s video; ≤50 MB; 30 fps |\n| Little screen (indoor) | Pixel res; orientation; loop slot length; ambient context | MP4 H.264 or PNG/JPG; exact res; sRGB; 6–10 s; ≤25 MB; 30 fps |\n| Radio station | Frequency (MHz); coverage; spot length (15/30 s); daypart | MP3 or WAV; 44.1 kHz/16-bit min; stereo; −14 LUFS²; exactly 15 or 30 s; ≤10 MB |\n| Transit (bus/taxi wrap/car card) | Vehicle type; surface dims cm; substrate; route/fleet size | PDF/X-1a; CMYK; 150 DPI at trim; 1 cm bleed; outlined fonts; ≤150 MB |\n| Kiosk (mall/street furniture) | Panel dims cm; backlit y/n; double-sided y/n | PDF/X-1a; CMYK; 200 DPI at trim; 1 cm bleed; outlined fonts; ≤150 MB |\n\n¹ 150 DPI at trim is standard for large-format outdoor viewed from 3 m+; small panels (kiosk)\nbump to 200 DPI. ² −14 LUFS aligns with common Mexican broadcast loudness; provider can override.\n\n= Representative end-to-end journeys =\nUC-33 — First-time client, single billboard (composes UC-1..UC-4, UC-6): map → detail → new\n   campaign → adset → upload validated PDF → checkout → wait approval → live → proof received →\n   accept → done.\nUC-34 — First-time provider (composes UC-13..UC-17): sign up → list space + declare specs → set\n   calendar via URL → first booking → approve → install → upload proof day 2 → payout released.\nUC-35 — Disputed proof that travels (composes UC-7, UC-22, UC-25, UC-27): inquiry chat → the same\n   chat becomes a confirmed booking chat on approval → client rejects proof for blur → payment\n   auto-held (`payments.status=held`) + a `payment_held` flag + THREE chats auto-open (Support↔Client\n   / ↔Provider / ↔Payments), each anchored to the held payment+booking (masking relaxes when Support\n   joins a client↔provider chat) → Payments+Support review the case across those chats and decide\n   (release to provider, or cancel + full refund) — NO automatic re-upload; each chat is one\n   chronological history with kind=system transition messages.\nUC-36 — Ad creative & installation — WHO does WHAT (actor boundaries; INVARIANT, added to stop the\n   recurring \"client creates a space/ad\" drift):\n   - PROVIDER creates the space (billboard, photo/video panel, radio station) with its own\n     photos + media-delivery specs. A CLIENT never creates a space, never uploads a space photo,\n     and never sets media specs — that is exclusively the provider's job.\n   - CLIENT rents spaces from the map; each rented space becomes an ad in the campaign backlog.\n     The client's ONLY content action is uploading THEIR creative — the image, video, or audio\n     they want shown in that space — for each ad, validated against the space's media-delivery\n     specs. The client never mints a space-less ad (see §5 ad-origin invariant).\n   - PROVIDER approves the booking and dispatches it to an INSTALLATOR (a subrole employee under\n     the provider's own account).\n   - INSTALLATOR physically installs the ad and uploads the PROOF of display (photo, or video for\n     radio/audio), logged in with their installator subrole under the provider's account. Proofs\n     are a provider-side artifact; the client only ACCEPTS or REJECTS a proof, never uploads one.\n",
       "kind": "meta",
       "ucs": [],
       "suggestedUcs": [
@@ -2476,6 +2505,239 @@
         "ER20"
       ],
       "classes": []
+    },
+    {
+      "id": "UC-44",
+      "actor": "PAYMENTS",
+      "title": "Una disputa abierta detiene la mano de Payments",
+      "sections": [
+        "§8",
+        "§2"
+      ],
+      "detail": "El cliente rechaza la prueba y la plataforma congela el dinero: se abren tres hilos y el pago queda retenido. Cuando alguien de Payments abre ese pago en su bandeja y pulsa aprobar, la plataforma no lo deja pasar: responde 409, nombra la disputa y no mueve un peso. Tampoco escribe una linea de auditoria, porque un registro de algo que no ocurrio se lee despues como si hubiera ocurrido. Para cobrar hay que cerrar la disputa primero, y ese orden no se negocia: de lo contrario los tres hilos seguirian diciendo \"pago retenido\" mientras la columna que manda diria lo contrario, y nadie sabria cual de las dos creer.",
+      "specs": [
+        "§8",
+        "§2"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "PaymentController::refuseIfLocked + Payment::LOCKED_AGAINST_SETTLE"
+    },
+    {
+      "id": "UC-45",
+      "actor": "ADMIN",
+      "title": "El observador invisible deja huella",
+      "sections": [
+        "§12",
+        "§2"
+      ],
+      "detail": "El admin entra a cualquier hilo sin que los participantes se enteren: no figura como participante, no escribe, no se anuncia. Ese silencio es deliberado y es justo por eso que la plataforma anota cada vez que abre un hilo concreto, con quien fue y a que hora. Listar la cola no deja huella — auditar cada refresco enterraria la linea que importa bajo ruido. Lo que se registra es la lectura de un hilo, que es donde el admin ve el telefono sin enmascarar de un cliente y la conversacion interna sobre su dinero.",
+      "specs": [
+        "§12",
+        "§2"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "OversightController::chat + AuditLog chat_oversight_read"
+    },
+    {
+      "id": "UC-46",
+      "actor": "CLIENTE",
+      "title": "Todo veredicto lleva nombre y hora",
+      "sections": [
+        "§7"
+      ],
+      "detail": "Cuando el cliente acepta o rechaza una prueba, la plataforma guarda quien la reviso y cuando, no solo el resultado. Semanas despues, si esa reserva termina en disputa, Support abre el caso y puede decir \"la acepto esta persona, este dia\" en lugar de mirar una fila sin firma y tener que reconstruirlo desde los mensajes.",
+      "specs": [
+        "§7"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "ProofFlagController::accept/reject → proofs.reviewed_by_user_id + reviewed_at"
+    },
+    {
+      "id": "UC-47",
+      "actor": "CUENTAS",
+      "title": "Nadie se va llevandose el trabajo de los demas",
+      "sections": [
+        "§3",
+        "§12"
+      ],
+      "detail": "Un usuario del que dependen campanas, espacios, reservas o saldo no se puede borrar, y la negativa no vive en la interfaz sino en la base de datos, que es donde no se olvida. Antes bastaba una instruccion para que una cuenta arrastrara en cascada todo lo que colgaba de ella; el registro de auditoria anotaba fielmente una perdida que ya no podia deshacer. El admin puede apartar a una persona de sus roles; borrar la cuenta es cosa del dueno, y solo cuando ya nada depende de ella.",
+      "specs": [
+        "§3",
+        "§12"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "FK restrictOnDelete + Admin\\UserController sin destroy + migracion revoke_users_delete_permission"
+    },
+    {
+      "id": "UC-48",
+      "actor": "CUENTAS",
+      "title": "Una persona, una invitacion por cuenta",
+      "sections": [
+        "§3"
+      ],
+      "detail": "El dueno invita a un colaborador por correo desde su propia pestana de Colaboradores, que vive en la cuenta y no dentro de una campana. Si esa persona ya fue invitada, la plataforma lo dice en vez de crear un segundo registro. Antes la restriccion contaba por campana, asi que la misma persona acumulaba una invitacion por cada campana y la restriccion no restringia lo que aparentaba.",
+      "specs": [
+        "§3"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "collaborators unique(account_id, email) + rutas /client/collaborators"
+    },
+    {
+      "id": "UC-49",
+      "actor": "COLABORADORES",
+      "title": "Cada subrol ve exactamente su parcela",
+      "sections": [
+        "§3",
+        "§10"
+      ],
+      "detail": "Del lado del cliente hay dos personajes: el publicist, que opera sin tocar dinero, y el manager, que puede todo incluido el dinero. Del lado del proveedor hay tres: el installator, que ve las peticiones de espacios nuevos y sube pruebas y NO entra a los chats; el sales, que responde mensajes; y el supervisor, que hace todo salvo quitar gente, tocar configuracion o borrar un espacio. Por eso el formulario del cliente ofrece solo publicist y manager. Antes aceptaba installator: el registro se creaba, la persona veia campanas, y despues no podia abrir un solo hilo sin que nada le explicara por que.",
+      "specs": [
+        "§3",
+        "§10"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "Client\\CollaboratorController in:publicist,manager + Chat::CLIENT_CHAT_SUBROLES"
+    },
+    {
+      "id": "UC-50",
+      "actor": "ADMIN",
+      "title": "La matriz de permisos no se puede cerrar sobre si misma",
+      "sections": [
+        "§2",
+        "§14"
+      ],
+      "detail": "El admin reescribe quien hace que, pero hay dos cosas que la matriz no le deja hacer: quitarse la gestion de usuarios, y concederle a nadie —ni a si mismo— el borrado de cuentas. Apartar a alguien de sus roles es la unica via sancionada para sacarlo, de modo que perder esa capacidad lo dejaria sin herramienta y sin aviso. El intento de reescribir la matriz OMITIENDO la clave de usuarios se rechaza igual, porque es el mismo encierro entrando por otra puerta.",
+      "specs": [
+        "§2",
+        "§14"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "PermissionController::refuseUnsafeUserMatrix (update + updateResource)"
+    },
+    {
+      "id": "UC-51",
+      "actor": "ADMIN",
+      "title": "Ningun ajuste visible es decorativo",
+      "sections": [
+        "§12"
+      ],
+      "detail": "Todo lo que aparece en la pantalla de Configuracion cambia algo real, y las claves que ya no lee nadie se retiran en vez de quedarse por si acaso. Habia un dial de \"ventana de re-subida: 48 horas\", editable y visible, sobre una regla retirada meses antes: ningun codigo lo consultaba. Un ajuste que miente es peor que uno que falta, porque el admin se va convencido de haber cambiado algo.",
+      "specs": [
+        "§12"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "SystemConfiguration::KNOWN_KEYS + DatabaseSeeder sin reupload_window_hours"
+    },
+    {
+      "id": "UC-52",
+      "actor": "PAYMENTS",
+      "title": "El dinero listo y el dinero congelado nunca se parecen",
+      "sections": [
+        "§8"
+      ],
+      "detail": "Payments abre su bandeja y ve dos cosas distintas: lo que esta libre para pagar porque el cliente acepto la prueba, y lo que esta congelado dentro de una disputa. Antes ambos decian \"held\" y el tablero los sumaba en la misma tarjeta, de modo que la pantalla no distinguia lo que se debe pagar de lo que no se debe tocar. Ademas la orden de liberar consulta el estado del propio pago: antes volvia a leer las pruebas de la reserva, asi que en una reserva con varias pruebas bastaba una aceptada para habilitar el pago aunque otra siguiera en disputa.",
+      "specs": [
+        "§8"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "Payment::STATUS_FREE_PAYMENT + PaymentController::releasePayout"
+    },
+    {
+      "id": "UC-53",
+      "actor": "COLABORADORES",
+      "title": "Un colaborador solo alcanza los hilos de la cuenta que lo invito",
+      "sections": [
+        "§3",
+        "§10"
+      ],
+      "detail": "Un proveedor invita a alguien como sales o supervisor y esa persona entra a los hilos de SU cuenta. A los de otro proveedor, no. Parece obvio y no lo era: mientras no existio la tabla de cuentas, la comprobacion solo podia preguntar \"¿esta persona tiene un permiso de sales o supervisor en algun sitio?\", sin un ambito contra el que medirlo. Bastaba un permiso en un proveedor para abrir los hilos de TODOS los proveedores. El lado del cliente ya estaba acotado; el del proveedor no tenia con que acotarse. Ahora los dos preguntan por la misma cuenta.",
+      "specs": [
+        "§3",
+        "§10"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "Chat::userOnProviderSide() acotado por account_id + test_a_provider_collaborator_does_not_reach_another_providers_chats"
+    },
+    {
+      "id": "UC-54",
+      "actor": "ADMIN",
+      "title": "Un anuncio retirado por moderacion no lo devuelve su dueno",
+      "sections": [
+        "§12"
+      ],
+      "detail": "El admin retira un anuncio y escribe por que. El proveedor sigue pudiendo pausar y despausar lo suyo — eso nunca se le quita — pero despausar no levanta un takedown: la plataforma responde 409 y el anuncio sigue fuera del catalogo. Son tres niveles distintos y el orden importa: la pausa es del proveedor, el takedown es del admin, y el freeze es de la cuenta entera. Restaurar tampoco deshace la pausa que el proveedor haya puesto por su cuenta: cada palanca vuelve solo lo que ella misma hizo.",
+      "specs": [
+        "§12"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "Admin\\ModerationController + Space::scopeBookable() + test_provider_cannot_self_reverse_an_admin_takedown"
+    },
+    {
+      "id": "UC-55",
+      "actor": "ADMIN",
+      "title": "Recuperar un pago ya entregado se llama por su nombre",
+      "sections": [
+        "§8"
+      ],
+      "detail": "Cuando el cliente acepta la prueba se sella la hora en que el pago quedo liberable, y desde ahi corre una ventana configurable en la que el admin todavia puede detenerlo. Pasada la ventana, si el dinero ya salio, recuperarlo no es un reembolso: es un clawback, y la plataforma lo escribe como un asiento NEGATIVO propio en el libro. Nunca lo compensa contra el asiento de salida, porque un libro donde dos hechos se cancelan entre si ya no cuenta lo que paso — solo el saldo. El pago vuelve a `held`, que es la verdad: el proveedor ya no tiene ese dinero.",
+      "specs": [
+        "§8"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "Admin\\PayoutController::clawback + wallet_entries.type=clawback + App\\Services\\RefundProcessor"
+    },
+    {
+      "id": "UC-56",
+      "actor": "PROVEEDOR",
+      "title": "Borrar un espacio en uso no lo borra: lo despublica y lo agenda",
+      "sections": [
+        "§12"
+      ],
+      "detail": "El proveedor pide borrar un espacio. Si todavia hay clientes contando con el — reservas vivas o dinero sin liquidar — la plataforma se niega y le dice CUALES son, porque un \"no\" sin motivo lo deja adivinando a cual de sus clientes le esta estorbando. Si no hay nada colgando, el espacio sale del catalogo como `unpublished` y queda con fecha; nada se destruye en ese momento. Despausar no lo rescata: la pausa es la palanca del proveedor y el borrado programado es otra cosa, asi que hace falta cancelarlo a proposito. La destruccion la ejecuta una persona con un comando, y ese comando vuelve a revisar los bloqueos antes de tocar nada — entre que se agendo y hoy pudieron pasar semanas, y alguien pudo volver a reservar.",
+      "specs": [
+        "§12"
+      ],
+      "groups": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "satisfiedBy": "Provider\\SpaceController::destroy/cancelDeletion + Space::deletionBlockers() + App\\Console\\Commands\\PurgeScheduledSpaces + SpaceDeletionGuardTest (11 tests)"
     }
   ],
   "endpoints": [
@@ -3038,6 +3300,69 @@
       "path": "/notifications/{n}/read",
       "desc": "mark a notification read",
       "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/moderation",
+      "desc": "moderation queue: listings + frozen provider accounts",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/spaces/{space}/takedown",
+      "desc": "admin takedown of a listing (reason required); the provider CANNOT self-reverse",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/spaces/{space}/restore",
+      "desc": "lift an admin takedown (does NOT undo the provider own pause)",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/providers/{user}/freeze",
+      "desc": "freeze a provider account: cancel+refund upcoming bookings, revoke tokens, block login",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/providers/{user}/unfreeze",
+      "desc": "unfreeze a provider account",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/payouts",
+      "desc": "payouts inside the stop window (payout_stop_hours)",
+      "sectionId": "8"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/payments/{payment}/payout/stop",
+      "desc": "stop a payout inside the window (reason required)",
+      "sectionId": "8"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/payments/{payment}/clawback",
+      "desc": "reverse a RELEASED payout: negative wallet entry, never nets against the release",
+      "sectionId": "8"
+    },
+    {
+      "group": "Provider",
+      "method": "POST",
+      "path": "/provider/spaces/{space}/cancel-deletion",
+      "desc": "cancela el borrado programado; devuelve la palanca del proveedor",
+      "sectionId": "12"
     }
   ],
   "schema": {
@@ -3067,6 +3392,10 @@
             "type": "enum client|provider|admin|support|payments"
           },
           {
+            "name": "account_id",
+            "type": "fk accounts nullable unique (NULL = staff; UNIQUE = la regla MVP 1:1)"
+          },
+          {
             "name": "phone",
             "type": "varchar"
           },
@@ -3085,6 +3414,14 @@
           {
             "name": "timezone",
             "type": "varchar nullable (PENDING)"
+          },
+          {
+            "name": "frozen_at",
+            "type": "timestamp nullable (freeze de cuenta; NOT fillable)"
+          },
+          {
+            "name": "freeze_reason",
+            "type": "text nullable"
           }
         ],
         "relations": [
@@ -3157,15 +3494,11 @@
       },
       {
         "name": "accounts",
-        "note": "first-class; MVP exactly ONE per owner user",
+        "note": "first-class. El enlace es users.account_id -> accounts (NO accounts.owner_user_id): asi varios usuarios-dueno podran compartir una cuenta sin mover una sola columna [owner 2026-08-01]. La regla MVP \"1 usuario = 1 cuenta\" es un UNIQUE sobre users.account_id; levantarla es borrar ese indice. El staff (admin/support/payments) no tiene cuenta: account_id NULL.",
         "columns": [
           {
             "name": "id",
             "type": "bigint pk"
-          },
-          {
-            "name": "owner_user_id",
-            "type": "fk users unique"
           },
           {
             "name": "name",
@@ -3179,23 +3512,32 @@
         "relations": [
           {
             "to": "users",
-            "kind": "N..1",
-            "label": "owned by"
+            "kind": "1..N",
+            "label": "has owner users"
           },
           {
             "to": "collaborators",
             "kind": "1..N",
             "label": "has collaborators"
+          },
+          {
+            "to": "campaigns",
+            "kind": "1..N",
+            "label": "scopes"
           }
         ]
       },
       {
         "name": "campaigns",
-        "note": "top client unit; holds budget + adsets",
+        "note": "top client unit; holds budget + adsets account_id = ambito (derivado del creador por hook, no fillable); user_id = usuario que la creo. Bajo cuentas multi-dueno son dos hechos distintos, por eso conviven.",
         "columns": [
           {
             "name": "id",
             "type": "bigint pk"
+          },
+          {
+            "name": "account_id",
+            "type": "fk accounts (ambito)"
           },
           {
             "name": "user_id",
@@ -3341,6 +3683,10 @@
           {
             "name": "proof_deadline",
             "type": "timestamp"
+          },
+          {
+            "name": "delete_scheduled_at",
+            "type": "timestamp nullable"
           }
         ],
         "relations": [
@@ -3373,7 +3719,7 @@
       },
       {
         "name": "spaces",
-        "note": "provider's publicity slot",
+        "note": "§12 tiene TRES niveles y no se pisan: is_active = pausa del propio proveedor (reversible por el); taken_down_at = takedown del admin (el proveedor NO puede revertirlo); freeze = a nivel cuenta, en users. Space::scopeBookable() es el unico sitio que conoce los tres.",
         "columns": [
           {
             "name": "id",
@@ -3438,6 +3784,22 @@
           {
             "name": "is_active",
             "type": "bool"
+          },
+          {
+            "name": "taken_down_at",
+            "type": "timestamp nullable (admin takedown; NOT fillable)"
+          },
+          {
+            "name": "takedown_reason",
+            "type": "text nullable"
+          },
+          {
+            "name": "publication_status",
+            "type": "enum published|paused|unpublished (lo que lee el catalogo; `unpublished` = borrado programado)"
+          },
+          {
+            "name": "delete_scheduled_at",
+            "type": "timestamp nullable (NOT fillable; null = nada programado)"
           }
         ],
         "relations": [
@@ -3539,7 +3901,7 @@
       },
       {
         "name": "bookings",
-        "note": "canonical status enum; overlap-guarded via EXCLUDE gist",
+        "note": "canonical status enum (verificado contra la migracion 2026-08-03); overlap-guarded via EXCLUDE gist bookings.space_id es RESTRICT (UC-37): la base se niega a soltar un espacio con reservas.",
         "columns": [
           {
             "name": "id",
@@ -3575,7 +3937,7 @@
           },
           {
             "name": "status",
-            "type": "enum draft|waiting_approval|waiting_booking_confirmation|live|proof_pending|proof_uploaded|completed|rejected|cancelled"
+            "type": "enum pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected"
           },
           {
             "name": "display_start",
@@ -3616,7 +3978,7 @@
       },
       {
         "name": "payments",
-        "note": "money state machine; payout-held lives here",
+        "note": "money state machine; `free_payment` = cliente acepto, listo para pagar; `held` = congelado en disputa. Nunca son lo mismo.",
         "columns": [
           {
             "name": "id",
@@ -3632,7 +3994,7 @@
           },
           {
             "name": "status",
-            "type": "enum pending|completed|failed|refunded|held|processing|released|settled"
+            "type": "enum pending|completed|failed|free_payment|held|released|refunded"
           },
           {
             "name": "payment_method",
@@ -3653,6 +4015,14 @@
           {
             "name": "approved_by_user_id",
             "type": "fk users"
+          },
+          {
+            "name": "payout_releasable_at",
+            "type": "timestamp nullable (arranca la ventana de retencion; se sella al aceptar el cliente)"
+          },
+          {
+            "name": "clawed_back_at",
+            "type": "timestamp nullable"
           }
         ],
         "relations": [
@@ -3903,7 +4273,7 @@
       },
       {
         "name": "proofs",
-        "note": "CLIENT accepts/rejects (NOT Payments)",
+        "note": "CLIENT accepts/rejects (NOT Payments); default proof_uploaded",
         "columns": [
           {
             "name": "id",
@@ -3939,7 +4309,7 @@
           },
           {
             "name": "status",
-            "type": "enum pending|uploaded|client_accepted|client_rejected"
+            "type": "enum proof_uploaded|client_accepted|client_rejected"
           },
           {
             "name": "reviewed_by_user_id",
@@ -3974,7 +4344,7 @@
       },
       {
         "name": "collaborators",
-        "note": "ACCOUNT-SCOPED (campaign_id->account_id migration pending)",
+        "note": "ACCOUNT-SCOPED; unique(account_id, email) — una persona, una invitacion por cuenta",
         "columns": [
           {
             "name": "id",
@@ -4107,7 +4477,7 @@
           },
           {
             "name": "type",
-            "type": "enum refund|withdrawal|escrow_capture|escrow_release|adjustment"
+            "type": "enum refund|withdrawal|escrow_capture|escrow_release|clawback|adjustment"
           },
           {
             "name": "ref_type",
@@ -5518,7 +5888,7 @@
       "classes": [],
       "mvpSprintId": "mvp-sprint:F02",
       "mvpSprintStatus": "resolved",
-      "mvpSprintNote": "spec clear (design.md 3), verified (C02)"
+      "mvpSprintNote": "spec clear (§3), verified (C02)"
     },
     {
       "id": "F03",
@@ -5545,7 +5915,7 @@
       "classes": [],
       "mvpSprintId": "mvp-sprint:F03",
       "mvpSprintStatus": "resolved",
-      "mvpSprintNote": "spec clear; O11 unavailable-sorted-to-bottom added. CODE GAP: mvp-build space-search is a map/list TOGGLE, not the simultaneous 3-pane (design.md 5) -> impl pending"
+      "mvpSprintNote": "spec clear; O11 unavailable-sorted-to-bottom added. CODE GAP: mvp-build space-search is a map/list TOGGLE, not the simultaneous 3-pane (§5) -> impl pending"
     },
     {
       "id": "F04",
@@ -5602,7 +5972,7 @@
       "classes": [],
       "mvpSprintId": "mvp-sprint:F05",
       "mvpSprintStatus": "resolved",
-      "mvpSprintNote": "Spec confirmed correct in design.md + new actor-boundary case (19 journey 4). CODE GAP: remove the '+ Ad Space' create-from-scratch form; per-ad action = upload creative to the existing (rented-space) ad. Impl pending owner go-ahead."
+      "mvpSprintNote": "Spec confirmed correct in design.json + new actor-boundary case (§19 · UC-36). CODE GAP: remove the '+ Ad Space' create-from-scratch form; per-ad action = upload creative to the existing (rented-space) ad. Impl pending owner go-ahead."
     },
     {
       "id": "F06",
@@ -6142,58 +6512,12 @@
     }
   ],
   "lineage": {
-    "suggestedUcProposals": [
-      {
-        "for": "§0",
-        "title": "Reader understands the kanban + todo status legend",
-        "note": "meta — dashboard notation, no canonical UC; suggest only"
-      },
-      {
-        "for": "§1",
-        "title": "New reader grasps the marketplace + the five system roles",
-        "note": "foundational overview exercised by all journeys; suggest, don't create"
-      },
-      {
-        "for": "§15",
-        "title": "Engineer works against the authoritative table list",
-        "note": "infra schema; underpins every UC, none specific"
-      },
-      {
-        "for": "§16",
-        "title": "Engineer honours the integrity invariants",
-        "note": "infra invariants (ledger/concurrency/chat access/RBAC); no single UC"
-      },
-      {
-        "for": "§17",
-        "title": "Engineer navigates the LIVE vs PLANNED endpoint map",
-        "note": "infra route map; cross-cuts all UCs"
-      },
-      {
-        "for": "§18",
-        "title": "Dev sets up the stack and runs the project",
-        "note": "meta dev-setup / implementation-status; no domain UC"
-      },
-      {
-        "for": "§19",
-        "title": "Reader uses the UC index, alert schema and journeys",
-        "note": "meta — this section IS the UC catalogue; not itself a UC target"
-      },
-      {
-        "for": "§20",
-        "title": "Reader tracks owner revisions (latest-wins) and build phases",
-        "note": "meta roadmap/known-gaps; no domain UC"
-      },
-      {
-        "for": "DASH-1",
-        "title": "Stakeholder browses the interactive design dashboard",
-        "note": "docs deliverable; no domain UC"
-      }
-    ],
+    "suggestedUcProposals": [],
     "suggestedTodoProposals": [
       {
         "for": "UC-29",
         "title": "Admin moderation: object takedown / restore + provider freeze / unfreeze",
-        "note": "routes DESIGNED in §12/§17 (POST /admin/spaces/{s}/takedown·/restore, /admin/providers/{u}/freeze·/unfreeze) but NOT implemented; suggest a todo — owner approves before build"
+        "note": "CONSTRUIDO 2026-08-03: takedown/restore + freeze/unfreeze, recurso RBAC `moderation`, UI /admin/moderation, 25 tests. El que sostiene la funcion es test_provider_cannot_self_reverse_an_admin_takedown."
       },
       {
         "for": "UC-31",
@@ -6203,15 +6527,16 @@
       {
         "for": "UC-32",
         "title": "Payout-stop window & clawback decision",
-        "note": "§12/§8; no code yet; suggest a todo"
+        "note": "CONSTRUIDO 2026-08-03: ventana payout_stop_hours desde payments.payout_releasable_at, stop + clawback con asiento negativo propio (clawback:payment:{id}), 19 tests. SIN cron: una ventana vencida no libera sola, espera a Payments."
       }
     ],
-    "registryNote": "[owner 2026-07-25] Stable IDs so specs/UCs/todos can REFERENCE graph elements (not regenerate them).\nPlanning lineage: UC → spec → flow → class → ER (roots = UC + spec). Metadata is reference-only.\n\n**Flow nodes (FL):**\n- `FL01` (start) — Client: map + nearest-first search\n- `FL02` (step) — Multi-select spaces -> campaign backlog orphan ads\n- `FL03` (step) — Move orphans into an adset\n- `FL04` (step) — Upload creative, validated vs media-delivery specs\n- `FL05` (step) — Checkout: ONE invoice per campaign, fee added on top\n- `FL06` (step) — payments.status = held from booking\n- `FL07` (decision) — Provider Approve or Reject?\n- `FL08` (step) — Booking rejected - no charge, funds to wallet\n- `FL09` (step) — Booking live -> dispatched to Installator\n- `FL10` (step) — Display window: proof-pending, deadline default 5d\n- `FL11` (decision) — Primary proof uploaded in time?\n- `FL12` (step) — Auto-cancel + full refund + provider strike\n- `FL13` (step) — proof-uploaded: client reviews\n- `FL14` (decision) — Client Accept or Reject?\n- `FL15` (step) — proofs.status=client_accepted -> payment releasable\n- `FL16` (step) — Payments releases -> processing queue grace window 1h reversible\n- `FL17` (end) — Dispatch to gateway -> released -> settled per provider\n- `FL18` (step) — payments.status=held + payment_held flag\n- `FL19` (step) — Auto-open 3 Support chats: Support-Client / Support-Provider / Support-Payments\n- `FL20` (decision) — Payments + Support decision\n- `FL21` (step) — Cancel booking + full refund to wallet\n- `FL22` (end) — Wallet ledger append-only\n\n**Flow decision branches:**\n- `FL07>FL08` → Reject, reason optional [Reject, reason optional]\n- `FL07>FL09` → Approve per-ad [Approve per-ad]\n- `FL11>FL12` → No, day-5 missed [No, day-5 missed]\n- `FL11>FL13` → Yes [Yes]\n- `FL14>FL15` → Accept [Accept]\n- `FL14>FL18` → Reject / mismatch flag [Reject / mismatch flag]\n- `FL20>FL16` → Satisfactory proof, client accepts [Satisfactory proof, client accepts]\n- `FL20>FL21` → Uphold dispute [Uphold dispute]\n\n**ER entities (ER):** `ER01`=users · `ER02`=personal_access_tokens · `ER03`=accounts · `ER04`=campaigns · `ER05`=adsets · `ER06`=ads · `ER07`=spaces · `ER08`=space_photos · `ER09`=space_availabilities · `ER10`=bookings · `ER11`=payments · `ER12`=chats · `ER13`=chat_objects · `ER14`=chat_flags · `ER15`=chat_participants · `ER16`=messages · `ER17`=proofs · `ER18`=collaborators · `ER19`=invoices · `ER20`=role_permissions · `ER21`=wallet_entries · `ER22`=system_configurations · `ER23`=(PLANNED) strikes / ratings / account_grants / notifications · `ER24`=audit_logs\n\n**Classes (CL):** `CL01`=Chat · `CL02`=ChatParticipant · `CL03`=ChatObject · `CL04`=ChatFlag · `CL05`=Message · `CL06`=ChatController · `CL07`=Booking · `CL08`=Payment · `CL09`=Proof · `CL10`=WalletEntry"
+    "registryNote": "[owner 2026-07-25] Stable IDs so specs/UCs/todos can REFERENCE graph elements (not regenerate them).\nPlanning lineage: UC → spec → flow → class → ER (roots = UC + spec). Metadata is reference-only.\n\n**Flow nodes (FL):**\n- `FL01` (start) — Client: map + nearest-first search\n- `FL02` (step) — Multi-select spaces -> campaign backlog orphan ads\n- `FL03` (step) — Move orphans into an adset\n- `FL04` (step) — Upload creative, validated vs media-delivery specs\n- `FL05` (step) — Checkout: ONE invoice per campaign, fee added on top\n- `FL06` (step) — payments.status = held from booking\n- `FL07` (decision) — Provider Approve or Reject?\n- `FL08` (step) — Booking rejected - no charge, funds to wallet\n- `FL09` (step) — Booking live -> dispatched to Installator\n- `FL10` (step) — Display window: proof-pending, deadline default 5d\n- `FL11` (decision) — Primary proof uploaded in time?\n- `FL12` (step) — Auto-cancel + full refund + provider strike\n- `FL13` (step) — proof-uploaded: client reviews\n- `FL14` (decision) — Client Accept or Reject?\n- `FL15` (step) — proofs.status=client_accepted -> payment releasable\n- `FL16` (step) — Payments releases -> processing queue grace window 1h reversible\n- `FL17` (end) — Dispatch to gateway -> released -> settled per provider\n- `FL18` (step) — payments.status=held + payment_held flag\n- `FL19` (step) — Auto-open 3 Support chats: Support-Client / Support-Provider / Support-Payments\n- `FL20` (decision) — Payments + Support decision\n- `FL21` (step) — Cancel booking + full refund to wallet\n- `FL22` (end) — Wallet ledger append-only\n\n**Flow decision branches:**\n- `FL07>FL08` → Reject, reason optional [Reject, reason optional]\n- `FL07>FL09` → Approve per-ad [Approve per-ad]\n- `FL11>FL12` → No, day-5 missed [No, day-5 missed]\n- `FL11>FL13` → Yes [Yes]\n- `FL14>FL15` → Accept [Accept]\n- `FL14>FL18` → Reject / mismatch flag [Reject / mismatch flag]\n- `FL20>FL16` → Satisfactory proof, client accepts [Satisfactory proof, client accepts]\n- `FL20>FL21` → Uphold dispute [Uphold dispute]\n\n**ER entities (ER):** `ER01`=users · `ER02`=personal_access_tokens · `ER03`=accounts · `ER04`=campaigns · `ER05`=adsets · `ER06`=ads · `ER07`=spaces · `ER08`=space_photos · `ER09`=space_availabilities · `ER10`=bookings · `ER11`=payments · `ER12`=chats · `ER13`=chat_objects · `ER14`=chat_flags · `ER15`=chat_participants · `ER16`=messages · `ER17`=proofs · `ER18`=collaborators · `ER19`=invoices · `ER20`=role_permissions · `ER21`=wallet_entries · `ER22`=system_configurations · `ER23`=(PLANNED) strikes / ratings / account_grants / notifications · `ER24`=audit_logs\n\n**Classes (CL):** `CL01`=Chat · `CL02`=ChatParticipant · `CL03`=ChatObject · `CL04`=ChatFlag · `CL05`=Message · `CL06`=ChatController · `CL07`=Booking · `CL08`=Payment · `CL09`=Proof · `CL10`=WalletEntry",
+    "suggestedUcProposalsNote": "Vacio a proposito (dueno 2026-08-03: \"no suenan como UCs, borralas\"). Eran nueve propuestas meta — leer la leyenda, entender los roles, montar el stack, navegar el dashboard. Un UC existe para que algo lo satisfaga: codigo que lo implemente y un WALK que lo cierre. Ninguna de las nueve podia tener lo uno ni lo otro, asi que habrian sumado nueve filas condenadas a `pending` y la cobertura de UCs habria dejado de significar nada. Su contenido vive en .glossary y en design/README.md; la unica que era un recorrido de verdad (DASH-1) nacio como WALK-4."
   },
   "mvpSprint": {
     "note": "Folded in from .claude/todos/mvp-sprint.json on 2026-08-02; that file was deleted. Ids carry the mvp-sprint: prefix to mark provenance; `code` holds the bare id that specs/todos cross-link to.",
     "sprint": "MVP-local-complete",
-    "goal": "Bring the existing Laravel+Angular app in line with the reconciled design.md and satisfy the 13-item MVP checklist, as a complete local version.",
+    "goal": "Bring the existing Laravel+Angular app in line with the reconciled design.json and satisfy the 13-item MVP checklist, as a complete local version.",
     "status": "MVP local stack COMPLETE and RUNNING (Docker project 'publisher'). Core flows runtime-verified; a few items static-verified pending a UI walk-through.",
     "created": "2026-06-13",
     "updated": "2026-07-16",
@@ -6227,7 +6552,7 @@
       "login": "client1@pubads.test / password (also support@/payments@/admin@pubads.test)."
     },
     "featureReview": {
-      "method": "See claude.md -> Working Method. One feature at a time: doubts/clashes -> ask owner; else resolve with MVP common sense, mark status, report next feature. design.md is the single spec; its section/sub-section headers carry the matching [Fxx] tag so codes are shared between design.md and this index.",
+      "method": "See claude.md -> Working Method. One feature at a time: doubts/clashes -> ask owner; else resolve with MVP common sense, mark status, report next feature. design.json is the single spec; each `specs[]` entry carries the matching [Fxx] tag in its `features` array, so codes are shared between the specs and this index.",
       "statusLegend": {
         "pending": "not yet reviewed",
         "reviewing": "under review now",
@@ -6263,7 +6588,7 @@
           "checklist": [
             "mvp-sprint:C02"
           ],
-          "note": "spec clear (design.md 3), verified (C02)"
+          "note": "spec clear (§3), verified (C02)"
         },
         {
           "id": "mvp-sprint:F03",
@@ -6277,7 +6602,7 @@
           "checklist": [
             "mvp-sprint:C03"
           ],
-          "note": "spec clear; O11 unavailable-sorted-to-bottom added. CODE GAP: mvp-build space-search is a map/list TOGGLE, not the simultaneous 3-pane (design.md 5) -> impl pending"
+          "note": "spec clear; O11 unavailable-sorted-to-bottom added. CODE GAP: mvp-build space-search is a map/list TOGGLE, not the simultaneous 3-pane (§5) -> impl pending"
         },
         {
           "id": "mvp-sprint:F04",
@@ -6307,7 +6632,7 @@
             "19-case4"
           ],
           "checklist": [],
-          "note": "Spec confirmed correct in design.md + new actor-boundary case (19 journey 4). CODE GAP: remove the '+ Ad Space' create-from-scratch form; per-ad action = upload creative to the existing (rented-space) ad. Impl pending owner go-ahead."
+          "note": "Spec confirmed correct in design.json + new actor-boundary case (§19 · UC-36). CODE GAP: remove the '+ Ad Space' create-from-scratch form; per-ad action = upload creative to the existing (rented-space) ad. Impl pending owner go-ahead."
         },
         {
           "id": "mvp-sprint:F06",
@@ -6557,158 +6882,158 @@
     ],
     "specBacklog": {
       "generated": "2026-06-26",
-      "purpose": "The case-ID->route traceability spine (folded in from the now-deleted investigation-planning-to-code-gap.md). Every buildable spec from design.md/cases.md as one discrete, mark-as-done line. Backend-first. This is the GRANULAR source of truth and supersedes the coarse B*/N* lists above (kept for history).",
+      "purpose": "The case-ID->route traceability spine (folded in from the now-deleted investigation-planning-to-code-gap.md). Every buildable spec in `specs[]` as one discrete, mark-as-done line. Backend-first. This is the GRANULAR source of truth and supersedes the coarse B*/N* lists above (kept for history).",
       "legend": "format: ID [status prio] title — ref | dep: deps. status: built|partial(live-but-divergent, fix-in-place)|missing. prio: P1=money/booking/proof critical path, P2=designed gap, P3=deferred.",
       "domains": {
         "A_accounts_collaborators": [
-          "mvp-sprint:AC-accounts-01 [missing P1] accounts table (id, owner_user_id unique, name, type client|provider) + backfill 1 account/owner — design:153",
-          "mvp-sprint:AC-accounts-02 [missing P1] Account model + owner->account resolver + relations — design:78 | dep AC-accounts-01",
-          "mvp-sprint:AC-collab-03 [partial P1] migrate collaborators.campaign_id -> account_id (FK accounts), unique(account_id,email) — ARCH collaborators | dep AC-accounts-01",
-          "mvp-sprint:AC-collab-04 [partial P1] replace campaign-nested routes with GET/POST/DELETE /client/collaborators (subroles publicist|manager) — cases#11 | dep AC-collab-03",
-          "mvp-sprint:AC-collab-05 [missing P1] GET/POST/DELETE /provider/collaborators (subroles installator|sales|supervisor) — design:96 | dep AC-collab-03",
-          "mvp-sprint:AC-grants-06 [missing P1] account_grants overlay table (account_id, collaborator_user_id, role, capability) — design RBAC | dep AC-accounts-01",
-          "mvp-sprint:AC-grants-07 [missing P1] per-account RBAC overlay evaluator (after global matrix, no cross-account leak) — design:111 | dep AC-grants-06",
-          "mvp-sprint:AC-grants-08 [missing P2] enforce CLIENT subrole caps: publicist=no money; manager=full incl money — design:89 | dep AC-grants-07",
-          "mvp-sprint:AC-grants-09 [missing P2] enforce PROVIDER subrole caps: installator=proof-upload-only; sales=reply-to-messages-only; supervisor=all-except-remove-people/config/delete-space — design:96 | dep AC-grants-07",
-          "mvp-sprint:AC-collab-10 [partial P2] collaborator email invite+accept (pending->accepted->revoked; user_id nullable) — cases#11 | dep AC-collab-04",
-          "mvp-sprint:AC-namedcaps-11 [missing P2] named capabilities (refund.flag/.execute, payout.hold/.release, strike.accrue/.reverse) — NO hay capabilities de internal_thread: no existe un tipo de hilo interno, el acceso al chat interno se decide por el LADO del participante (chat_participants.side) — design RBAC | dep AC-grants-07"
+          "mvp-sprint:AC-accounts-01 [built P1] accounts table (id, name, type client|provider) + users.account_id UNIQUE + provision en registro — §3",
+          "mvp-sprint:AC-accounts-02 [built P1] Account model + owner->account resolver + relations — §3 | dep AC-accounts-01",
+          "mvp-sprint:AC-collab-03 [built P1] migrate collaborators.campaign_id -> account_id (FK accounts), unique(account_id,email) — §3 | dep AC-accounts-01",
+          "mvp-sprint:AC-collab-04 [built P1] replace campaign-nested routes with GET/POST/DELETE /client/collaborators (subroles publicist|manager) — §3 · UC-19 | dep AC-collab-03",
+          "mvp-sprint:AC-collab-05 [missing P1] GET/POST/DELETE /provider/collaborators (subroles installator|sales|supervisor) — §3 · UC-19 | dep AC-collab-03",
+          "mvp-sprint:AC-grants-06 [missing P1] account_grants overlay table (account_id, collaborator_user_id, role, capability) — §14 | dep AC-accounts-01",
+          "mvp-sprint:AC-grants-07 [missing P1] per-account RBAC overlay evaluator (after global matrix, no cross-account leak) — §14 | dep AC-grants-06",
+          "mvp-sprint:AC-grants-08 [missing P2] enforce CLIENT subrole caps: publicist=no money; manager=full incl money — §3 · UC-20 | dep AC-grants-07",
+          "mvp-sprint:AC-grants-09 [missing P2] enforce PROVIDER subrole caps: installator=proof-upload-only; sales=reply-to-messages-only; supervisor=all-except-remove-people/config/delete-space — §3 · UC-20 | dep AC-grants-07",
+          "mvp-sprint:AC-collab-10 [partial P2] collaborator email invite+accept (pending->accepted->revoked; user_id nullable) — §3 · UC-19 | dep AC-collab-04",
+          "mvp-sprint:AC-namedcaps-11 [missing P2] named capabilities (refund.flag/.execute, payout.hold/.release, strike.accrue/.reverse) — NO hay capabilities de internal_thread: no existe un tipo de hilo interno, el acceso al chat interno se decide por el LADO del participante (chat_participants.side) — §14 | dep AC-grants-07"
         ],
         "B_campaigns_ads_mediaspecs": [
           "mvp-sprint:CA-crud-01 [built P1] campaign CRUD /client/campaigns",
           "mvp-sprint:CA-crud-02 [built P1] adset CRUD (pure grouping label)",
           "mvp-sprint:CA-crud-03 [built P1] ad CRUD nested under adset, nullable adset_id (orphan/backlog)",
           "mvp-sprint:CA-backlog-04 [built P1] backlog add + orphans list + move-to-adset",
-          "CA-orphan-gate-05 [missing P2] block orphan ads from checkout/go-live + block payment while orphaned — design:309 | dep PE-checkout-01",
-          "mvp-sprint:MS-specs-06 [missing P1] spaces.physical_specs + media_specs(per-type template) + upload_instructions cols — cases#P1/design:281",
-          "mvp-sprint:MS-template-07 [missing P2] per-type media-spec template autopopulate + provider tighten — cases media-table | dep MS-specs-06",
-          "mvp-sprint:MS-getspecs-08 [missing P2] GET /client/spaces/{s}/media-specs surfaced inline at upload — cases#6 | dep MS-specs-06",
-          "mvp-sprint:MS-validate-09 [missing P1] HARD-FAIL upload validation (format/res/CMYK/bleed/duration/bitrate/size) + concrete msg — cases#7 | dep MS-specs-06",
-          "mvp-sprint:MS-snapshot-10 [missing P2] snapshot media-specs onto ad/booking at checkout — design:544 | dep MS-validate-09",
-          "mvp-sprint:MS-multifile-11 [missing P3] enforce ONE-file-per-ad MVP cap (multi-file = FUTURE) — design:289",
-          "mvp-sprint:CA-pricetier-12 [missing P2] cheapest-decomposition pricing across day/month tiers — design:14"
+          "CA-orphan-gate-05 [missing P2] block orphan ads from checkout/go-live + block payment while orphaned — §5 · UC-2 | dep PE-checkout-01",
+          "mvp-sprint:MS-specs-06 [missing P1] spaces.physical_specs + media_specs(per-type template) + upload_instructions cols — §15 · UC-13",
+          "mvp-sprint:MS-template-07 [missing P2] per-type media-spec template autopopulate + provider tighten — §19 · UC-13 | dep MS-specs-06",
+          "mvp-sprint:MS-getspecs-08 [missing P2] GET /client/spaces/{s}/media-specs surfaced inline at upload — §5 · UC-3 | dep MS-specs-06",
+          "mvp-sprint:MS-validate-09 [missing P1] HARD-FAIL upload validation (format/res/CMYK/bleed/duration/bitrate/size) + concrete msg — §5 · UC-3 | dep MS-specs-06",
+          "mvp-sprint:MS-snapshot-10 [missing P2] snapshot media-specs onto ad/booking at checkout — §16 | dep MS-validate-09",
+          "mvp-sprint:MS-multifile-11 [missing P3] enforce ONE-file-per-ad MVP cap (multi-file = FUTURE) — §4",
+          "mvp-sprint:CA-pricetier-12 [missing P2] cheapest-decomposition pricing across day/month tiers — §4"
         ],
         "C_search_booking": [
           "mvp-sprint:SB-search-01 [built P1] geo+price+date catalog search nearest-first",
-          "mvp-sprint:SB-radiorange-02 [partial P2] radio stations filtered by current map view range (re-query on pan/zoom) — cases#1 | dep SB-search-01",
-          "mvp-sprint:SB-noncoincide-03 [partial P2] tag (not hide) non-coinciding spaces, bookable 'for later' — cases#2 | dep SB-search-01",
-          "mvp-sprint:SB-availcolor-04 [partial P2] green/red availability for requested window on space detail — design:22 | dep SB-search-01",
+          "mvp-sprint:SB-radiorange-02 [partial P2] radio stations filtered by current map view range (re-query on pan/zoom) — §5 · UC-1 | dep SB-search-01",
+          "mvp-sprint:SB-noncoincide-03 [partial P2] tag (not hide) non-coinciding spaces, bookable 'for later' — §5 · UC-1 | dep SB-search-01",
+          "mvp-sprint:SB-availcolor-04 [partial P2] green/red availability for requested window on space detail — §5 · UC-1 | dep SB-search-01",
           "mvp-sprint:SB-book-05 [built P1] booking create/cancel /client/bookings",
-          "mvp-sprint:SB-overlap-06 [missing P1] Postgres EXCLUDE gist constraint vs overlapping CONFIRMED bookings/space — design:552",
-          "mvp-sprint:SB-enum-07 [partial P1] migrate bookings.status -> canonical enum — design:510",
-          "mvp-sprint:SB-displaystart-08 [partial P1] set display_start = calendar start_date at confirmation (deadline cron keys off it) — design:530 | dep SB-enum-07",
-          "mvp-sprint:SB-perad-09 [partial P2] per-ad go-live + per-ad billing (slow/rejected ad never blocks rest) — design:131 | dep SB-enum-07"
+          "mvp-sprint:SB-overlap-06 [missing P1] Postgres EXCLUDE gist constraint vs overlapping CONFIRMED bookings/space — §16",
+          "mvp-sprint:SB-enum-07 [partial P1] migrate bookings.status -> canonical enum — §4",
+          "mvp-sprint:SB-displaystart-08 [partial P1] set display_start = calendar start_date at confirmation (deadline cron keys off it) — §7 | dep SB-enum-07",
+          "mvp-sprint:SB-perad-09 [partial P2] per-ad go-live + per-ad billing (slow/rejected ad never blocks rest) — §5 · UC-15 | dep SB-enum-07"
         ],
         "D_checkout_prepay_escrow": [
-          "mvp-sprint:PE-checkout-01 [missing P1] POST /client/campaigns/{c}/checkout -> ONE payment + ONE invoice all ads — cases#8",
-          "mvp-sprint:PE-legal-02 [missing P3] refund/terms/privacy links on checkout — cases#14 | dep PE-checkout-01",
-          "mvp-sprint:PE-fees-03 [missing P2] gateway fee added on top at checkout (client pays gross) — design:235 | dep PE-checkout-01",
-          "mvp-sprint:PE-prepay-04 [missing P1] POST /client/bookings {is_prepay} capture funds to escrow — cases#8 | dep WT-wallet-02,SB-enum-07",
-          "mvp-sprint:PE-waitlist-05 [missing P1] GET /provider/spaces/{s}/waiting-list (no amounts) + POST /waiting-list/{offer}/confirm — design:256 | dep PE-prepay-04",
-          "PE-waitlist-trash-06 [missing P2] provider trash/reject pre-pay waiting-list entries — design:258 | dep PE-waitlist-05",
-          "mvp-sprint:PE-sibling-07 [missing P1] confirming one pre-pay offer atomically cancels+refunds sibling offers (FOR UPDATE) — design:267 | dep PE-waitlist-05",
-          "mvp-sprint:PE-fcfs-08 [missing P2] non-prepay 'book for later' queue, no funds, FCFS on free — cases#8 | dep SB-enum-07",
-          "mvp-sprint:PE-expiry-09 [missing P2] pre-pay offer expiry -> refund to wallet + notify (admin-configurable) — design:262 | dep PE-prepay-04,CF-config-01"
+          "mvp-sprint:PE-checkout-01 [missing P1] POST /client/campaigns/{c}/checkout -> ONE payment + ONE invoice all ads — §8 · UC-4",
+          "mvp-sprint:PE-legal-02 [missing P3] refund/terms/privacy links on checkout — §19 · UC-4 | dep PE-checkout-01",
+          "mvp-sprint:PE-fees-03 [missing P2] gateway fee added on top at checkout (client pays gross) — §8 · UC-4 | dep PE-checkout-01",
+          "mvp-sprint:PE-prepay-04 [missing P1] POST /client/bookings {is_prepay} capture funds to escrow — §6 · UC-5 | dep WT-wallet-02,SB-enum-07",
+          "mvp-sprint:PE-waitlist-05 [missing P1] GET /provider/spaces/{s}/waiting-list (no amounts) + POST /waiting-list/{offer}/confirm — §6 · UC-5 | dep PE-prepay-04",
+          "PE-waitlist-trash-06 [missing P2] provider trash/reject pre-pay waiting-list entries — §6 · UC-5 | dep PE-waitlist-05",
+          "mvp-sprint:PE-sibling-07 [missing P1] confirming one pre-pay offer atomically cancels+refunds sibling offers (FOR UPDATE) — §6 · UC-5 | dep PE-waitlist-05",
+          "mvp-sprint:PE-fcfs-08 [missing P2] non-prepay 'book for later' queue, no funds, FCFS on free — §6 · UC-5 | dep SB-enum-07",
+          "mvp-sprint:PE-expiry-09 [missing P2] pre-pay offer expiry -> refund to wallet + notify (admin-configurable) — §6 · UC-5 | dep PE-prepay-04,CF-config-01"
         ],
         "E_proof_deadline_strikes": [
           "mvp-sprint:PR-primary-01 [built P1] provider primary proof upload (photo/video)",
           "mvp-sprint:PR-status-02 [built P1] proofs.status pending_review|client_accepted|client_rejected (B9; enum colapsado por Q42 2026-08-02 — `approved`/`rejected` retirados)",
-          "mvp-sprint:PR-accept-03 [built P1] POST /client/proofs/{proof}/accept -> payment releasable — design:715 | dep PR-status-02 | 2026-08-02 BUILT: Client\\ProofFlagController::accept, ruta viva",
-          "mvp-sprint:PR-reject-04 [built P1] POST /client/proofs/{proof}/reject -> payout HELD + flag `payment_held` + 3 chats de disputa (interno Support<->Payments, Support<->Cliente, Support<->Proveedor); absorbe flag-mismatch — design:715 | dep PR-status-02,TK-dual-03",
+          "mvp-sprint:PR-accept-03 [built P1] POST /client/proofs/{proof}/accept -> payment releasable — §7 · UC-6 | dep PR-status-02 | 2026-08-02 BUILT: Client\\ProofFlagController::accept, ruta viva",
+          "mvp-sprint:PR-reject-04 [built P1] POST /client/proofs/{proof}/reject -> payout HELD + flag `payment_held` + 3 chats de disputa (interno Support<->Payments, Support<->Cliente, Support<->Proveedor); absorbe flag-mismatch — §7 · UC-7 | dep PR-status-02,TK-dual-03",
           "mvp-sprint:PR-flag-05 [built P2] client/collaborator mismatch flag holds payout + abre los 3 chats de disputa",
-          "mvp-sprint:PR-reupload-06 [obsoleto — no hay ventana de re-subida] provider 48h re-upload after reject (clock stops while dispute open) — design:160 | dep PR-reject-04,CF-config-01 | requisito RETIRADO por el dueño (2026-07-10): tras el rechazo no se abre ninguna ventana de re-subida; el texto se conserva como registro del requisito descartado",
-          "mvp-sprint:PR-secondary-07 [missing P2] collaborator SECONDARY proof upload (per role) — design:139 | dep AC-grants-09",
-          "mvp-sprint:PR-cron-08 [missing P1] proof-deadline cron: day-3+day-4 reminders (day-4 SMS), day-5 auto-cancel — design:139 | dep PR-primary-01,CF-config-01",
-          "mvp-sprint:PR-autocancel-09 [missing P1] day-5 auto-cancel: lock booking, re-check proof NULL in txn, full refund, accrue strike — design:557 | dep PR-cron-08,ST-strikes-01,WT-wallet-02",
-          "mvp-sprint:PR-adjudicate-10 [missing P2] unresolved-after-window -> Support+Payments adjudicate (no infinite loop) — design:178 | dep PR-reupload-06",
-          "mvp-sprint:ST-strikes-01 [missing P1] strikes table (provider_user_id, reason, accrued_at, reversed_at) + 90d trailing counter — design:202",
-          "mvp-sprint:ST-accrue-02 [missing P1] strike accrual: missed proof, provider-cancel confirmed booking, upheld mismatch (decoupled from notify) — design:202 | dep ST-strikes-01",
-          "mvp-sprint:ST-reverse-03 [missing P2] Support strike removal/appeal (reversible, audited; not Payments) — design:211 | dep ST-strikes-01,AU-log-01",
-          "mvp-sprint:ST-3strike-04 [missing P2] 3 strikes/90d -> flag for Admin review (alert Support+Admin) — design:206 | dep ST-accrue-02,NT-dispatch-01",
-          "mvp-sprint:ST-dashboard-05 [partial P2] trailing-90d strike counter on GET /provider/dashboard — design:208 | dep ST-strikes-01"
+          "mvp-sprint:PR-reupload-06 [obsoleto — no hay ventana de re-subida] provider 48h re-upload after reject (clock stops while dispute open) — §7 · UC-7 | dep PR-reject-04,CF-config-01 | requisito RETIRADO por el dueño (2026-07-10): tras el rechazo no se abre ninguna ventana de re-subida; el texto se conserva como registro del requisito descartado",
+          "mvp-sprint:PR-secondary-07 [missing P2] collaborator SECONDARY proof upload (per role) — §7 · UC-16 | dep AC-grants-09",
+          "mvp-sprint:PR-cron-08 [missing P1] proof-deadline cron: day-3+day-4 reminders (day-4 SMS), day-5 auto-cancel — §7 · UC-40 | dep PR-primary-01,CF-config-01",
+          "mvp-sprint:PR-autocancel-09 [missing P1] day-5 auto-cancel: lock booking, re-check proof NULL in txn, full refund, accrue strike — §7 · UC-40 | dep PR-cron-08,ST-strikes-01,WT-wallet-02",
+          "mvp-sprint:PR-adjudicate-10 [missing P2] unresolved-after-window -> Support+Payments adjudicate (no infinite loop) — §7 · UC-22 | dep PR-reupload-06",
+          "mvp-sprint:ST-strikes-01 [missing P1] strikes table (provider_user_id, reason, accrued_at, reversed_at) + 90d trailing counter — §7",
+          "mvp-sprint:ST-accrue-02 [missing P1] strike accrual: missed proof, provider-cancel confirmed booking, upheld mismatch (decoupled from notify) — §7 | dep ST-strikes-01",
+          "mvp-sprint:ST-reverse-03 [missing P2] Support strike removal/appeal (reversible, audited; not Payments) — §7 · UC-24 | dep ST-strikes-01,AU-log-01",
+          "mvp-sprint:ST-3strike-04 [missing P2] 3 strikes/90d -> flag for Admin review (alert Support+Admin) — §7 | dep ST-accrue-02,NT-dispatch-01",
+          "mvp-sprint:ST-dashboard-05 [partial P2] trailing-90d strike counter on GET /provider/dashboard — §7 · UC-18 | dep ST-strikes-01"
         ],
         "F_payments_wallet_invoices": [
           "mvp-sprint:PM-list-01 [built P1] payments list/show + approve/reject",
           "mvp-sprint:PM-money-02 [built P1] refund / payout-release / payout-hold (idempotent -> wallet)",
-          "mvp-sprint:PM-removeproof-03 [built P1] REMOVE Payments proof approve/reject/index (/payments/proofs*) — B9 violation — design:701 | dep PR-accept-03 | 2026-08-02 BUILT: las rutas /payments/proofs y el permiso payments.proofs.update fueron eliminados; Payments conserva proofs.read (§2 le da 👁, no ✏)",
-          "mvp-sprint:PM-holdview-04 [missing P2] Payments READ-ONLY view-proof + chat ONLY when payment on hold, by Release/Cancel — design:622 | dep PR-reject-04",
-          "mvp-sprint:PM-payouttxn-05 [partial P1] payout state machine held->processing->released->settled, re-check holds in locked txn — design:490 | dep PM-money-02",
-          "PM-procqueue-05b [missing P2] payout PROCESSING QUEUE + grace window (owner 2026-07-16): on release, status=processing for admin-config payout_processing_grace (default 1h) before a queued job dispatches to gateway; reversible to held (Payments OR Support) during the window with NO gateway call; processing shown ONLY on Payments+Support UIs; after dispatch gateway=source-of-truth (webhook+status query -> gateway_status/gateway_settled_at), terminal, holdPayout=no-op, undo=gateway refund; nightly reconcile for missing webhooks. Queue+grace+state-machine+UI MVP-scoped; live dispatch/webhooks AFTER-MVP — design:§8 | dep PM-payouttxn-05,CF-config-01",
-          "mvp-sprint:PM-perprovider-06 [missing P2] per-provider payouts within one multi-provider campaign invoice — design:238 | dep PE-checkout-01",
-          "mvp-sprint:PM-payoutstop-07 [missing P2] admin payout-stop window (default 24h) before auto-release — design:229 | dep CF-config-01,PM-money-02",
-          "mvp-sprint:PM-webhook-08 [missing P3] gateway webhooks signature-verified+idempotent + nightly reconcile — design:494",
-          "mvp-sprint:PM-fxnorm-09 [missing P3] normalize non-MXN gateway settle to pesos at capture — design:484 | dep PM-webhook-08",
+          "mvp-sprint:PM-removeproof-03 [built P1] REMOVE Payments proof approve/reject/index (/payments/proofs*) — B9 violation — §2 | dep PR-accept-03 | 2026-08-02 BUILT: las rutas /payments/proofs y el permiso payments.proofs.update fueron eliminados; Payments conserva proofs.read (§2 le da 👁, no ✏)",
+          "mvp-sprint:PM-holdview-04 [missing P2] Payments READ-ONLY view-proof + chat ONLY when payment on hold, by Release/Cancel — §2 · UC-25 | dep PR-reject-04",
+          "mvp-sprint:PM-payouttxn-05 [partial P1] payout state machine held->processing->released->settled, re-check holds in locked txn — §8 · UC-25 | dep PM-money-02",
+          "PM-procqueue-05b [missing P2] payout PROCESSING QUEUE + grace window (owner 2026-07-16): on release, status=processing for admin-config payout_processing_grace (default 1h) before a queued job dispatches to gateway; reversible to held (Payments OR Support) during the window with NO gateway call; processing shown ONLY on Payments+Support UIs; after dispatch gateway=source-of-truth (webhook+status query -> gateway_status/gateway_settled_at), terminal, holdPayout=no-op, undo=gateway refund; nightly reconcile for missing webhooks. Queue+grace+state-machine+UI MVP-scoped; live dispatch/webhooks AFTER-MVP — §8 · UC-25 | dep PM-payouttxn-05,CF-config-01",
+          "mvp-sprint:PM-perprovider-06 [missing P2] per-provider payouts within one multi-provider campaign invoice — §8 · UC-17 | dep PE-checkout-01",
+          "mvp-sprint:PM-payoutstop-07 [missing P2] admin payout-stop window (default 24h) before auto-release — §8 · UC-32 | dep CF-config-01,PM-money-02",
+          "mvp-sprint:PM-webhook-08 [missing P3] gateway webhooks signature-verified+idempotent + nightly reconcile — §8",
+          "mvp-sprint:PM-fxnorm-09 [missing P3] normalize non-MXN gateway settle to pesos at capture — §8 | dep PM-webhook-08",
           "mvp-sprint:WT-wallet-01 [built P1] wallet read GET /client/wallet (balance=SUM append-only ledger)",
           "mvp-sprint:WT-wallet-02 [built P1] idempotent wallet entries (unique idempotency_key)",
-          "mvp-sprint:WT-withdraw-03 [missing P1] POST /client/wallet/withdraw (blocked while any hold/dispute open) — cases#10/14 | dep WT-wallet-01",
-          "mvp-sprint:WT-freeze-04 [missing P3] wallet active|frozen, freeze on fraud + alert Payments; clawback=negative ledger by Admin — design:496 | dep WT-wallet-02",
+          "mvp-sprint:WT-withdraw-03 [missing P1] POST /client/wallet/withdraw (blocked while any hold/dispute open) — §8 · UC-11 | dep WT-wallet-01",
+          "mvp-sprint:WT-freeze-04 [missing P3] wallet active|frozen, freeze on fraud + alert Payments; clawback=negative ledger by Admin — §8 · UC-32 | dep WT-wallet-02",
           "mvp-sprint:IN-invoice-05 [built P2] invoice read + PDF /client/invoices",
-          "mvp-sprint:IN-oneinvoice-06 [partial P1] ONE invoice per campaign at checkout, per-ad line items — design:725 | dep PE-checkout-01",
-          "mvp-sprint:RF-split-07 [missing P2] cancel refund split client90/platform5/provider5 (admin-configurable) — design:225 | dep CF-config-01,WT-wallet-02",
-          "mvp-sprint:RF-policy-08 [missing P2] refund situations engine (free pre-approval / partial post-approval / none post-display unless proof fails / full on auto-cancel) — cases#14 | dep RF-split-07"
+          "mvp-sprint:IN-oneinvoice-06 [partial P1] ONE invoice per campaign at checkout, per-ad line items — §8 · UC-4 | dep PE-checkout-01",
+          "mvp-sprint:RF-split-07 [missing P2] cancel refund split client90/platform5/provider5 (admin-configurable) — §8 · UC-10 | dep CF-config-01,WT-wallet-02",
+          "mvp-sprint:RF-policy-08 [missing P2] refund situations engine (free pre-approval / partial post-approval / none post-display unless proof fails / full on auto-cancel) — §8 · UC-10 | dep RF-split-07"
         ],
         "G_ratings": [
-          "mvp-sprint:RT-table-01 [missing P2] ratings table (client,provider,campaign,stars1-5,comment,flagged) unique(client,campaign) — cases#3",
-          "mvp-sprint:RT-post-02 [missing P2] POST /client/campaigns/{c}/rating + eligibility (ended OR live>=30d; 1/campaign) — design:732 | dep RT-table-01",
-          "mvp-sprint:RT-avg-03 [missing P2] GET /spaces/{s} includes provider avg stars + count — cases#3 | dep RT-table-01",
-          "mvp-sprint:RT-flag-04 [missing P3] flag abusive rating comments for Support — cases#3 | dep RT-table-01"
+          "mvp-sprint:RT-table-01 [missing P2] ratings table (client,provider,campaign,stars1-5,comment,flagged) unique(client,campaign) — §9 · UC-12",
+          "mvp-sprint:RT-post-02 [missing P2] POST /client/campaigns/{c}/rating + eligibility (ended OR live>=30d; 1/campaign) — §9 · UC-12 | dep RT-table-01",
+          "mvp-sprint:RT-avg-03 [missing P2] GET /spaces/{s} includes provider avg stars + count — §9 · UC-12 | dep RT-table-01",
+          "mvp-sprint:RT-flag-04 [missing P3] flag abusive rating comments for Support — §9 · UC-12 | dep RT-table-01"
         ],
         "H_chat_pii": [
           "mvp-sprint:CH-conv-01 [built P1] UN solo primitivo `chats` + messages CRUD (chats, chat_participants, chat_objects, chat_flags); las tablas conversations y tickets fueron retiradas",
-          "mvp-sprint:CH-mask-02 [partial P1] PII masking per-message at render (phone/email/URL/off-space addr) by viewer role+join state — design:316",
-          "mvp-sprint:CH-whitelist-03 [missing P2] whitelist booked space's own street address in its thread; mask other addrs — design:330 | dep CH-mask-02",
-          "mvp-sprint:CH-poly-04 [partial P2] objetos polimorficos colgados del chat (chat_objects) + historial de transformaciones en mensajes kind=system; sustituye al viejo conversation_links — design:582 | dep CH-conv-01",
-          "mvp-sprint:CH-internal-05 [missing P2] chat interno Support<->Payments = un chat propio SIN participante cliente (no hay columna type; el acceso se decide por participacion); el cliente no puede leerlo — design:586 | dep CH-conv-01",
-          "mvp-sprint:CH-relax-06 [partial P2] relajar el enmascarado + mensaje de sistema cuando Support entra al chat (POST /chats/{c}/join); nunca en el chat interno — design:316 | dep CH-mask-02",
-          "mvp-sprint:CH-help-07 [missing P3] global Help-menu chat for every account user — cases#12 | dep CH-conv-01",
-          "mvp-sprint:CH-startchat-08 [partial P2] start-chat from any ad/adset/campaign/booking with object context — design:318 | dep CH-conv-01"
+          "mvp-sprint:CH-mask-02 [partial P1] PII masking per-message at render (phone/email/URL/off-space addr) by viewer role+join state — §10",
+          "mvp-sprint:CH-whitelist-03 [missing P2] whitelist booked space's own street address in its thread; mask other addrs — §10 | dep CH-mask-02",
+          "mvp-sprint:CH-poly-04 [partial P2] objetos polimorficos colgados del chat (chat_objects) + historial de transformaciones en mensajes kind=system; sustituye al viejo conversation_links — §10 | dep CH-conv-01",
+          "mvp-sprint:CH-internal-05 [missing P2] chat interno Support<->Payments = un chat propio SIN participante cliente (no hay columna type; el acceso se decide por participacion); el cliente no puede leerlo — §10 · UC-27 | dep CH-conv-01",
+          "mvp-sprint:CH-relax-06 [partial P2] relajar el enmascarado + mensaje de sistema cuando Support entra al chat (POST /chats/{c}/join); nunca en el chat interno — §10 · UC-21 | dep CH-mask-02",
+          "mvp-sprint:CH-help-07 [missing P3] global Help-menu chat for every account user — §10 · UC-9 | dep CH-conv-01",
+          "mvp-sprint:CH-startchat-08 [partial P2] start-chat from any ad/adset/campaign/booking with object context — §10 · UC-9 | dep CH-conv-01"
         ],
         "I_soporte_chats": [
           "mvp-sprint:TK-shared-01 [built P1] chat compartido: crear + responder, con el objeto (ad|adset|campaign|space) colgado como chat_object",
-          "mvp-sprint:TK-payment-02 [partial P2] colgar tambien un `payment` como objeto del chat — design:705 | dep TK-shared-01",
-          "mvp-sprint:TK-dual-03 [built P1] apertura automatica al rechazar el cliente una prueba: NO es un ticket dual sino 3 CHATS DE DISPUTA (interno Support<->Payments, Support<->Cliente, Support<->Proveedor) con el pago adjunto como objeto del chat y payments.status=held — design:750 | dep TK-payment-02,PR-reject-04",
+          "mvp-sprint:TK-payment-02 [partial P2] colgar tambien un `payment` como objeto del chat — §10 · UC-9 | dep TK-shared-01",
+          "mvp-sprint:TK-dual-03 [built P1] apertura automatica al rechazar el cliente una prueba: NO es un ticket dual sino 3 CHATS DE DISPUTA (interno Support<->Payments, Support<->Cliente, Support<->Proveedor) con el pago adjunto como objeto del chat y payments.status=held — §10 · UC-7 | dep TK-payment-02,PR-reject-04",
           "mvp-sprint:TK-supportq-04 [built P1] cola de chats de Support + estado + respuesta",
-          "mvp-sprint:TK-editany-05 [built P2] PUT /support/{spaces|ads|users|bookings|collaborators}/{id} edit-any non-money, audited — design:746 | dep AU-log-01 | 2026-08-02 BUILT: Support\\ObjectEditController; money unreachable at OBJECT level (no route) and FIELD level (whitelists + assertNonMoney); users.role/password stay Admin-only; audited in the same txn",
-          "mvp-sprint:TK-flagbridge-06 [built] POST /chats/{c}/flags — Support marca `refund` / `payout_hold` sobre el chat (solo marca; Payments ejecuta). Sustituye a las rutas retiradas /support/payments/{p}/flag-* — cases#SUPP5 | dep PM-money-02,AC-namedcaps-11",
-          "mvp-sprint:TK-join-07 [built] POST /chats/{c}/join — Support entra al chat, la entrada se anuncia con un mensaje de sistema y el chat pasa a in_progress; el Admin nunca entra asi (es de solo lectura y su acceso solo queda en el log de auditoria) — cases#SUPP2 | dep CH-relax-06",
-          "mvp-sprint:TK-adhoc-08 [partial P3] chat ad-hoc iniciado por Support, visible solo para el proveedor implicado — cases#SUPP4 | dep TK-shared-01",
-          "mvp-sprint:TK-close-09 [partial P3] Support puede cerrar el chat sin consentimiento del usuario; un chat CERRADO no lo puede reabrir el usuario — solo el admin, con POST /admin/chats/{c}/reopen — design:347 | dep TK-supportq-04",
-          "mvp-sprint:TK-internal-10 [built] chat interno Support<->Payments que el cliente nunca ve — es uno de los 3 chats de disputa y simplemente no tiene participante cliente — design:338 | dep CH-internal-05"
+          "mvp-sprint:TK-editany-05 [built P2] PUT /support/{spaces|ads|users|bookings|collaborators}/{id} edit-any non-money, audited — §12 · UC-23 | dep AU-log-01 | 2026-08-02 BUILT: Support\\ObjectEditController; money unreachable at OBJECT level (no route) and FIELD level (whitelists + assertNonMoney); users.role/password stay Admin-only; audited in the same txn",
+          "mvp-sprint:TK-flagbridge-06 [built] POST /chats/{c}/flags — Support marca `refund` / `payout_hold` sobre el chat (solo marca; Payments ejecuta). Sustituye a las rutas retiradas /support/payments/{p}/flag-* — §10 · UC-22 | dep PM-money-02,AC-namedcaps-11",
+          "mvp-sprint:TK-join-07 [built] POST /chats/{c}/join — Support entra al chat, la entrada se anuncia con un mensaje de sistema y el chat pasa a in_progress; el Admin nunca entra asi (es de solo lectura y su acceso solo queda en el log de auditoria) — §10 · UC-21 | dep CH-relax-06",
+          "mvp-sprint:TK-adhoc-08 [partial P3] chat ad-hoc iniciado por Support, visible solo para el proveedor implicado — §10 | dep TK-shared-01",
+          "mvp-sprint:TK-close-09 [partial P3] Support puede cerrar el chat sin consentimiento del usuario; un chat CERRADO no lo puede reabrir el usuario — solo el admin, con POST /admin/chats/{c}/reopen — §10 · UC-28 | dep TK-supportq-04",
+          "mvp-sprint:TK-internal-10 [built] chat interno Support<->Payments que el cliente nunca ve — es uno de los 3 chats de disputa y simplemente no tiene participante cliente — §10 · UC-27 | dep CH-internal-05"
         ],
         "J_admin_moderation_audit": [
           "mvp-sprint:AD-usercrud-01 [built P1] admin user CRUD/CRM",
           "mvp-sprint:AD-rbac-02 [built P1] RBAC matrix editor (anti-lockout)",
           "mvp-sprint:AD-oversight-03 [built P2] eagle-eye de solo lectura sobre los chats — UNA sola vista GET /admin/oversight/chats con filtros (sustituye a las vistas paralelas de conversations y tickets)",
-          "mvp-sprint:AD-silentpost-04 [descartado — admin read-only; su entrada se audita, no se anuncia] admin SILENT read+write into any thread (no join announce) — design:326 | dep CH-internal-05 | decision REVERTIDA por el dueño (2026-08-02, Q44): el admin no escribe en ningun chat; el texto se conserva como registro de la decision revertida",
-          "mvp-sprint:AD-takedown-05 [missing P2] POST /admin/spaces/{s}/takedown + /restore (provider cannot self-reverse) — cases#ADMIN2 | dep AU-log-01",
-          "mvp-sprint:AD-freeze-06 [missing P2] POST /admin/providers/{u}/freeze + /unfreeze (pause new bookings + auto-cancel+refund upcoming) — journey#7 | dep RF-policy-08,AC-namedcaps-11",
-          "mvp-sprint:AD-freezecache-07 [missing P2] freeze busts permission/session cache + revokes Sanctum tokens — design:579 | dep AD-freeze-06",
-          "mvp-sprint:AD-delguard-08 [missing P1] deletion guardrails EVERY object (block hard-delete w/ open ticket, active booking, unsettled funds) -> 'programmed for deletion' — design:417",
-          "mvp-sprint:AD-health-09 [partial P2] admin health dashboard (rechazos, chats de disputa abiertos, pagos detenidos, queues, refund/strike rate, gateway health) — cases#ADMIN5",
-          "mvp-sprint:AU-log-01 [built P1] append-only audit_logs table (actor,target,before/after,ts) + DB INSERT-only trigger — design:370 | 2026-08-02 BUILT: audit_logs has no updated_at and AuditLog throws on updating/deleting; the DB INSERT-only trigger remains AFTER-MVP per design.md §12",
-          "mvp-sprint:AU-record-02 [built P1] AuditLog::record() on every mutating staff action, same txn — design:595 | dep AU-log-01 | 2026-08-02 BUILT: Payments approve/reject/refund/release_payout/hold_payout, Admin user create/update/delete, Admin system config (per key), Admin RBAC rewrite (recordOn → target_id null, the target is a SET), staff chat money flags (flag_raise/flag_change); a no-op change writes no entry — AuditWritersTest, 16 tests",
-          "mvp-sprint:AU-query-03 [built P2] GET /admin/audit (?target_type,?target_id,?actor_id,?action) per-object history read-only — design:738 | dep AU-record-02 | 2026-08-02 BUILT: Admin\\AuditController, gated on the new admin.audit.read permission; no write verb exists",
-          "mvp-sprint:AU-retention-04 [missing P3] admin-configurable audit retention — design:377 | dep AU-log-01,CF-config-01",
-          "mvp-sprint:AU-eraseguard-05 [partial P3] insert_data.py --erase-all-data env-guarded (local/testing only) — design:601"
+          "mvp-sprint:AD-silentpost-04 [descartado — admin read-only; su entrada se audita, no se anuncia] admin SILENT read+write into any thread (no join announce) — §12 · UC-28 | dep CH-internal-05 | decision REVERTIDA por el dueño (2026-08-02, Q44): el admin no escribe en ningun chat; el texto se conserva como registro de la decision revertida",
+          "mvp-sprint:AD-takedown-05 [missing P2] POST /admin/spaces/{s}/takedown + /restore (provider cannot self-reverse) — §12 · UC-29 | dep AU-log-01",
+          "mvp-sprint:AD-freeze-06 [missing P2] POST /admin/providers/{u}/freeze + /unfreeze (pause new bookings + auto-cancel+refund upcoming) — §12 · UC-29 | dep RF-policy-08,AC-namedcaps-11",
+          "mvp-sprint:AD-freezecache-07 [missing P2] freeze busts permission/session cache + revokes Sanctum tokens — §12 · UC-29 | dep AD-freeze-06",
+          "mvp-sprint:AD-delguard-08 [built P1] deletion guardrails: DELETE despublica y PROGRAMA (spaces.publication_status=unpublished + delete_scheduled_at); bloqueos = reservas vivas + pagos sin liquidar, devueltos EN el 409; bookings.space_id pasa a RESTRICT; purga manual `php artisan spaces:purge --confirm` que revalida bloqueos — §12 · UC-37",
+          "mvp-sprint:AD-health-09 [partial P2] admin health dashboard (rechazos, chats de disputa abiertos, pagos detenidos, queues, refund/strike rate, gateway health) — §12",
+          "mvp-sprint:AU-log-01 [built P1] append-only audit_logs table (actor,target,before/after,ts) + DB INSERT-only trigger — §12 · UC-31 | 2026-08-02 BUILT: audit_logs has no updated_at and AuditLog throws on updating/deleting; the DB INSERT-only trigger remains AFTER-MVP per §12",
+          "mvp-sprint:AU-record-02 [built P1] AuditLog::record() on every mutating staff action, same txn — §12 · UC-31 | dep AU-log-01 | 2026-08-02 BUILT: Payments approve/reject/refund/release_payout/hold_payout, Admin user create/update/delete, Admin system config (per key), Admin RBAC rewrite (recordOn → target_id null, the target is a SET), staff chat money flags (flag_raise/flag_change); a no-op change writes no entry — AuditWritersTest, 16 tests",
+          "mvp-sprint:AU-query-03 [built P2] GET /admin/audit (?target_type,?target_id,?actor_id,?action) per-object history read-only — §12 · UC-31 | dep AU-record-02 | 2026-08-02 BUILT: Admin\\AuditController, gated on the new admin.audit.read permission; no write verb exists",
+          "mvp-sprint:AU-retention-04 [missing P3] admin-configurable audit retention — §12 · UC-30 | dep AU-log-01,CF-config-01",
+          "mvp-sprint:AU-eraseguard-05 [partial P3] insert_data.py --erase-all-data env-guarded (local/testing only) — §12"
         ],
         "K_config_notifications_calendar_xcut": [
-          "mvp-sprint:CF-config-01 [partial P1] System Configurations read/update (proof-deadline, strike window/threshold, prepay expiry, calendar-staleness, payout-stop, refund split, currency, rate limits, audit retention, default timezone) — design:386",
-          "mvp-sprint:CF-snapshot-02 [partial P1] snapshot config onto booking at creation + 'apply to in-flight' checkbox — design:400 | dep SB-enum-07,CF-config-01",
-          "mvp-sprint:CF-tz-03 [missing P2] UTC storage + deadline math vs admin default tz (Monterrey) + per-user users.timezone display — design:533",
-          "mvp-sprint:NT-dispatch-01 [missing P1] notification dispatcher: domain events -> queued listeners fan out by channel/urgency — design:354",
-          "mvp-sprint:NT-schema-02 [missing P1] ~35-event alert schema (booking/approve/reject/reminders/proof/cancel/refund/dispute/payout/strike/collab/takedown/freeze/prepay/calendar-stale) — cases alert-table | dep NT-dispatch-01",
-          "mvp-sprint:NT-feed-03 [missing P2] GET /notifications + POST /notifications/{n}/read in-app feed — design:754 | dep NT-dispatch-01",
-          "mvp-sprint:NT-sms-04 [missing P3] SMS channel (Twilio mock) ONLY for Payments alerts + cancellations — design:362 | dep NT-dispatch-01",
-          "mvp-sprint:NT-email-05 [missing P3] email channel for high/med urgency (mock) — cases alert-table | dep NT-dispatch-01",
+          "mvp-sprint:CF-config-01 [partial P1] System Configurations read/update (proof-deadline, strike window/threshold, prepay expiry, calendar-staleness, payout-stop, refund split, currency, rate limits, audit retention, default timezone) — §12 · UC-30",
+          "mvp-sprint:CF-snapshot-02 [partial P1] snapshot config onto booking at creation + 'apply to in-flight' checkbox — §16 | dep SB-enum-07,CF-config-01",
+          "mvp-sprint:CF-tz-03 [missing P2] UTC storage + deadline math vs admin default tz (Monterrey) + per-user users.timezone display — §12",
+          "mvp-sprint:NT-dispatch-01 [missing P1] notification dispatcher: domain events -> queued listeners fan out by channel/urgency — §13 · UC-38",
+          "mvp-sprint:NT-schema-02 [missing P1] ~35-event alert schema (booking/approve/reject/reminders/proof/cancel/refund/dispute/payout/strike/collab/takedown/freeze/prepay/calendar-stale) — §19 · UC-38 | dep NT-dispatch-01",
+          "mvp-sprint:NT-feed-03 [missing P2] GET /notifications + POST /notifications/{n}/read in-app feed — §13 · UC-38 | dep NT-dispatch-01",
+          "mvp-sprint:NT-sms-04 [missing P3] SMS channel (Twilio mock) ONLY for Payments alerts + cancellations — §13 · UC-38 | dep NT-dispatch-01",
+          "mvp-sprint:NT-email-05 [missing P3] email channel for high/med urgency (mock) — §13 · UC-38 | dep NT-dispatch-01",
           "mvp-sprint:CL-avail-01 [built P1] space availabilities CRUD + sync-ical + import-ical",
-          "mvp-sprint:CL-stale-02 [partial P2] calendar-staleness alert (>7d configurable) from last sync/edit, never creation — design:440 | dep CF-config-01,NT-dispatch-01",
-          "mvp-sprint:CL-offline-03 [missing P3] imported calendar offline -> fall back to last-known/manual + staleness alert — design:451 | dep CL-stale-02",
-          "mvp-sprint:RL-ratelimit-01 [missing P2] per-IP + per-account rate limits (login/chat/upload/search/booking) + retry-after — design:379 | dep CF-config-01",
+          "mvp-sprint:CL-stale-02 [partial P2] calendar-staleness alert (>7d configurable) from last sync/edit, never creation — §13 · UC-14 | dep CF-config-01,NT-dispatch-01",
+          "mvp-sprint:CL-offline-03 [missing P3] imported calendar offline -> fall back to last-known/manual + staleness alert — §13 · UC-14 | dep CL-stale-02",
+          "mvp-sprint:RL-ratelimit-01 [missing P2] per-IP + per-account rate limits (login/chat/upload/search/booking) + retry-after — §12 · UC-30 | dep CF-config-01",
           "mvp-sprint:PV-space-02 [built P1] provider space CRUD",
-          "mvp-sprint:PV-media-03 [partial P3] rename space /photos -> /media (image/video/other) — design:677",
-          "mvp-sprint:PV-booking-04 [partial P1] provider booking Approve / Reject-with-OPTIONAL-reason (replace bare confirm/cancel) + send-to-installer — cases#PROV4 | dep SB-enum-07",
-          "mvp-sprint:PV-install-05 [missing P2] confirmed booking -> installation queue (install date + client file) staffed by installator collabs — cases#PROV5 | dep PV-booking-04,AC-grants-09",
-          "mvp-sprint:PV-adreject-06 [partial P2] provider manual ad/file reject coexists w/ auto-validation (no charge on reject) — cases#PROV1 | dep MS-validate-09",
-          "mvp-sprint:XC-deadcode-01 [partial P3] delete dead frontend collaborator-role.helper.ts (or wire it) — ex-investigation:39",
+          "mvp-sprint:PV-media-03 [partial P3] rename space /photos -> /media (image/video/other) — §17",
+          "mvp-sprint:PV-booking-04 [partial P1] provider booking Approve / Reject-with-OPTIONAL-reason (replace bare confirm/cancel) + send-to-installer — §5 · UC-15 | dep SB-enum-07",
+          "mvp-sprint:PV-install-05 [missing P2] confirmed booking -> installation queue (install date + client file) staffed by installator collabs — §5 · UC-36 | dep PV-booking-04,AC-grants-09",
+          "mvp-sprint:PV-adreject-06 [partial P2] provider manual ad/file reject coexists w/ auto-validation (no charge on reject) — §4 · UC-15 | dep MS-validate-09",
+          "mvp-sprint:XC-deadcode-01 [partial P3] delete dead frontend collaborator-role.helper.ts (or wire it) — §14",
           "mvp-sprint:XC-speccomment-02 [missing P2] add spec-<id> doc-comment prefix to each backend class/method tagging which spec/case it satisfies (the traceability gate) — owner 2026-06-26"
         ]
       },
@@ -6717,18 +7042,18 @@
     },
     "uiPhase": {
       "started": "2026-06-15",
-      "goal": "Owner UI/behavior change-list + full design.md/cases.md compliance (clients/providers/payments/support/admin).",
+      "goal": "Owner UI/behavior change-list + full design.json compliance (clients/providers/payments/support/admin).",
       "refs": [
         ".claude/plans/platform-graph.md (object graph + role capabilities; collaborator note = TWO ecosystems)",
         ".claude/plans/ui-endpoint-audit.md (original 26-item endpoint classification + build order)",
         ".claude/plans/cases.md (story backlog / compliance lens; renamed from cases-v2.md)",
-        "design.md (canonical design — wins over cases.md on conflicts)"
+        "design.json (the canonical design — it absorbed cases.md; on conflict the specs win over the §19 stories)"
       ],
       "audit_2026_06_18": {
-        "method": "4 read-only agents: client / provider / staff / doc+contract-logic, comparing design.md+cases.md vs ARCHITECTURE.md + actual routes/controllers/components.",
+        "method": "4 read-only agents: client / provider / staff / doc+contract-logic, comparing design.md+cases.md (hoy design.json) vs ARCHITECTURE.md + actual routes/controllers/components.",
         "verdict": "Original 26-item list was UI-focused; the audit found whole DESIGN subsystems with NO schema/route backing. MVP demo works, but design-completeness is far from done.",
         "conflicts_design_wins": [
-          "Date-flexibility (+/-X days) filter: cases.md asks for it but design.md says dates are EXACT, no flex filter. DROP it (do not build)."
+          "Date-flexibility (+/-X days) filter: cases.md asks for it but design.json §5 says dates are EXACT, no flex filter. DROP it (do not build)."
         ],
         "contract_bugs_fixed": "S24 (this session): same class as B1's #14. L1 payment-list read paginator as array -> Payments queue rendered empty (fixed: read res.data). L2 provider booking update read res.data but controller returned bare AND rejected status 'cancelled' (fixed: controller wraps {data} + allows cancelled). L3 shared ticket reply read res.data but controller returned bare (fixed: wrap {data}). All 3 runtime-verified.",
         "doc_drift_docsync": [
@@ -6805,25 +7130,25 @@
           "id": "N1-ratings",
           "title": "Provider star ratings",
           "severity": "major",
-          "note": "design.md Provider Ratings + cases CLIENT #3. NO table/model/route/UI. Eligibility: campaign ended OR live >=30 days, one rating per campaign, optional comment, abusive-comment flag for Support. Avg shown on space detail."
+          "note": "§9 Ratings + cases CLIENT #3. NO table/model/route/UI. Eligibility: campaign ended OR live >=30 days, one rating per campaign, optional comment, abusive-comment flag for Support. Avg shown on space detail."
         },
         {
           "id": "N2-media-specs",
           "title": "Media-delivery specs + per-type templates + upload validation",
           "severity": "blocking",
-          "note": "design.md Media-Delivery Specs + cases CLIENT #6/#7 + PROVIDER #1. spaces has NO spec columns. Add media_specs (json, from per-type template) + upload_instructions (text); show inline at client upload; HARD-FAIL ad upload validation (format/res/CMYK/bleed/duration/bitrate/size) with concrete message; pre-upload type-mismatch warning. Gates the client upload story."
+          "note": "§19 media-delivery specs + cases CLIENT #6/#7 + PROVIDER #1. spaces has NO spec columns. Add media_specs (json, from per-type template) + upload_instructions (text); show inline at client upload; HARD-FAIL ad upload validation (format/res/CMYK/bleed/duration/bitrate/size) with concrete message; pre-upload type-mismatch warning. Gates the client upload story."
         },
         {
           "id": "N3-checkout",
           "title": "One-checkout-per-campaign + payment step",
           "severity": "blocking",
-          "note": "design.md + cases CLIENT #8. Today each ad is booked individually with a mock payment row; no campaign-level checkout, no aggregated pay screen, no legal-doc links, no invoice generation. Orphan-blocks-checkout guard folds in here."
+          "note": "§8 checkout + cases CLIENT #8. Today each ad is booked individually with a mock payment row; no campaign-level checkout, no aggregated pay screen, no legal-doc links, no invoice generation. Orphan-blocks-checkout guard folds in here."
         },
         {
           "id": "N4-prepay-escrow",
           "title": "Pre-pay waiting list + escrow",
           "severity": "blocking",
-          "note": "design.md Book-for-later/Pre-pay/Escrow + cases CLIENT #8. wallet_entries has escrow_capture/release types but NO client flow writes them. Need is_prepay/offer_expiry on bookings, escrow capture at pre-pay checkout, per-space waiting list, provider picks offer (no amounts shown) / trash, refund-to-wallet on expiry."
+          "note": "§6 Book-for-later, Pre-pay & Escrow + cases CLIENT #8. wallet_entries has escrow_capture/release types but NO client flow writes them. Need is_prepay/offer_expiry on bookings, escrow capture at pre-pay checkout, per-space waiting list, provider picks offer (no amounts shown) / trash, refund-to-wallet on expiry."
         },
         {
           "id": "N5-audit-log",
@@ -6835,23 +7160,23 @@
           "id": "N6-notifications",
           "title": "Notifications / alert dispatcher",
           "severity": "major",
-          "note": "design.md Alerts + cases full alert schema (~35 events: proof uploaded, deadline, refund, join, takedown...). NO notifications table/route. All alert events unimplemented at data layer."
+          "note": "§13 notifications & alerts + cases full alert schema (~35 events: proof uploaded, deadline, refund, join, takedown...). NO notifications table/route. All alert events unimplemented at data layer."
         },
         {
           "id": "N7-strikes",
           "title": "Provider strike system + proof deadline cron",
           "severity": "major",
-          "note": "design.md Strike System + cases PROVIDER #6/#9. deadline stored on proofs but NO cron/auto-cancel/refund-on-miss, NO strike column/model, NO dashboard counter. Day-3/4 reminders + day-5 auto-cancel + 3-strike freeze."
+          "note": "§7 strike system + cases PROVIDER #6/#9. deadline stored on proofs but NO cron/auto-cancel/refund-on-miss, NO strike column/model, NO dashboard counter. Day-3/4 reminders + day-5 auto-cancel + 3-strike freeze."
         },
         {
           "id": "N8-cancel-refund-tiers",
           "title": "Tiered cancel/refund policy + legal docs",
           "severity": "major",
-          "note": "design.md Client Wallet and Refunds + cases CLIENT #14. client booking update only allows status:cancelled with no refund-split / pre-vs-post-approval logic; no legal-doc links at checkout."
+          "note": "§8 wallet & refunds + cases CLIENT #14. client booking update only allows status:cancelled with no refund-split / pre-vs-post-approval logic; no legal-doc links at checkout."
         }
       ],
       "reconciliation_2026_06_20": {
-        "trigger": "Owner asked why agreed changes 'aren't applied' though everything seemed 'solved on paper'. 3 read-only agents reconciled design.md+cases.md+platform-graph+todos vs actual code.",
+        "trigger": "Owner asked why agreed changes 'aren't applied' though everything seemed 'solved on paper'. 3 read-only agents reconciled design.md+cases.md+platform-graph+todos (hoy todo en design.json) vs actual code.",
         "answer": "Most agreed UI/behavior is PLANNED-ONLY (B2-B7 + N1-N8) — never coded. SHIPPED so far: B1 (map split-view, campaign spec edit, per-ad Book, conversation spinner), B1b (contract shape bugs), client lands on /client/spaces, '+ Ad Space', human-readable dates, new-campaign modal name fix, admin config label styling, invoice PDF (server dompdf). Everything else is backlog. A few items are PARTIAL (backend exists, UI doesn't render): 'doesn't coincide' tag + budget filter (SpaceSearchController computes, UI ignores), wallet read-only (no withdraw), mismatch-flag opens ticket but doesn't hold payout.",
         "already_built_not_a_gap": "Provider Messages ARE linked to the conversation's space (ConversationController eager-loads space; list renders conv.space?.name). The missing piece is CONTEXTUAL per-ad/adset/campaign chat buttons (B3), not 'messages not linked'.",
         "real_gaps_owner_hit": [
@@ -6866,7 +7191,7 @@
         "[pre-CHAT-1] Proof/payment (FINAL 2026-06-20): payment is HELD from booking until the CLIENT accepts the primary proof. The CLIENT (and collaborators per role) review/accept/reject proofs — Payments does NOT review proof content. Client REJECT (or collaborator mismatch flag) -> 48h re-upload window opens for provider AND a ticket with the payment attached is created for BOTH Support AND Payments (both see it); payout stays HELD until Support+Payments agree to release. Client ACCEPT -> payment releasable, Payments MANUALLY releases (optionally auto under threshold). => remove Payments\\ProofReviewController + Payments 'Proofs' nav; add 'payment' ticketable; proof-reject -> auto-hold + dual Support/Payments ticket.",
         "Payments auto-approval = admin System Config: toggle + amount THRESHOLD (auto-release under $X), default OFF.",
         "Invoice PDF generation = server-side (SHIPPED). Reflected in platform-graph.",
-        "All NON-client dashboards (provider/payments/support/admin) must show live stats (metrics per role in design.md Dashboards section). Client has NO dashboard.",
+        "All NON-client dashboards (provider/payments/support/admin) must show live stats (metrics per role in design.json §19 Dashboards section). Client has NO dashboard.",
         "Multi-file ads = FUTURE/deferred; MVP is ONE file per ad/space.",
         "Booking queue = provider PICKS from the queue of pending requests for a space (marketplace stock-confirm analogy); NOT auto-assigned."
       ],
@@ -6898,12 +7223,12 @@
         "Verified by Team#1 congruence audit 2026-06-20: doc-set + docs<->todos now congruent (defects A1/A2/A4/A5 fixed)."
       ],
       "doc_fixes_still_pending": [
-        "ARCHITECTURE.md: add Admin ConfigurationController+OversightController to folder tree. (DONE 2026-06-25 at DOC level: dead Manager\\UserController noted in CLAUDE.md; proofs/bookings status enums reconciled to design.md canonical — CODE migrations still pending, see session_2026_06_25.) (ratings table later via N1; ad_files deferred.)",
+        "ARCHITECTURE.md: add Admin ConfigurationController+OversightController to folder tree. (DONE 2026-06-25 at DOC level: dead Manager\\UserController noted in CLAUDE.md; proofs/bookings status enums reconciled to design.md canonical — CODE migrations still pending [RESUELTO 2026-08-03: proofs colapso a proof_uploaded|client_accepted|client_rejected con migracion; bookings NO se migro y la planeacion se corrigio al enum real], see session_2026_06_25.) (ratings table later via N1; ad_files deferred.)",
         "Frontend: booking-list currency 'EUR' -> 'MXN'; reseed demo spaces in Monterrey (MvpDemoSeeder).",
         "CODE (not doc): Timezone (owner decision 2026-06-25) — keep storage in UTC/epoch; add a users.timezone column for per-user DISPLAY; compute deadline math against an Admin System-Configurations default tz (America/Monterrey at launch), NOT the hardcoded config/app.php value.",
         "CODE (not doc): create the accounts table + Account model (one per owner user for MVP) so collaborators can FK account_id instead of campaign_id."
       ],
-      "open_decisions_top5": "ALL RESOLVED 2026-06-20: (1) proof-review reversal RATIFIED — see decisions; (2) collaborators ACCOUNT-scoped, kill proof_uploader; (3) dashboard metrics defined in design.md Dashboards; (4) multi-file DEFERRED, 1 file MVP; (5) booking queue = provider-picks.",
+      "open_decisions_top5": "ALL RESOLVED 2026-06-20: (1) proof-review reversal RATIFIED — see decisions; (2) collaborators ACCOUNT-scoped, kill proof_uploader; (3) dashboard metrics defined in design.json §19 Dashboards; (4) multi-file DEFERRED, 1 file MVP; (5) booking queue = provider-picks.",
       "session_2026_06_23": {
         "owner_reaffirmed": "[pre-CHAT-1] Re-confirmed earlier decisions (collaborators account-wide BOTH client+provider, proof/payment B9 reversal, conversations = object with attached object + multi-role + admin-silent/support-announced, provider approve->installer OR reject-with-note). Working style: momentum over perfection, latest-decision-wins on soft conflicts, ~90% doc compliance, only stop on HARD stoppers (now in CLAUDE.md learnings).",
         "NEW_decision_money": "MONEY = DECIMAL MXN PESOS everywhere, no centavos ('forget cents'). design.md updated. Code is already decimal(10,2) for bookings/payments/ads/spaces/campaigns; ONLY wallet_entries.amount_centavos uses integer cents -> align it to decimal pesos (amount column) + drop the *100 / /100 conversions in PaymentController/WalletController/wallet.component.",
@@ -6914,16 +7239,16 @@
       "session_2026_06_25": {
         "summary": "Docs-only session: investigated the 'Collaborators panel' suspected drift (turned out fully built+wired, NOT a phantom), then reconciled ALL spec collisions across the doc set. ~20 SOFT conflicts auto-resolved (latest-decision-wins); 1 HARD conflict (booking state enum) decided by owner.",
         "investigation_doc": "[DELETED 2026-06-26, folded into spec_backlog below] Was .claude/plans/investigation-planning-to-code-gap.md — diagnosis: the planning-vs-code gap is NOT mock data but SELECTIVE IMPLEMENTATION DEPTH (CRUD-shaped features ship end-to-end; rules buried in prose evaporate) + backend-ahead-of-UI half-features. Root cause: no case-ID->route->component traceability spine — now built as spec_backlog.",
-        "collaborator_scope_FINAL": "Account-scoped (owner reaffirmed 2026-06-24). All SPEC docs flipped: cases.md #11 + invite alert; ARCHITECTURE schema (account_user_id + role string) + relationship map (proof_uploader dropped); design.md client-UI line. Gap-note docs (compliance-report/ui-endpoint-audit/investigation) left as-is (they correctly describe current campaign-scoped CODE).",
+        "collaborator_scope_FINAL": "Account-scoped (owner reaffirmed 2026-06-24). All SPEC docs flipped: cases.md #11 + invite alert; ARCHITECTURE schema (account_user_id + role string) + relationship map (proof_uploader dropped); la linea de UI de cliente (hoy §3 en design.json). Gap-note docs (compliance-report/ui-endpoint-audit/investigation) left as-is (they correctly describe current campaign-scoped CODE).",
         "soft_conflicts_resolved": "Money centavos->decimal MXN pesos (ARCHITECTURE wallet, platform-graph ledger, design precision 12,2) + struck compliance-report action#5 (wrong-direction). Roles: proof_uploader/publisher typos->installator/publicist/manager; CLAUDE.md 3->5 roles; Support proof power = mismatch-only; platform-graph subrole prose. Map: design 3x Google->Leaflet/OSM+w3w (Google swappable). Nav: dashboard=non-client stats/client none; 50% bar->3-pane; collaborators under Configurations. Adsets geo cols marked LEGACY. Proofs ARCHITECTURE enum->B9 client-accept. Media 300->150 DPI; pricing day/week/month->day/month/custom.",
-        "HARD_decision_booking_enum_2026_06_25": "Owner chose: design.md CANONICAL booking enum wins (draft|waiting-approval|waiting-booking-confirmation|live|proof-pending|proof-uploaded|completed|rejected|cancelled); 'payout-held' is PAYMENTS-only (not a booking state); ADS keep a SEPARATE enum (not unified with bookings). Reconciled design.md prose + canonical block + ARCHITECTURE (target annotated).",
+        "HARD_decision_booking_enum_2026_06_25": "Owner chose: el enum canonico de design.md gana (draft|waiting-approval|waiting-booking-confirmation|live|proof-pending|proof-uploaded|completed|rejected|cancelled); 'payout-held' is PAYMENTS-only (not a booking state); ADS keep a SEPARATE enum (not unified with bookings). Reconciled design.md prose + canonical block + ARCHITECTURE (target annotated). [CORRECCION 2026-08-03] Esa migracion NUNCA se escribio. El enum canonico que se eligio aqui (draft|waiting-booking-confirmation|live|proof-pending|proof-uploaded) no existe en la base: bookings.status es y siempre fue pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected. schema.entities.bookings quedo describiendo el enum elegido en vez del construido, asi que cualquier filtro de estados escrito desde la planeacion devolvia cero filas. La entidad ya refleja los 8 valores reales; esta decision queda como registro de por que divergieron.",
         "CODE_migrations_pending": "Docs now lead code on these items — (1) NEW accounts table (owner_user_id unique, type) + collaborators FK campaign_id->account_id; for MVP 1 user = 1 account (B6). (2) bookings.status -> canonical enum. (3) proofs.status -> pending|uploaded|client_accepted|client_rejected (B9). (4) Timezone: store UTC/epoch, add users.timezone (per-user display), deadline math against an Admin System-Config default tz (America/Monterrey at launch) — NOT a hardcoded config/app.php value. NOTHING committed/pushed.",
         "next": "Either (a) build the case-ID->route->component traceability table (attacks the root cause), or (b) resume the build order at B9/B6 which now carry the schema migrations the docs are waiting on."
       },
       "session_2026_06_27_consolidation": {
         "what": "Merged ARCHITECTURE.md + cases.md + platform-graph.md + useful compliance-report.md into ONE design.md (20 numbered sections, 1052 lines). Deleted those 4 files (backed up in session scratchpad). design.md is now THE single canonical doc. Repointed CLAUDE.md/README.md/ui-endpoint-audit.md/5yo-skill to design.md. Verified no content lost (21 tables, 34 alert rows, media-spec table, 30 cases, all [owner] markers, integrity invariants).",
         "owner_decisions_2026_06_27": "Pre-pay OPTIONAL + provider can reject file repeatedly + client can cancel. Proof deadlock -> Support leans client, default cancel+full-refund+rebook. ONE account per email. Refunds 100% unless in-process (supersedes 90/5/5; add to T&C). Ratings immutable/transparent. Provider subroles = installator/sales/supervisor (Sales=messages-only; Supervisor=all-except-remove-people/configs/delete-spaces).",
-        "OPEN_decision_strike_reversal": "When a reversed strike already triggered a freeze that auto-cancelled+refunded upcoming bookings: (A) immediate cancel, reversal restores only future (past permanent); or (B, recommended) freeze pauses new bookings now but DELAYS auto-cancel of upcoming for a configurable appeal window (48-72h) so a reversal within the window is a clean undo. AWAITING owner pick; then write to design.md §7/§12 + add todos.",
+        "OPEN_decision_strike_reversal": "When a reversed strike already triggered a freeze that auto-cancelled+refunded upcoming bookings: (A) immediate cancel, reversal restores only future (past permanent); or (B, recommended) freeze pauses new bookings now but DELAYS auto-cancel of upcoming for a configurable appeal window (48-72h) so a reversal within the window is a clean undo. AWAITING owner pick; then write to §7/§12 (design.json) + add todos.",
         "next": "Owner picks strike-reversal A/B. Then resume backend-first build from spec_backlog critical_path_P1 (accounts table -> account collaborators -> enum migrations -> B9 removal -> audit log...). Nothing committed."
       },
       "mvp_focus_2026_06_23": {
@@ -6941,7 +7266,8 @@
           "Verify book->approve->prove->accept->release loop runtime on the live publisher stack."
         ],
         "AFTER_MVP_cut_or_defer": "ALL already tracked elsewhere in this file (new_subsystems N1-N8 + spec_backlog) — flagged AFTER-MVP here, DO NOT build for v1: N1 ratings, N6 notifications/SMS/Twilio, N7 strikes+cron+auto-cancel, N8/RT tiered refund engine, N4 prepay-escrow+waitlist+sibling-cancel, N5/AU audit_logs, B6 account collaborators+account_grants, N2 media-spec HARD-FAIL validator (keep only basic format/size), N3 campaign checkout+invoice line-items, B4 support edit-any, B5 admin eagle-eye per-object+filters, B10 auto-approve toggle, WT wallet withdraw, SB-overlap gist EXCLUDE (use a lightweight app-level double-book guard if needed), gateway webhooks/FX/clawback/rate-limits/calendar-staleness/multi-file."
-      }
+      },
+      "datedLogConvention": "Todo lo que cuelga de uiPhase y de sessionNotes es un REGISTRO FECHADO: dice lo que era cierto el dia que se escribio, no lo que es cierto hoy. Por eso varias entradas siguen nombrando design.md, ARCHITECTURE.md o cases.md — esos archivos existian entonces y describir su fusion o su borrado exige poder nombrarlos. Donde la frase apuntaba a CONTENIDO se redirigio a su §N de design.json, que es donde el contenido acabo; donde narraba un EVENTO se dejo intacta. Para saber que es cierto hoy: specs[], schema, endpoints — nunca este bloque."
     },
     "workstreams": [
       {
@@ -6976,7 +7302,7 @@
       },
       {
         "id": "WS-8qi",
-        "title": "Doc sync: ARCHITECTURE.md to design.md + migrations",
+        "title": "Doc sync: design.json + migrations",
         "status": "done"
       },
       {
@@ -7008,13 +7334,18 @@
       "git push: RESOLVED for the Codespace (p64–p67 pushed fine from there). It stays blocked from Claude Code (web) sessions — token scope, not repo visibility — which is why delivery is patch-only; see claude.md Learnings."
     ],
     "sessionNotes": {
-      "session_32_chat_unification": "[pre-CHAT-1] BIG REFACTOR (owner 2026-07-17): unify §10 Chat + §11 Tickets into ONE primitive 'Chats, Objetos & Flags'. Ran a 2-agent workflow (blueprints in scratchpad/spec-reconciliation-blueprint.md + chat-acl-security-review.md). LOCKED: no type/kind column (nature DERIVED from participants+objects+flags; origin/transforms in kind=system history); tickets+ticket_messages RETIRED; states open|in_progress|resolved|closed (Support resolves, opener/Admin closes, Support sets in_progress); dispute = 3 chats (Support<->Client/Provider/Payments) + payments.status=held + payment_held flag; participants = FULL per-person chat_participants table (owner chose the fuller shape over the thin one); collaborators: client=all, provider=sales+supervisor NOT installers; Admin oversight = ONE /admin/oversight/chats with filters; UI = single Messages (drop Support tabs), attach object via 2 dropdowns. SECURITY (red-team): access by membership/role NEVER by a mutable flag; R1 fix = Admin read-only/incognito (no ghost-post); R2 fix = ownership-check on object attach (no private-object leak). DONE this session: new §10 written + §11 stub (design.md). PENDING RECONCILIATIONS (next design patch): §2 matrix (3 rows->1 Chat row), §7 dispute (drop type=), §12 (oversight wording), §15 schema (retire tickets; add chats/chat_objects/chat_flags/chat_participants; messages.conversation_id->chat_id), §16 invariants, §17 endpoint map (unified /chats), §19 cases/alerts (ticket->chat), spec_backlog H_chat_pii/I_tickets_support, claude.md schema table. THEN code phases: schema+models -> ACL(derived, membership) -> dispute re-express (~80% reuse ProofFlagController) -> unified endpoints -> UI -> rebuild seeders(DisputeDemoSeeder) + tests on Postgres (adapt the 37; add close/reopen/hidden-history/derived-nature + R1-R9 security cases). Migration: OK to DROP old ticket/chat data.",
+      "session_32_chat_unification": "[pre-CHAT-1] BIG REFACTOR (owner 2026-07-17): unify §10 Chat + §11 Tickets into ONE primitive 'Chats, Objetos & Flags'. Ran a 2-agent workflow (blueprints in scratchpad/spec-reconciliation-blueprint.md + chat-acl-security-review.md). LOCKED: no type/kind column (nature DERIVED from participants+objects+flags; origin/transforms in kind=system history); tickets+ticket_messages RETIRED; states open|in_progress|resolved|closed (Support resolves, opener/Admin closes, Support sets in_progress); dispute = 3 chats (Support<->Client/Provider/Payments) + payments.status=held + payment_held flag; participants = FULL per-person chat_participants table (owner chose the fuller shape over the thin one); collaborators: client=all, provider=sales+supervisor NOT installers; Admin oversight = ONE /admin/oversight/chats with filters; UI = single Messages (drop Support tabs), attach object via 2 dropdowns. SECURITY (red-team): access by membership/role NEVER by a mutable flag; R1 fix = Admin read-only/incognito (no ghost-post); R2 fix = ownership-check on object attach (no private-object leak). DONE this session: new §10 written + §11 stub (hoy en design.json). PENDING RECONCILIATIONS (next design patch): §2 matrix (3 rows->1 Chat row), §7 dispute (drop type=), §12 (oversight wording), §15 schema (retire tickets; add chats/chat_objects/chat_flags/chat_participants; messages.conversation_id->chat_id), §16 invariants, §17 endpoint map (unified /chats), §19 cases/alerts (ticket->chat), spec_backlog H_chat_pii/I_tickets_support, claude.md schema table. THEN code phases: schema+models -> ACL(derived, membership) -> dispute re-express (~80% reuse ProofFlagController) -> unified endpoints -> UI -> rebuild seeders(DisputeDemoSeeder) + tests on Postgres (adapt the 37; add close/reopen/hidden-history/derived-nature + R1-R9 security cases). Migration: OK to DROP old ticket/chat data.",
       "session_31_next": "[pre-CHAT-1] HUMAN WALKTHROUGH (Codespace) surfaced UI gaps; started fixing. DONE: (p22) navbar user-menu was hidden behind the Leaflet map -> raised z-index (logout works on map pages); (p23) removed the client's Dashboard sidebar item (owner picked A: client has no dashboard, lands on Spaces; landingRoute + DashboardComponent already bounced clients); (p24) CLIENT PROOF REVIEW UI (the point-5 gap: client had NO way to accept/reject a proof) -> client BookingController eager-loads 'proofs'; client Bookings detail now shows the proof (media + status) with Accept/Reject buttons hitting /client/proofs/{id}/accept|reject; Booking/Proof TS models updated; DisputeDemoSeeder adds a 2nd booking with a pending_review proof so accept/reject is testable live (booking #1 = disputed/rejected, booking #2 = pending). Verified on Postgres: eager-load returns proofs+file_url, 37 tests still green. NOTE: proof file_path in the demo is a placeholder (broken img is expected; real provider uploads will render). STILL OPEN from the walkthrough: (a) client Messages list labels the support_client thread as 'With: Demo Provider' + shows '0 messages' (should say Support + show the opener) -> conversation-list UI needs thread-type-aware label/preview; (b) Support ticket-detail should surface the 3 dispute threads (or 1, owner leaned 'one thread, functional' -- keep 3 for client/provider privacy but make them openable in the UI); (c) verify p22 menu fix after hard-refresh on /client/spaces. NEXT after walkthrough: processing-queue build (session_30_plan).",
-      "session_30_plan": "[pre-CHAT-1] PROCESSING QUEUE BUILD (owner 2026-07-16: build now, MVP) = PM-procqueue-05b. Re-think of F07-F10 folded into design.md §7/§8/§11 (release enters a reversible processing grace window; Support OR Payments can pull processing->held). BUILD STEPS: (1) migration: payments.status pgsql CHECK += 'processing','settled' + add payments.processing_since (timestamp nullable); (2) releasePayout (still gated on client_accepted) -> status='processing', processing_since=now(); MOVE the escrow_release wallet credit OUT of releasePayout INTO the promotion step (money moves at dispatch, not at enqueue); (3) scheduled command payouts:promote-processing (runs each minute) promoting due rows (processing_since + payout_processing_grace <= now) -> status='released' + escrow_release wallet entry (idempotency_key escrow_release:payment:{id}); wire the scheduler in Docker (schedule:work container or cron); (4) hold/cancel during processing -> held (holdPayout already no-ops on released|refunded, and processing is not terminal so it pulls back); (5) config key payout_processing_grace default 1h from System Config/config; (6) UI: payment-list + support ticket-detail show a 'processing' badge + countdown + Cancel/Hold; client/provider see only 'payout pending' (never the processing state); (7) tests: release->processing (NO wallet entry yet, status!=released), promote-command->released+wallet entry, hold-during-processing->held, hold-after-released->no-op (exists). Verify on Postgres + human walkthrough via DisputeDemoSeeder. Kanban: §7,§8 = wip during this build; move to review when tests+human done. AFTER: F11 review.",
+      "session_30_plan": "[pre-CHAT-1] PROCESSING QUEUE BUILD (owner 2026-07-16: build now, MVP) = PM-procqueue-05b. Re-think of F07-F10 folded into §7/§8/§11 (design.json) (release enters a reversible processing grace window; Support OR Payments can pull processing->held). BUILD STEPS: (1) migration: payments.status pgsql CHECK += 'processing','settled' + add payments.processing_since (timestamp nullable); (2) releasePayout (still gated on client_accepted) -> status='processing', processing_since=now(); MOVE the escrow_release wallet credit OUT of releasePayout INTO the promotion step (money moves at dispatch, not at enqueue); (3) scheduled command payouts:promote-processing (runs each minute) promoting due rows (processing_since + payout_processing_grace <= now) -> status='released' + escrow_release wallet entry (idempotency_key escrow_release:payment:{id}); wire the scheduler in Docker (schedule:work container or cron); (4) hold/cancel during processing -> held (holdPayout already no-ops on released|refunded, and processing is not terminal so it pulls back); (5) config key payout_processing_grace default 1h from System Config/config; (6) UI: payment-list + support ticket-detail show a 'processing' badge + countdown + Cancel/Hold; client/provider see only 'payout pending' (never the processing state); (7) tests: release->processing (NO wallet entry yet, status!=released), promote-command->released+wallet entry, hold-during-processing->held, hold-after-released->no-op (exists). Verify on Postgres + human walkthrough via DisputeDemoSeeder. Kanban: §7,§8 = wip during this build; move to review when tests+human done. AFTER: F11 review.",
       "session_29_next": "[pre-CHAT-1] Option A (dispute CODE) DONE + TESTS DONE 2026-07-16. Test harness moved to POSTGRES (owner decision): phpunit.xml pins DB_CONNECTION=pgsql + DB_DATABASE=pub_ads_mar_testing (force) - create once: docker compose exec db createdb -U postgres pub_ads_mar_testing. Added 4 feature tests (DisputeReviewFlowTest, DisputeThreadAclPostTest, SupportPaymentFlagTest, PaymentsVisibilityTest) + Tests\\Concerns\\BuildsBookingScenario trait; fixed DisputeThreadsTest URLs (/api/proofs -> /api/client/proofs). Verified locally against real Postgres: 27 passed. TWO real gaps the tests surfaced + fixed: (a) support role lacked conversations:create (couldn't POST replies in joined/dispute threads); (b) payments role lacked conversations entirely (couldn't read/post the internal Support<->Payments thread) - both granted in RolePermissionSeeder; also made MessageController::index order by id (deterministic chat order, created_at tied within a second). Round 2 tests DONE 2026-07-16 (verified local Postgres, 35 passed): AuthorizationNegativeTest (client can't reject others' proofs; provider blocked from /client/proofs; client blocked from /payments+/support), ConversationListingTest (GET /conversations shows only own direct + own support thread; only client can start), MoneyStateTest, PiiWhitelistTest (booked-space address kept, other masked). Fixed a real bug: PaymentController::holdPayout lacked a guard -> holding a released/refunded payment reverted it to held; added the same guard accept/reject/flagPayoutHold use. Added DisputeDemoSeeder (idempotent; held payment + flag + 3 threads + direct; reuses client1/provider1/support/payments logins) for the HUMAN 5-role walkthrough: docker compose exec backend php artisan db:seed --class=DisputeDemoSeeder. HUMAN TODO: confirm whether the CLIENT has accept/reject proof UI (backend route /client/proofs/* exists; frontend only has the old Payments proof-review) -> likely the next code gap. NEXT: continue review F11 (admin oversight) -> F12 (config) -> F13 (notif/calendar) -> F14 (RBAC). Deferred code gaps: F05 ('+ Ad Space' removal + per-ad creative upload), F03 (3-pane search layout), F09 (support edit-any-non-money-object endpoints).",
       "session_28_next": "[DONE] Feature-by-feature MVP review; implemented the DISPUTE code (option A). See session_29_next + F07.",
       "session_24_next": "[pre-CHAT-1] B9 proof/payment rework (Payments held-payments view, remove proof review, client reject -> auto-hold + dual Support/Payments ticket). Then B4/B5 (support+admin oversight/user data), B6 (account collaborators + client Configurations tab), B3 nav, B7 money/invoices. Code sequentially (no parallel writes while IDE open); tag [todo Bx]."
     },
-    "specKanbanNote": "design.md IS the board now: §0 defines the notation; each §1-20 header carries a 'kanban:' line. Format: kanban: `status:V` · `weight:V` · `impacts:LIST` · `deps:LIST` · `ids:LIST`. status=backlog|wip|review|done; review is WEIGHTED = automated tests green on Postgres AND a human walkthrough (double gate, nothing is done without both). weight=S|M|L|XL. Grep the board: grep '^kanban:' design.md. Parser for a future UI: backtick spans `([a-z]+):([^`]*)`. spec_backlog ids below are the granular trace targets in the ids: field."
+    "specKanbanNote": "design.json IS the board: `notation` (§0) defines the vocabulary and every entry in `specs[]` carries a `kanban` object: status|weight|impacts|deps|ids. status=backlog|wip|review|done; review is WEIGHTED = automated tests green on Postgres AND a human walkthrough (double gate, nothing is done without both). weight=S|M|L|XL. Read the board in the dashboard's Kanban view of Specs, or with `jq '.specs[] | {id, kanban}' design/design.json`. The specBacklog ids below are the granular trace targets named in the `ids` field.",
+    "futureDebt": [
+      "UC-37 · la purga es MANUAL a proposito (owner 2026-08-03: \"Manual por el momento en la fase mvp, anotalo para un futuro\"). `php artisan spaces:purge --confirm`. Cuando haya scheduler, el comando ya revalida bloqueos en el momento de purgar, asi que automatizarlo es registrarlo en el kernel y nada mas.",
+      "UC-32 · §8 dice que una ventana de retencion vencida libera sola. No hay scheduler en el MVP, asi que hoy simplemente espera a Payments. Mismo enganche que la purga.",
+      "§2 promete un auto-aprobado (toggle + umbral, por defecto OFF). NO existe clave de config y ningun codigo lo lee; deliberadamente no se sembro una clave muerta. Es una funcion, no un ajuste."
+    ]
   }
 }

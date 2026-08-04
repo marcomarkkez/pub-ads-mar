@@ -20,7 +20,10 @@ class RolePermissionSeeder extends Seeder
                 'bookings'      => ['create', 'read', 'update'],
                 'spaces'        => ['read'],
                 'proofs'        => ['read'],
-                'chats'         => ['create', 'read', 'update'],
+                // No 'update': zero routes are gated on chats,update — the lifecycle
+                // verbs (close/reopen/join) all check chats,create. A grant nothing reads
+                // is a permission that looks like a policy and enforces nothing.
+                'chats'         => ['create', 'read'],
                 'collaborators' => ['create', 'read', 'delete'],
                 'invoices'      => ['read'],
             ],
@@ -32,11 +35,13 @@ class RolePermissionSeeder extends Seeder
                 'bookings'              => ['read', 'update'],
                 'dashboard'             => ['read'],
                 'proofs'                => ['create', 'read'],
-                'chats'                 => ['create', 'read', 'update'],
+                'chats'                 => ['create', 'read'],
             ],
 
             'admin' => [
-                'users'                 => ['create', 'read', 'update', 'delete'],
+                // No 'delete' (owner 2026-08-03): the admin removes a user from their roles,
+                // it never erases the account. PermissionController refuses to grant it back.
+                'users'                 => ['create', 'read', 'update'],
                 'campaigns'             => ['read'],
                 'adsets'                => ['read'],
                 'ads'                   => ['read'],
@@ -56,6 +61,11 @@ class RolePermissionSeeder extends Seeder
                 // UC-31 · §12 — Admin is the ONLY reader of the audit log, and
                 // read is the only action that exists: it is append-only.
                 'audit'                 => ['read'],
+                // UC-29/UC-32 · §12/§8 — the audited moderation actions, the ONLY
+                // place Admin writes: takedown/restore, freeze/unfreeze and the
+                // payout stop (`update`); the clawback (`refund`) is split off so
+                // the money-reversal power can be revoked on its own.
+                'moderation'            => ['read', 'update', 'refund'],
             ],
 
             'support' => [

@@ -599,7 +599,7 @@ def main():
 
         for b in bookings:
             for pr in b.get("proofs") or []:
-                if pr.get("status") == "pending_review" and random.random() < 0.7:
+                if pr.get("status") == "proof_uploaded" and random.random() < 0.7:
                     api("POST", f"/client/proofs/{pr['id']}/accept", token=ctoken)
                     proofs_accepted += 1
 

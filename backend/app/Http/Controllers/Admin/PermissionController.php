@@ -87,6 +87,47 @@ class PermissionController extends Controller
         return $matrix;
     }
 
+    /**
+     * The two invariants the RBAC matrix may never be edited out of (§2, owner 2026-08-03).
+     *
+     * 1. NOBODY gets `users.delete`. "Borrado no, sólo el dueño del account puede" — an admin
+     *    removes a person from their roles, it does not erase them. Deletion cascades through
+     *    campaigns, spaces, bookings, payments and wallet, so a grantable delete is a grantable
+     *    accident. It is refused for every role, admin included.
+     * 2. `admin` keeps `users.read` + `users.update`. Stripping them does not lock the matrix
+     *    (the /admin/permissions routes carry no permission middleware, precisely so the door
+     *    can always be reopened) but it does break the ONLY sanctioned path for taking someone
+     *    off their roles, and it breaks it silently.
+     *
+     * Returns null when the set is legal, or the refusal to hand straight back to the client.
+     * 422 and not 409: the payload itself asks for something that must not exist — nothing is
+     * "in use", the request is simply wrong.
+     */
+    private function refuseUnsafeUserMatrix(string $role, array $actions): ?JsonResponse
+    {
+        if (in_array('delete', $actions, true)) {
+            return response()->json([
+                'message' => 'users.delete cannot be granted to any role. Only the account owner deletes an account; an admin removes a user from their roles.',
+                'role' => $role,
+                'rejected_action' => 'delete',
+            ], 422);
+        }
+
+        if ($role === 'admin') {
+            $missing = array_values(array_diff(['read', 'update'], $actions));
+
+            if ($missing !== []) {
+                return response()->json([
+                    'message' => 'The admin role must keep users.read and users.update — they are the only sanctioned way to take a user off their roles.',
+                    'role' => $role,
+                    'required_actions' => $missing,
+                ], 422);
+            }
+        }
+
+        return null;
+    }
+
     public function update(Request $request, string $role): JsonResponse
     {
         if (!in_array($role, RolePermission::ROLES)) {
@@ -106,6 +147,12 @@ class PermissionController extends Controller
                     'valid_resources' => RolePermission::RESOURCES,
                 ], 422);
             }
+        }
+
+        // A whole-matrix rewrite can drop `users` by simply omitting the key, so the guard
+        // reads the submitted set — absent means "no user actions at all", not "unchanged".
+        if ($refusal = $this->refuseUnsafeUserMatrix($role, $validated['permissions']['users'] ?? [])) {
+            return $refusal;
         }
 
         // Rewriting who may do what is the most consequential ✏ in §2, so it is
@@ -168,6 +215,10 @@ class PermissionController extends Controller
             'actions' => 'required|array',
             'actions.*' => 'in:' . implode(',', RolePermission::ACTIONS),
         ]);
+
+        if ($resource === 'users' && $refusal = $this->refuseUnsafeUserMatrix($role, $validated['actions'])) {
+            return $refusal;
+        }
 
         $before = $this->matrixFor($role, $resource);
 

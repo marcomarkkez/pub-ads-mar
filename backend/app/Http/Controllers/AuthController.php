@@ -57,6 +57,21 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // UC-29 · design.json §12 — a freeze "revokes active Sanctum tokens" immediately.
+        // Revoking them and then handing out a fresh one at the next login would make the
+        // revocation theatre, so the freeze also closes the door it just pushed people
+        // through. Distinct from `is_active` on purpose: deactivation is the admin CRM's
+        // switch, a freeze is moderation with money consequences (§12) and the client
+        // needs to be able to tell the two apart.
+        if ($user->isFrozen()) {
+            return response()->json([
+                'error_code' => ApiErrorCode::AuthAccountFrozen->value,
+                'message' => 'This account is frozen by platform moderation. Contact Support.',
+                'frozen_at' => $user->frozen_at,
+                'reason' => $user->freeze_reason,
+            ], 403);
+        }
+
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([

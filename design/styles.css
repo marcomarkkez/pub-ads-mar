@@ -335,3 +335,9 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .walk-expect { margin-top: 4px; font-size: 13px; color: var(--muted); }
 .walk-expect span { text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
 .walk-note { color: var(--muted); margin-top: 10px; }
+
+/* UC .satisfiedBy — the code that already honours a story (p77). */
+.tag.tag-satisfied { background: var(--ok-bg, #0f3d24); color: var(--ok-fg, #7ee2a8); border-color: transparent; cursor: help; }
+.satisfied-by { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; padding: 8px 10px; border-left: 3px solid var(--ok-fg, #7ee2a8); background: rgba(126, 226, 168, 0.07); border-radius: 0 6px 6px 0; }
+.satisfied-by .sb-label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted, #8b97a8); }
+.satisfied-by code { font-size: 12px; word-break: break-word; }

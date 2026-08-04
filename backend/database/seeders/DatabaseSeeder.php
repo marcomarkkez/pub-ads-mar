@@ -11,6 +11,7 @@ use App\Models\SpaceAvailability;
 use App\Models\Booking;
 use App\Models\Chat;
 use App\Models\ChatParticipant;
+use App\Models\Collaborator;
 use App\Models\Invoice;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -28,7 +29,9 @@ class DatabaseSeeder extends Seeder
         if (Schema::hasTable('system_configurations') && class_exists(\App\Models\SystemConfiguration::class)) {
             $configDefaults = [
                 'proof_deadline_days'    => 5,
-                'reupload_window_hours'  => 48,
+                // No 'reupload_window_hours' (owner 2026-07-10): §7 abolished the re-upload
+                // window. Seeding it put a tunable 48h dial in the admin Config screen that
+                // no code has ever read — a setting that lies is worse than a missing one.
                 'strike_window_days'     => 90,
                 'payout_stop_hours'      => 24,
                 'calendar_staleness_days' => 7,
@@ -36,6 +39,7 @@ class DatabaseSeeder extends Seeder
                 'refund_split_platform'  => 5,
                 'refund_split_provider'  => 5,
                 'currency'               => 'MXN',
+                'deletion_grace_days'    => 30,
             ];
 
             foreach ($configDefaults as $key => $value) {
@@ -112,6 +116,37 @@ class DatabaseSeeder extends Seeder
             'phone' => '+5218189876543',
             'company_name' => 'Ramírez Digital',
             'address' => 'Av. Eugenio Garza Sada 427, Monterrey, NL',
+        ]);
+
+        // ── Collaborators (design.json §3 · UC-19) ────────────────────
+        // ACCOUNT-scoped, one grant per person per account. Two states on purpose:
+        // an ACCEPTED manager who already has a login (and, being a person with an
+        // email, an account of her own — §3: "an EMAIL is the account identity"),
+        // and a PENDING publicist who was invited but has not registered yet, which
+        // is why `user_id` is nullable.
+        $collaborator1 = User::create([
+            'name' => 'Ana Torres',
+            'email' => 'colab1@pubads.test',
+            'password' => Hash::make('password'),
+            'role' => 'client',
+            'phone' => '+5218114445566',
+        ]);
+
+        Collaborator::create([
+            'account_id' => $client1->account_id,
+            'invited_by_user_id' => $client1->id,
+            'user_id' => $collaborator1->id,
+            'email' => $collaborator1->email,
+            'role' => 'manager',
+            'status' => 'accepted',
+        ]);
+
+        Collaborator::create([
+            'account_id' => $client1->account_id,
+            'invited_by_user_id' => $client1->id,
+            'email' => 'publicista@pubads.test',
+            'role' => 'publicist',
+            'status' => 'pending',
         ]);
 
         // ── Spaces near San Pedro Garza García, NL ───────────────────

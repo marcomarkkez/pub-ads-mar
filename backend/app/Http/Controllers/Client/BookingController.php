@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Client;
 
+use App\Enums\ApiErrorCode;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Space;
@@ -33,8 +34,20 @@ class BookingController extends Controller
             'book_for_later' => 'nullable|boolean',
         ]);
 
-        $space = Space::with('availabilities')->findOrFail($validated['space_id']);
-        $days = now()->parse($validated['start_date'])->diffInDays(now()->parse($validated['end_date'])) + 1;
+        $space = Space::with(['availabilities', 'user'])->findOrFail($validated['space_id']);
+
+        // UC-29 · §12 — a takedown that only hides the listing from search is not a
+        // takedown: the space id is public (it is in every old search result, every
+        // chat attachment, every bookmark), so the BOOKING is where "off" has to be
+        // enforced. Same gate for a frozen provider account — §12 defines freeze as
+        // "pauses NEW bookings" first and cancels the existing ones second.
+        //
+        // 409, not 403: the client is allowed to book, the listing is not bookable.
+        if ($refusal = $this->refuseUnbookable($space)) {
+            return $refusal;
+        }
+
+        $days =now()->parse($validated['start_date'])->diffInDays(now()->parse($validated['end_date'])) + 1;
 
         $pricePerDay = $space->price_per_day ?? ($space->price_per_month ? $space->price_per_month / 30 : 0);
         $totalPrice = $pricePerDay * $days;
@@ -73,6 +86,30 @@ class BookingController extends Controller
         ]);
 
         return response()->json($booking->load(['space', 'ad', 'adset', 'payment']), 201);
+    }
+
+    /**
+     * Why this listing cannot take a booking right now, or null when it can (§12).
+     * The wording never names the moderation action to the client: a takedown and a
+     * frozen account are platform matters between the provider and the platform.
+     */
+    private function refuseUnbookable(Space $space): ?JsonResponse
+    {
+        $unavailable = $space->isTakenDown() || ($space->user?->isFrozen() ?? false);
+
+        if (! $unavailable && ! $space->is_active) {
+            $unavailable = true;
+        }
+
+        if (! $unavailable) {
+            return null;
+        }
+
+        return response()->json([
+            'error_code' => ApiErrorCode::ConflictingState->value,
+            'message' => 'This space is not accepting bookings right now.',
+            'space_id' => $space->id,
+        ], 409);
     }
 
     public function show(Request $request, Booking $booking): JsonResponse

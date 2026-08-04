@@ -899,7 +899,7 @@
     var groups = {};
     var order = [];
     state.data.userStories.forEach(function (u) {
-      var hay = (u.id + " " + (u.actor || "") + " " + (u.title || "") + " " + (u.detail || "") + " " + groupHay(u)).toLowerCase();
+      var hay = (u.id + " " + (u.actor || "") + " " + (u.title || "") + " " + (u.detail || "") + " " + (u.satisfiedBy || "") + " " + groupHay(u)).toLowerCase();
       if (q && hay.indexOf(q) === -1) return;
       var a = u.actor || "OTHER";
       if (!groups[a]) { groups[a] = []; order.push(a); }
@@ -918,7 +918,9 @@
           '<span class="row-id">' + esc(u.id) + '</span>' +
           '<span class="row-main"><span class="row-title">' + esc(u.title || "") + '</span>' +
           (u.detail ? '<span class="row-sub">' + esc(u.detail) + '</span>' : '') + '</span>' +
-          '<span class="row-tags">' + groupChips(u) + (secs ? '<span class="tag">' + esc(secs) + '</span>' : '') + '</span>';
+          '<span class="row-tags">' + groupChips(u) +
+            (u.satisfiedBy ? '<span class="tag tag-satisfied" title="' + esc(u.satisfiedBy) + '">✓ en codigo</span>' : '') +
+            (secs ? '<span class="tag">' + esc(secs) + '</span>' : '') + '</span>';
         row.querySelector(".row-tags").appendChild(pinBtn("story", u));
         row.addEventListener("click", function () { openStory(u); });
         row.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openStory(u); } });
@@ -967,6 +969,9 @@
     if (u.actor) parts.push('<span class="tag feat">' + esc(u.actor) + '</span>');
     parts.push('</div>');
     if (u.detail) parts.push('<div class="prose">' + esc(u.detail) + '</div>');
+    // `satisfiedBy` names the code that already honours the story. A UC with nothing
+    // behind it is an intention, not a requirement — showing the difference is the point.
+    if (u.satisfiedBy) parts.push('<div class="satisfied-by"><span class="sb-label">Cumplido en codigo</span><code>' + esc(u.satisfiedBy) + '</code></div>');
     parts.push(relChips("Specs", "spec", related(u, "story", "spec"), specLabel));
     parts.push(relChips("Todos", "todo", related(u, "story", "todo"), todoLabel));
     parts.push(impactBlock(u));

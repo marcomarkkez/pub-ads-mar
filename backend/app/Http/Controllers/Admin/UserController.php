@@ -82,24 +82,14 @@ class UserController extends Controller
         return response()->json($user);
     }
 
-    public function destroy(Request $request, User $user): JsonResponse
-    {
-        DB::transaction(function () use ($request, $user) {
-            // The entry is written BEFORE the delete: audit_logs.actor_id is
-            // nullOnDelete, and the target row is about to stop existing, so the
-            // mirrored attributes are the only record left of what was removed.
-            AuditLog::record(
-                $request->user(),
-                'delete',
-                $user,
-                $user->getAttributes(),
-                null,
-                'admin deleted the account (§2 ✏)',
-            );
-
-            $user->delete();
-        });
-
-        return response()->json(['message' => 'User deleted.']);
-    }
+    /*
+     * There is deliberately NO destroy() here (owner 2026-08-03: "Borrado no, sólo el dueño
+     * del account puede… el admin sólo puede quitar usuarios de sus roles, no eliminar").
+     *
+     * The method that used to live here called $user->delete(), and every root foreign key
+     * still points at users with cascadeOnDelete — campaigns, spaces, bookings and the wallet
+     * ledger went with it, silently, in one statement. Auditing that was never protection: the
+     * log recorded a loss it could not undo. Removing the route is the protection; the FK
+     * policy change that makes the loss impossible at all is tracked separately.
+     */
 }

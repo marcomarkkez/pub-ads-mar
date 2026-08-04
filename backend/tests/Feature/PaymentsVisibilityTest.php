@@ -42,6 +42,14 @@ class PaymentsVisibilityTest extends TestCase
         $this->assertTrue($flags->contains('payment_held'));
     }
 
+    /**
+     * The money stays idempotent — one refund, one ledger entry — but the SECOND
+     * call is now answered instead of silently absorbed: owner 2026-08-03, "when
+     * the API refuses because the object is in a conflicting STATE, the status is
+     * 409". A payment that has finished moving is exactly that state
+     * (PaymentController::refund, Payment::TERMINAL). This test asserted 200 for
+     * the repeat, from when the idempotency key was the only guard.
+     */
     public function test_refund_is_idempotent(): void
     {
         ['payment' => $payment, 'client' => $client] = $this->bookingScenario();
@@ -50,7 +58,9 @@ class PaymentsVisibilityTest extends TestCase
         Sanctum::actingAs($payments);
 
         $this->postJson("/api/payments/payments/{$payment->id}/refund")->assertStatus(200);
-        $this->postJson("/api/payments/payments/{$payment->id}/refund")->assertStatus(200);
+        $this->postJson("/api/payments/payments/{$payment->id}/refund")
+            ->assertStatus(409)
+            ->assertJsonPath('status', 'refunded');
 
         $this->assertSame('refunded', $payment->fresh()->status);
         $this->assertSame(1, WalletEntry::where('idempotency_key', "refund:payment:{$payment->id}")->count());

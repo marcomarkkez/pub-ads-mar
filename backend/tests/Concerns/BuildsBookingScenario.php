@@ -63,7 +63,7 @@ trait BuildsBookingScenario
             'media_type' => 'image',
             'file_path' => 'proofs/x.jpg',
             'file_name' => 'x.jpg',
-            'status' => 'pending_review',
+            'status' => Proof::STATUS_UPLOADED,
         ]);
 
         return compact('client', 'provider', 'space', 'ad', 'booking', 'payment', 'proof');

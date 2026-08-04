@@ -135,18 +135,28 @@ export interface Invoice {
   amount: number;
   status: 'draft' | 'issued' | 'paid' | 'cancelled';
   issued_at: string | null;
-  paid_at: string | null;
+  // No `paid_at`: the column does not exist on `invoices`; `status === 'paid'` is the fact.
   created_at: string;
   updated_at: string;
   campaign?: { id: number; name: string };
 }
 
+/**
+ * §3 — client-side and provider-side are TWO SEPARATE ecosystems with DIFFERENT subrole
+ * sets that share NO names. `installator` is PROVIDER-side only (owner 2026-07-17).
+ */
+export type ClientCollaboratorRole = 'publicist' | 'manager';
+export type ProviderCollaboratorRole = 'installator' | 'sales' | 'supervisor';
+
 export interface Collaborator {
   id: number;
-  campaign_id: number;
-  user_id: number;
+  // §3 — collaborators are ACCOUNT-scoped (never campaign-scoped): one collaborator acts
+  // across ALL of the account's campaigns/spaces.
+  account_id?: number;
+  user_id: number | null;
   email: string;
-  role?: 'installator' | 'publicist' | 'manager' | string;
+  role?: ClientCollaboratorRole | ProviderCollaboratorRole | string;
+  status?: 'pending' | 'accepted' | 'revoked' | string;
   created_at: string;
   user?: { id: number; name: string; email: string };
 }

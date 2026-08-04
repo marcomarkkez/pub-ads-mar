@@ -89,10 +89,9 @@ class SupportEditAuditTest extends TestCase
     public function test_support_edits_a_provider_collaborator_role(): void
     {
         $client = User::factory()->create(['role' => 'client']);
-        $campaign = Campaign::create(['user_id' => $client->id, 'name' => 'C', 'status' => 'active']);
 
         $collaborator = Collaborator::create([
-            'campaign_id' => $campaign->id,
+            'account_id' => $client->account_id,
             'invited_by_user_id' => $client->id,
             'email' => 'colab@pubads.test',
             'role' => 'installator',

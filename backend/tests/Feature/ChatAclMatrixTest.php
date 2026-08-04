@@ -56,6 +56,32 @@ class ChatAclMatrixTest extends TestCase
         $this->getJson("/api/admin/oversight/chats/{$chat->id}")->assertStatus(200);
     }
 
+    /**
+     * §2 marks the oversight row 🤫📝. The read is silent to the participants by design —
+     * which is precisely why it must not be silent to the record. Nothing changes, so there
+     * is no before/after; the access itself is the event being logged.
+     */
+    public function test_admin_oversight_read_is_audited(): void
+    {
+        $client = User::factory()->create(['role' => 'client']);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $chat = $this->clientChat($client);
+        $chat->messages()->create(['sender_user_id' => $client->id, 'body' => 'Call me at 555-123-4567', 'kind' => 'user']);
+
+        Sanctum::actingAs($admin);
+        $this->getJson("/api/admin/oversight/chats/{$chat->id}")->assertStatus(200);
+
+        $entry = AuditLog::where('action', 'chat_oversight_read')->sole();
+        $this->assertSame($admin->id, $entry->actor_id);
+        $this->assertSame('admin', $entry->actor_role);
+        $this->assertSame($chat->id, $entry->target_id);
+
+        // The LIST view is a queue, not a disclosure — auditing every poll of it would bury
+        // the row that matters under noise. Only opening a specific chat is recorded.
+        $this->getJson('/api/admin/oversight/chats')->assertStatus(200);
+        $this->assertSame(1, AuditLog::where('action', 'chat_oversight_read')->count());
+    }
+
     /** R4 — provider/client collaborator subroles gate chat access; installator DENIED. */
     public function test_installator_collaborator_is_denied_while_manager_is_allowed(): void
     {
@@ -63,9 +89,10 @@ class ChatAclMatrixTest extends TestCase
         $installer = User::factory()->create(['role' => 'client']);
         $manager = User::factory()->create(['role' => 'client']);
 
-        $campaign = Campaign::create(['user_id' => $owner->id, 'name' => 'C', 'status' => 'active']);
-        Collaborator::create(['campaign_id' => $campaign->id, 'invited_by_user_id' => $owner->id, 'user_id' => $installer->id, 'email' => 'i@x.test', 'role' => 'installator', 'status' => 'accepted']);
-        Collaborator::create(['campaign_id' => $campaign->id, 'invited_by_user_id' => $owner->id, 'user_id' => $manager->id, 'email' => 'm@x.test', 'role' => 'manager', 'status' => 'accepted']);
+        Campaign::create(['user_id' => $owner->id, 'name' => 'C', 'status' => 'active']);
+        // §3 — the grant is on the ACCOUNT, not on a campaign of it.
+        Collaborator::create(['account_id' => $owner->account_id, 'invited_by_user_id' => $owner->id, 'user_id' => $installer->id, 'email' => 'i@x.test', 'role' => 'installator', 'status' => 'accepted']);
+        Collaborator::create(['account_id' => $owner->account_id, 'invited_by_user_id' => $owner->id, 'user_id' => $manager->id, 'email' => 'm@x.test', 'role' => 'manager', 'status' => 'accepted']);
 
         $chat = $this->clientChat($owner); // support_client chat on the owner's account
 

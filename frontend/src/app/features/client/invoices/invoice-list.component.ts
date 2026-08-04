@@ -31,8 +31,9 @@ import { Invoice } from '../../../core/models';
                 <th>Campaign</th>
                 <th>Amount</th>
                 <th>Status</th>
+                <!-- No "Paid At": the invoices table has no such column, so the cell
+                     rendered "-" forever. The status "paid" carries that fact. -->
                 <th>Issued At</th>
-                <th>Paid At</th>
                 <th></th>
               </tr>
             </thead>
@@ -46,7 +47,6 @@ import { Invoice } from '../../../core/models';
                     <span class="badge" [class]="'badge badge-' + invoice.status">{{ invoice.status }}</span>
                   </td>
                   <td>{{ invoice.issued_at ? (invoice.issued_at | date:'mediumDate') : '-' }}</td>
-                  <td>{{ invoice.paid_at ? (invoice.paid_at | date:'mediumDate') : '-' }}</td>
                   <td>
                     <button class="btn btn-sm" [disabled]="downloadingId() === invoice.id"
                       (click)="downloadPdf(invoice)" title="Download PDF">

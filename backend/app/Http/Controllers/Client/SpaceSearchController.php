@@ -22,7 +22,11 @@ class SpaceSearchController extends Controller
             'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
 
-        $query = Space::where('is_active', true)->with(['photos', 'user', 'availabilities']);
+        // UC-29 · §12 — the catalog honours ALL THREE levels of "off": the provider's
+        // own pause, an admin takedown, and a frozen provider account ("freeze pauses
+        // NEW bookings"). Space::scopeBookable() is the single place that knows this,
+        // so a listing hidden by one level cannot resurface through another screen.
+        $query = Space::bookable()->with(['photos', 'user', 'availabilities']);
 
         // Bounding-box geolocation filter
         if ($request->filled(['latitude', 'longitude'])) {

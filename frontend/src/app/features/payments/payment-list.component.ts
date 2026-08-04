@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { NotificationService } from '../../core/services/notification.service';
-import { Payment } from '../../core/models';
+import { Payment, paymentStatusLabel } from '../../core/models';
 
 interface PaymentWithBooking extends Payment {
   booking?: {
@@ -69,8 +69,10 @@ interface PaymentWithBooking extends Payment {
                     <strong class="amount">{{ payment.amount | currency:'USD' }}</strong>
                   </td>
                   <td>
+                    <!-- §8: free_payment = ready to pay, held = frozen in a dispute.
+                         Distinct badge styles + labels; they must never read alike. -->
                     <span class="badge" [ngClass]="'badge-' + payment.status">
-                      {{ payment.status }}
+                      {{ statusLabel(payment.status) }}
                     </span>
                     <!-- design.json §10 [F09] -> §8 [F10]: show WHY money is held —
                          active flags on the dispute chats attached to this payment. -->
@@ -100,27 +102,45 @@ interface PaymentWithBooking extends Payment {
                           Reject
                         </button>
                       } @else {
-                        <button
-                          class="btn btn-sm btn-secondary"
-                          [disabled]="actionLoading()"
-                          (click)="refundPayment(payment)"
-                        >
-                          Refund
-                        </button>
-                        <button
-                          class="btn btn-sm btn-success"
-                          [disabled]="actionLoading()"
-                          (click)="releasePayout(payment)"
-                        >
-                          Release payout
-                        </button>
-                        <button
-                          class="btn btn-sm btn-warning"
-                          [disabled]="actionLoading()"
-                          (click)="holdPayout(payment)"
-                        >
-                          Hold payout
-                        </button>
+                        <!--
+                          The buttons follow the SAME state machine the API enforces (§8).
+                          They used to be one single else-branch, so a released payment offered
+                          "Release payout" again and a payment frozen in a dispute offered
+                          it too — the backend now answers 409, but a button that exists
+                          only to be refused still reads as permission.
+                        -->
+                        @if (payment.status === 'free_payment' || payment.status === 'completed') {
+                          <button
+                            class="btn btn-sm btn-secondary"
+                            [disabled]="actionLoading()"
+                            (click)="refundPayment(payment)"
+                          >
+                            Refund
+                          </button>
+                        }
+                        @if (payment.status === 'free_payment') {
+                          <button
+                            class="btn btn-sm btn-success"
+                            [disabled]="actionLoading()"
+                            (click)="releasePayout(payment)"
+                          >
+                            Release payout
+                          </button>
+                        }
+                        @if (payment.status === 'free_payment' || payment.status === 'completed') {
+                          <button
+                            class="btn btn-sm btn-warning"
+                            [disabled]="actionLoading()"
+                            (click)="holdPayout(payment)"
+                          >
+                            Hold payout
+                          </button>
+                        }
+                        @if (payment.status === 'held') {
+                          <span class="action-note" title="Resolve the dispute in Messages first">
+                            In dispute — resolve to settle
+                          </span>
+                        }
                       }
                     </div>
                   </td>
@@ -154,6 +174,15 @@ interface PaymentWithBooking extends Payment {
       font-family: monospace;
       color: var(--text-muted);
     }
+    /* Shown where the buttons used to be for a disputed payout: the row still needs to
+       say WHY there is nothing to press, or it reads as a rendering bug. */
+    .action-note {
+      font-size: 11px;
+      font-style: italic;
+      color: var(--text-muted);
+      white-space: nowrap;
+      cursor: help;
+    }
     .action-btns {
       display: flex;
       gap: 6px;
@@ -166,6 +195,8 @@ interface PaymentWithBooking extends Payment {
 })
 export class PaymentListComponent implements OnInit {
   private readonly api = environment.apiUrl;
+
+  readonly statusLabel = paymentStatusLabel;
 
   payments = signal<PaymentWithBooking[]>([]);
   loading = signal(false);

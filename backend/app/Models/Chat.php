@@ -183,12 +183,19 @@ class Chat extends Model
         }
 
         // A client collaborator (publicist/manager) reaches the account's chats.
-        // Installator is excluded — proof-upload only (§10). Collaborators are
-        // campaign-scoped in the current schema; the campaign owner IS the account.
+        // Installator is excluded — proof-upload only (§10). §3: the grant points
+        // at the ACCOUNT, so the question is one account_id comparison and no
+        // longer "does this person hold a row on any campaign of that owner".
+        $accountId = $this->client?->account_id;
+
+        if ($accountId === null) {
+            return false;
+        }
+
         return Collaborator::query()
             ->where('user_id', $user->id)
+            ->where('account_id', $accountId)
             ->whereIn('role', self::CLIENT_CHAT_SUBROLES)
-            ->whereHas('campaign', fn (Builder $q) => $q->where('user_id', $this->client_user_id))
             ->exists();
     }
 
@@ -201,11 +208,20 @@ class Chat extends Model
             return true;
         }
 
-        // Provider-side sales/supervisor collaborators are AFTER-MVP (no provider
-        // collaborator table yet); the subrole allowlist is enforced here so an
-        // installator can never slip in once that table lands.
+        // Provider-side sales/supervisor collaborators. This used to ask only "does
+        // this user hold such a grant anywhere", because there was no account to
+        // scope it to — so one sales grant on ONE provider reached EVERY provider's
+        // chats. §3 gives collaborators an account_id, so the question is now the
+        // same one the client side asks. Installator stays excluded: proof-upload only.
+        $accountId = $this->provider?->account_id;
+
+        if ($accountId === null) {
+            return false;
+        }
+
         return Collaborator::query()
             ->where('user_id', $user->id)
+            ->where('account_id', $accountId)
             ->whereIn('role', self::PROVIDER_CHAT_SUBROLES)
             ->exists();
     }
@@ -245,19 +261,23 @@ class Chat extends Model
         };
     }
 
-    /** Client accounts this user collaborates on with a chat-capable subrole. */
+    /**
+     * The client OWNER-USER ids whose chats this user reaches as a collaborator.
+     * `chats.client_user_id` anchors on the user, the grant anchors on the
+     * account, so the account ids are translated back to their owner users here.
+     */
     private function clientAccountsFor(User $user): array
     {
-        return Collaborator::query()
+        $accountIds = Collaborator::query()
             ->where('user_id', $user->id)
             ->whereIn('role', self::CLIENT_CHAT_SUBROLES)
-            ->with('campaign:id,user_id')
-            ->get()
-            ->pluck('campaign.user_id')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+            ->pluck('account_id');
+
+        if ($accountIds->isEmpty()) {
+            return [];
+        }
+
+        return User::query()->whereIn('account_id', $accountIds)->pluck('id')->all();
     }
 
     private function liveParticipantChatIds(User $user): array

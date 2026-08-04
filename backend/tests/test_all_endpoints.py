@@ -373,17 +373,17 @@ def main():
     # =========================================================
     print("\n--- CLIENT: Collaborators ---")
 
-    collab_id = None
-    if camp_id:
-        api("GET", f"/client/campaigns/{camp_id}/collaborators", token=client1_token)
-        _, collab = api("POST", f"/client/campaigns/{camp_id}/collaborators", token=client1_token, data={
-            "email": rand_email(),
-            "role": "proof_uploader",
-        })
-        collab_id = collab.get("id") if collab else None
+    # design.json §3 — ACCOUNT-scoped, not campaign-nested, and the subroles are
+    # publicist|manager (proof_uploader was never one of them).
+    api("GET", "/client/collaborators", token=client1_token)
+    _, collab = api("POST", "/client/collaborators", token=client1_token, data={
+        "email": rand_email(),
+        "role": "publicist",
+    })
+    collab_id = collab.get("id") if collab else None
 
-        if collab_id:
-            api("DELETE", f"/client/campaigns/{camp_id}/collaborators/{collab_id}", token=client1_token)
+    if collab_id:
+        api("DELETE", f"/client/collaborators/{collab_id}", token=client1_token)
 
     # =========================================================
     # 9. CLIENT: Invoices

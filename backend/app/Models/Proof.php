@@ -7,6 +7,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Proof extends Model
 {
+    /**
+     * Q42/Q53 — the whole vocabulary of proofs.status, three values and no more.
+     * Named for the event, not for a queue: `proof_uploaded` says the provider
+     * uploaded, which is the fact; who looks at it next is the client's business.
+     */
+    public const STATUS_UPLOADED = 'proof_uploaded';
+
+    public const STATUS_CLIENT_ACCEPTED = 'client_accepted';
+
+    public const STATUS_CLIENT_REJECTED = 'client_rejected';
+
     protected $appends = ['file_url'];
 
     protected $fillable = [

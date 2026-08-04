@@ -42,6 +42,12 @@ class RolePermission extends Model
         'dashboard',
         // design.json §12 (UC-31) — read-only for Admin; the log is append-only.
         'audit',
+        // design.json §12/§8 (UC-29, UC-32) — the ONE power that is not read-only for
+        // Admin: takedown/restore, freeze/unfreeze, payout-stop (`update`) and the
+        // clawback (`refund`, separately revocable — it moves money BACK from a paid
+        // provider). Deliberately NOT folded into `spaces`/`users`/`payments`: granting
+        // admin `spaces.update` would also claim admin edits listings, which is false.
+        'moderation',
     ];
 
     public const ACTIONS = ['create', 'read', 'update', 'delete', 'refund'];

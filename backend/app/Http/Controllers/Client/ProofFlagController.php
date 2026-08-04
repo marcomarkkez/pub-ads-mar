@@ -47,12 +47,20 @@ class ProofFlagController extends Controller
      * Both accept and reject go through here — auditing half of a symmetric pair is worse than
      * auditing neither, because the gap reads as "it never happened".
      */
-    private function auditedHold(Request $request, Payment $payment, string $action, string $context): void
+    private function auditedMoneyState(Request $request, Payment $payment, string $status, string $action, string $context, array $extra = []): void
     {
-        $before = ['status' => $payment->status];
-        $payment->update(['status' => 'held']);
+        $attributes = ['status' => $status] + $extra;
 
-        AuditLog::record($request->user(), $action, $payment, $before, ['status' => 'held'], $context);
+        $before = [];
+        foreach (array_keys($attributes) as $field) {
+            $before[$field] = $payment->getAttribute($field);
+        }
+
+        // forceFill, not update(): `payout_releasable_at` is money-window state, kept
+        // out of $fillable so no request payload can set it (UC-32 · §8).
+        $payment->forceFill($attributes)->save();
+
+        AuditLog::record($request->user(), $action, $payment, $before, $attributes, $context);
     }
 
     /** UC-6 · Client accepts the proof: payout is now releasable by Payments. */
@@ -61,12 +69,31 @@ class ProofFlagController extends Controller
         $this->ownedProof($request, $proof);
 
         DB::transaction(function () use ($request, $proof) {
-            $proof->update(['status' => 'client_accepted']);
+            // §7 makes the CLIENT the reviewer of record, so the verdict names them and
+            // stamps the hour. Both columns existed and were dead: Support opening a dispute
+            // had no way to tell who accepted or when.
+            $proof->update([
+                'status' => Proof::STATUS_CLIENT_ACCEPTED,
+                'reviewed_by_user_id' => $request->user()->id,
+                'reviewed_at' => now(),
+            ]);
 
             $payment = $proof->booking?->payment;
-            if ($payment && ! in_array($payment->status, ['released', 'refunded'], true)) {
-                $this->auditedHold($request, $payment, 'hold_on_accept',
-                    'Client accepted proof #' . $proof->id . ' → payout held until Payments releases (§7 · UC-6)');
+            if ($payment && ! in_array($payment->status, Payment::TERMINAL, true)) {
+                // NOT `held` any more (§8, owner 2026-08-03). An accepted proof means the
+                // payout is FREE to go out; it was only ever called "held" because the column
+                // had no word for "ready". Payments now sees it in its own bucket instead of
+                // mixed in with the frozen disputes.
+                // UC-32 · §8 — this instant is also the START of the Admin payout-stop
+                // window ("once approved and nothing holds it, Admin has a configurable
+                // window, default 24 h, to stop it"). It is stamped here and nowhere
+                // else, because this is the one moment a payout becomes releasable; a
+                // window derived from `updated_at` would grow or shrink every time an
+                // unrelated field was touched.
+                $this->auditedMoneyState($request, $payment, Payment::STATUS_FREE_PAYMENT, 'free_payment_on_accept',
+                    'Client accepted proof #' . $proof->id . ' → payout releasable by Payments (§7 · UC-6); '
+                    . 'admin payout-stop window opens now (§8 · UC-32)',
+                    ['payout_releasable_at' => now()]);
             }
         });
 
@@ -84,14 +111,16 @@ class ProofFlagController extends Controller
 
         DB::transaction(function () use ($request, $proof, $reason) {
             $proof->update([
-                'status' => 'client_rejected',
+                'status' => Proof::STATUS_CLIENT_REJECTED,
+                'reviewed_by_user_id' => $request->user()->id,
+                'reviewed_at' => now(),
                 'notes' => trim(($proof->notes ? $proof->notes . ' | ' : '')
                     . 'rejected by client' . ($reason !== '' ? ': ' . $reason : '')),
             ]);
 
             $payment = $proof->booking?->payment;
-            if ($payment && ! in_array($payment->status, ['released', 'refunded'], true)) {
-                $this->auditedHold($request, $payment, 'hold_on_reject',
+            if ($payment && ! in_array($payment->status, Payment::TERMINAL, true)) {
+                $this->auditedMoneyState($request, $payment, Payment::STATUS_HELD, 'hold_on_reject',
                     'Client rejected proof #' . $proof->id . ' → payout held pending Support review (§7 · UC-7)');
             }
 

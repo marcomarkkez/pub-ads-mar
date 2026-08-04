@@ -33,6 +33,9 @@ export const routes: Routes = [
           { path: 'campaigns', loadComponent: () => import('./features/client/campaigns/campaign-list.component').then(m => m.CampaignListComponent) },
           { path: 'campaigns/new', loadComponent: () => import('./features/client/campaigns/campaign-form.component').then(m => m.CampaignFormComponent) },
           { path: 'campaigns/:id', loadComponent: () => import('./features/client/campaigns/campaign-detail.component').then(m => m.CampaignDetailComponent) },
+          // design.json §2/§3 (UC-19) — Collaborators is ACCOUNT-scoped and belongs to the
+          // account OWNER, so it is its own screen, NOT a card inside one campaign.
+          { path: 'collaborators', loadComponent: () => import('./features/client/collaborators/collaborator-list.component').then(m => m.CollaboratorListComponent) },
           { path: 'spaces', loadComponent: () => import('./features/client/spaces/space-search.component').then(m => m.SpaceSearchComponent) },
           { path: 'bookings', loadComponent: () => import('./features/client/bookings/booking-list.component').then(m => m.BookingListComponent) },
           { path: 'invoices', loadComponent: () => import('./features/client/invoices/invoice-list.component').then(m => m.InvoiceListComponent) },
@@ -64,6 +67,9 @@ export const routes: Routes = [
           { path: 'users/:id', loadComponent: () => import('./features/admin/users/user-form.component').then(m => m.UserFormComponent) },
           { path: 'permissions', loadComponent: () => import('./features/admin/permissions/permissions-editor.component').then(m => m.PermissionsEditorComponent) },
           { path: 'oversight', loadComponent: () => import('./features/admin/oversight/oversight.component').then(m => m.OversightComponent) },
+          // UC-29 + UC-32 · design.json §12/§8 — the ONLY screen where Admin writes:
+          // takedown/restore, freeze/unfreeze, payout stop and clawback. All audited.
+          { path: 'moderation', loadComponent: () => import('./features/admin/moderation/moderation.component').then(m => m.AdminModerationComponent) },
           // UC-31 · design.json §12 — the immutable audit log (read-only).
           { path: 'audit', loadComponent: () => import('./features/admin/audit/audit-log.component').then(m => m.AuditLogComponent) },
           { path: 'config', loadComponent: () => import('./features/admin/config/config.component').then(m => m.ConfigComponent) },

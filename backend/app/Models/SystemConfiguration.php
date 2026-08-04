@@ -8,6 +8,31 @@ use Illuminate\Support\Facades\Cache;
 
 class SystemConfiguration extends Model
 {
+    /**
+     * §12 (CF-config-01) — the config surface is a FIXED set, not a key/value scratchpad.
+     *
+     * Without this, `PUT /admin/configurations` took any string as a key: a typo like
+     * `proof_deadline_day` created a brand-new row, returned 200, showed up in the admin
+     * screen next to the real one, and left the actual deadline untouched. The admin got
+     * every signal of success and changed nothing.
+     *
+     * A key belongs here once something reads it. `reupload_window_hours` is deliberately
+     * absent — §7 abolished the re-upload window (owner 2026-07-10).
+     */
+    public const KNOWN_KEYS = [
+        'proof_deadline_days',
+        'strike_window_days',
+        'payout_stop_hours',
+        'calendar_staleness_days',
+        'refund_split_client',
+        'refund_split_platform',
+        'refund_split_provider',
+        'currency',
+        // UC-37 — days between programming a deletion and the purge being allowed to run.
+        // This key IS read (Provider\SpaceController::destroy); it is not decoration.
+        'deletion_grace_days',
+    ];
+
     protected $fillable = [
         'key',
         'value',
