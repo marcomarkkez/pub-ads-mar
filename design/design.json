@@ -807,6 +807,76 @@
           }
         ],
         "notes": "Nacio como el UC propuesto DASH-1. No cierra ningun Fxx: el dashboard es documentacion, no producto. Se ejecuta cuando la planeacion cambia de forma, no en cada sprint."
+      },
+      {
+        "id": "WALK-5",
+        "title": "Recorrido humano del dinero: retener, liberar, reembolsar y recuperar",
+        "todoId": "WALK-5",
+        "status": "pending",
+        "closes": [
+          "F10"
+        ],
+        "specs": [
+          "§8",
+          "§12"
+        ],
+        "ucs": [
+          "UC-6",
+          "UC-7",
+          "UC-32"
+        ],
+        "groups": [],
+        "steps": [
+          {
+            "id": "W5-1",
+            "role": "cliente",
+            "action": "Aceptar una prueba de publicacion y quedarse mirando la reserva.",
+            "expected": "El pago pasa a `free_payment`. En la pantalla de Payments aparece como READY TO PAY, en su propio color, y NO mezclado con los retenidos."
+          },
+          {
+            "id": "W5-2",
+            "role": "cliente",
+            "action": "En otra reserva, RECHAZAR la prueba escribiendo un motivo.",
+            "expected": "El pago pasa a `held` y se abren tres hilos de disputa. En Payments se ve HELD (DISPUTE), visualmente distinto del anterior, y en su fila NO hay botones: dice \"In dispute — resolve to settle\"."
+          },
+          {
+            "id": "W5-3",
+            "role": "payments",
+            "action": "Sobre el pago EN DISPUTA, intentar Aprobar y luego Rechazar.",
+            "expected": "Ambos se niegan con 409 y explican que hay una disputa abierta. El pago sigue en `held`, los tres hilos siguen diciendo lo mismo, y el registro de auditoria NO gana ninguna fila: no paso nada, y el log no finge que si."
+          },
+          {
+            "id": "W5-4",
+            "role": "payments",
+            "action": "Sobre el pago ACEPTADO, pulsar Release payout.",
+            "expected": "El pago pasa a `released` y en el monedero del proveedor aparece UN asiento `escrow_release`. Volver a pulsar no crea un segundo asiento."
+          },
+          {
+            "id": "W5-5",
+            "role": "payments",
+            "action": "Sobre ese mismo pago ya liberado, intentar Reembolsar.",
+            "expected": "Se niega con 409 y dice por que: el dinero ya salio hacia el proveedor, y recuperarlo es un clawback, no un reembolso. ESTE es el paso que importa del recorrido: si aqui saliera 200, la plataforma estaria acreditando al cliente dinero que el proveedor ya cobro, y pagando la diferencia de su bolsillo sin que ningun asiento lo dijera."
+          },
+          {
+            "id": "W5-6",
+            "role": "admin",
+            "action": "Entrar a Moderacion > Payouts, detener un pago que siga dentro de la ventana escribiendo un motivo, y despues intentar liberarlo desde Payments.",
+            "expected": "La liberacion se niega con 409 nombrando la detencion. El motivo y el actor quedan en el registro de auditoria."
+          },
+          {
+            "id": "W5-7",
+            "role": "admin",
+            "action": "Sobre un pago YA liberado, ejecutar un clawback con motivo.",
+            "expected": "Aparece un SEGUNDO asiento en el monedero, negativo, de tipo `clawback`. El asiento original de salida sigue ahi, intacto: el libro no se netea, cuenta las dos cosas que pasaron. El pago vuelve a `held`, que es la verdad — el proveedor ya no tiene ese dinero."
+          },
+          {
+            "id": "W5-8",
+            "role": "proveedor",
+            "action": "Mirar el monedero despues de todo lo anterior.",
+            "expected": "Las dos filas se ven por separado con su fecha y su motivo, y el saldo es la suma. En ningun momento la plataforma le quito dinero sin que un humano lo decidiera y lo firmara."
+          }
+        ],
+        "notes": "BR-4 y BR-5 en una sola sentada. La regla que se esta comprobando es que a un proveedor no se le obliga a devolver dinero ya depositado: reembolso y clawback son actos distintos, sobre personas distintas, y el segundo siempre lo decide un humano dentro de una ventana, con motivo y auditado. El paso 5 es el que falla si alguien vuelve a juntar los dos caminos."
       }
     ]
   },
