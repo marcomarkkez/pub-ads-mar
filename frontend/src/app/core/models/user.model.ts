@@ -25,10 +25,25 @@ export interface RegisterRequest {
   role: 'client' | 'provider';
 }
 
+/**
+ * POST /api/login and POST /api/register.
+ *
+ * BR-8 · §3 — these now answer with the SAME account block as GET /me
+ * (`account_id` / `is_owner` / `collaborating_on`), so a session can start complete
+ * from one round trip instead of guessing until /me lands.
+ *
+ * The three are OPTIONAL here on purpose: the backend change ships alongside this one,
+ * and a frontend that hard-required them would blank out every account signal against
+ * an older API. AuthService treats "absent" as "ask /me" and "present" as "use it" —
+ * see AuthService.startSession.
+ */
 export interface AuthResponse {
   user: User;
   token: string;
   permissions: Record<string, boolean>;
+  account_id?: number | null;
+  is_owner?: boolean;
+  collaborating_on?: number[];
 }
 
 /**

@@ -3,15 +3,30 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ApiErrorCode;
-use App\Models\Collaborator;
 use App\Models\RolePermission;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    /**
+     * §3 (AC-accounts-01) — "Every user gets an account at registration", and a
+     * client/provider who registers is by definition "la persona que abre la cuenta",
+     * i.e. an owner from their very first request (owner 2026-08-04).
+     *
+     * The account row itself is born in the `User::created` hook (see User::booted and
+     * Account::provisionFor) rather than here, because registration is not the only door:
+     * the admin user CRUD, the seeders and every factory in the suite create users too,
+     * and an invariant that holds only where somebody remembered to write it is not an
+     * invariant. What this method owes the hook is ATOMICITY: the account is a second
+     * INSERT plus an UPDATE on the user, and if that half fails on its own the request
+     * still answers 201 with a user whose `account_id` is NULL — permanently not an owner,
+     * with no Collaborators tab and no way back except a manual DB fix. The transaction
+     * makes "a registered client/provider without an account" a state that cannot exist.
+     */
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -24,13 +39,16 @@ class AuthController extends Controller
             'address' => 'nullable|string',
         ]);
 
-        $user = User::create($validated);
+        [$user, $token] = DB::transaction(function () use ($validated): array {
+            $user = User::create($validated);
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+            return [$user, $user->createToken('auth-token')->plainTextToken];
+        });
 
         return response()->json([
             'user' => $user,
             'token' => $token,
+            ...$user->accountContext(),
             'permissions' => RolePermission::getCachedPermissions($user->role),
         ], 201);
     }
@@ -78,6 +96,7 @@ class AuthController extends Controller
         return response()->json([
             'user' => $user,
             'token' => $token,
+            ...$user->accountContext(),
             'permissions' => RolePermission::getCachedPermissions($user->role),
         ]);
     }
@@ -91,23 +110,16 @@ class AuthController extends Controller
 
     /**
      * §3 (owner 2026-08-04) — "un dueño es la persona que abre la cuenta y puede añadir
-     * colaboradores, así de simple."
+     * colaboradores, así de simple." The definition itself lives in
+     * User::accountContext(); this endpoint is now just one of its three readers.
      *
-     * `is_owner` says exactly that and nothing more. Until now this response carried only
-     * name/email/role, so the frontend had no way to tell an account owner from one of
-     * their collaborators — both are `client`-role users — and the Collaborators screen had
-     * to approximate it with the `collaborators.create` permission. An approximation is a
-     * guess, and a guess in an authorization-shaped decision eventually guesses wrong.
+     * Until §3 gave us `is_owner`, the frontend had no way to tell an account owner from
+     * one of their collaborators — both are `client`-role users — and the Collaborators
+     * screen approximated it with the `collaborators.create` permission. An approximation
+     * is a guess, and a guess in an authorization-shaped decision eventually guesses wrong.
      *
-     * The link is `users.account_id` (not `accounts.owner_user_id` — owner ruling 2026-08-01),
-     * and it carries a UNIQUE index, which IS the MVP "1 user = 1 account" rule. So the single
-     * user pointing at an account is its owner, and `is_owner` reduces to "I have an account".
-     * Staff carry `account_id = NULL` and are never owners. When multi-owner accounts arrive
-     * that unique index is dropped and this line becomes a real comparison — one place.
-     *
-     * `collaborating_on` is the other half, and the half the UI actually needed: the accounts
-     * where I am someone ELSE's collaborator. Owning my account and helping run yours are two
-     * different facts, and a screen that cannot tell them apart shows the wrong menu.
+     * `/me` stays the canonical answer on page load; `/login` and `/register` return the
+     * SAME three keys so a session that has just started already knows which menu it is.
      */
     public function me(Request $request): JsonResponse
     {
@@ -115,11 +127,7 @@ class AuthController extends Controller
 
         return response()->json([
             'user' => $user,
-            'account_id' => $user->account_id,
-            'is_owner' => $user->account_id !== null,
-            'collaborating_on' => Collaborator::where('user_id', $user->id)
-                ->where('status', 'accepted')
-                ->pluck('account_id'),
+            ...$user->accountContext(),
             'permissions' => RolePermission::getCachedPermissions($user->role),
         ]);
     }

@@ -63,7 +63,17 @@ class ProofController extends Controller
         }
 
         if ($ad->provider_user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            // 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+            // enough to enumerate another account's ids. "Not yours" and "does not exist"
+            // must be indistinguishable to a stranger. show() on this same controller
+            // already answers 404; this branch was the one door left ajar.
+            //
+            // KNOWN GAP, left deliberately: the `exists:ads,id` / `exists:bookings,id`
+            // validation above still separates "no such id" (422) from "someone else's id"
+            // (this 404). Closing that means dropping the `exists:` rules and resolving by
+            // hand, which changes the validation contract of this endpoint — a bigger
+            // change than this sweep, and one the frontend reads. Flagged, not hidden.
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         $file = $request->file('file');

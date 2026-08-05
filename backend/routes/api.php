@@ -20,6 +20,7 @@ use App\Http\Controllers\Client\InvoiceController;
 use App\Http\Controllers\Client\ProofFlagController;
 use App\Http\Controllers\Client\SpaceSearchController;
 use App\Http\Controllers\Client\WalletController;
+use App\Http\Controllers\CollaborationController;
 use App\Http\Controllers\Payments\DashboardController as PaymentsDashboardController;
 use App\Http\Controllers\Payments\PaymentController;
 use App\Http\Controllers\Provider\BookingController as ProviderBookingController;
@@ -58,6 +59,23 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('account', [AccountController::class, 'show']);
         Route::delete('account', [AccountController::class, 'destroy']);
         Route::post('account/cancel-deletion', [AccountController::class, 'cancelDeletion']);
+
+        // ── Invitations addressed to ME (§3 UC-19/UC-20 · WALK-6 step 3) ────────────
+        // NOT under the /client prefix, and that is the point: the caller is answering
+        // an invitation into someone ELSE's account, so nothing here can be scoped by
+        // the caller's own account_id. The bound is Collaborator::addressedTo() — "this
+        // invitation names me". Provider-side subroles exist too (installator/sales/
+        // supervisor), so this is role:client,provider, not role:client.
+        //
+        // Deliberately NO `permission:` middleware. The `collaborators` resource in
+        // RolePermission is the account OWNER's power to invite/list/revoke on their own
+        // account — provider has none of it, and gating these routes on it would make a
+        // provider unable to answer an invitation they were legitimately sent. Answering
+        // an invitation addressed to you is not an account power; the row itself is the
+        // authorization, which is exactly what the scope checks.
+        Route::get('collaborations', [CollaborationController::class, 'index']);
+        Route::post('collaborations/{collaborator}/accept', [CollaborationController::class, 'accept']);
+        Route::post('collaborations/{collaborator}/decline', [CollaborationController::class, 'decline']);
     });
 
     // ── Client routes ───────────────────────────────────────

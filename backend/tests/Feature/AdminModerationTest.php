@@ -131,8 +131,10 @@ class AdminModerationTest extends TestCase
             $user = $role === 'provider' ? $this->provider : User::factory()->create(['role' => $role]);
             Sanctum::actingAs($user);
 
-            $this->postJson("/api/admin/spaces/{$this->space->id}/takedown", ['reason' => 'nope'])->assertStatus(403);
-            $this->postJson("/api/admin/providers/{$this->provider->id}/freeze", ['reason' => 'nope'])->assertStatus(403);
+            // EH-14: these routes carry a parameter, so a refusal must look exactly like a
+            // missing row. A 403 would tell a client that space #7 and provider #3 exist.
+            $this->postJson("/api/admin/spaces/{$this->space->id}/takedown", ['reason' => 'nope'])->assertStatus(404);
+            $this->postJson("/api/admin/providers/{$this->provider->id}/freeze", ['reason' => 'nope'])->assertStatus(404);
         }
 
         $this->assertNull($this->space->fresh()->taken_down_at);

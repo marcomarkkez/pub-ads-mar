@@ -5,13 +5,11 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
 import { Space } from '../../../core/models';
-
-/** UC-37 — one reason a listing cannot be scheduled for deletion (the 409 body). */
-interface SpaceBlocker {
-  kind: 'live_bookings' | 'unsettled_payments' | string;
-  count: number;
-  message: string;
-}
+// UC-37 — one reason a listing cannot be scheduled for deletion (the 409 body). The
+// shape is shared with the account guardrail (Account::disputeBlockers/inUseBlockers),
+// so it is declared once: two copies of one API contract drift, and the drift shows up
+// as a refusal the user cannot read.
+import { Blocker as SpaceBlocker } from '../../../core/models/api-error';
 
 @Component({
   selector: 'app-space-list',

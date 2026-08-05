@@ -46,7 +46,7 @@ review the product **one feature at a time**, driving to a deployable MVP:
   feature in the list so the owner can review, correct, or skip to the next.
 - Latest owner instruction on a topic wins over any earlier spec.
 
-### Stop circling — three standing rules (owner, 2026-08-04)
+### Stop circling — five standing rules (owner, 2026-08-04)
 
 - **"Cuando haya dudas siempre ofrece una opción obvia, si la opción es demasiado obvia sólo
   aplícala."** Ambiguity is answered with ONE obvious proposal, never a menu of options for
@@ -70,6 +70,30 @@ review the product **one feature at a time**, driving to a deployable MVP:
   driven ONLY by a human **WALK-n** walkthrough that hits a real problem in the running app.
   Speculative design work on code that already runs — refactors, "we could also", theoretical
   edge cases nobody walked into — is exactly the circling the rule above forbids.
+- **"Si bien revisar el código en seco es bueno, produce bucles entre los agentes y se repiten
+  las mismas preguntas constantemente."** → `BR-16` (`sin-bucles-de-codigo-seco`). There is ONE
+  circuit for a fault and it runs in this order: **(1)** a fault that keeps coming back enters
+  `errorHunt` as a PATTERN, not as an incident — the value is in `howToFind`, the search that
+  can be repeated tomorrow on new code; **(2)** if the fix is already agreed, it goes into CODE
+  in the same patch, without asking again; **(3)** then the todo; **(4)** then the todo hangs
+  off a WALK. From there, hands off until there is a reproducible error or the human
+  walkthrough finds the mismatch. Reading code without running it generates infinite hypotheses
+  and zero evidence, and each lap costs the owner a decision while adding no information — Q35,
+  Q38 and Q40 were literally the same question three times, already answered by
+  `walkthroughs.convention`.
+- **A WALK's references are what closes a spec, and a walk may use cURL** → `BR-17`
+  (`un-walk-tambien-se-comprueba-con-curl`). Every walkthrough points at what it proves:
+  `closes`, `specs`, `ucs`, `br`, `eh`. While its status is `pending` or `failed`, **everything
+  it references is open** — however green the suite is; only `passed` marks them done, and
+  todos that existed only for that walk can then be deleted. A step may carry a `probe`: a
+  console check or a cURL call the person runs during the walkthrough. That is not a
+  concession — it is necessary. A 404 and a 403 look identical on screen and are the whole of
+  `BR-3`, so without `probe` the step that checks them would be unfalsifiable.
+
+**Citing a rule.** Every `businessRules` and `errorHunt` entry carries a short, stable `key`
+alongside its id, so a rule can be named in conversation without restating it: `BR-4` and
+`dinero-depositado-no-se-devuelve` reach the same place. The dashboard renders the key as a
+click-to-copy chip.
 
 ## Key Files
 

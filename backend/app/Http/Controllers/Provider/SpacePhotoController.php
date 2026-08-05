@@ -14,7 +14,12 @@ class SpacePhotoController extends Controller
     public function store(Request $request, Space $space): JsonResponse
     {
         if ($space->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            // 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+            // enough to enumerate another account's ids. "Not yours" and "does not exist"
+            // must be indistinguishable to a stranger. SpaceController::show() already
+            // 404s on the same listing; a 403 here made the leak depend on which door
+            // the caller knocked at.
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         $request->validate([
@@ -42,8 +47,16 @@ class SpacePhotoController extends Controller
 
     public function destroy(Request $request, Space $space, SpacePhoto $photo): JsonResponse
     {
-        if ($space->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        // 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+        // enough to enumerate another account's ids. "Not yours" and "does not exist"
+        // must be indistinguishable to a stranger.
+        //
+        // The photo link is checked too, and for the same reason: this route is not
+        // ->scopeBindings(), so `{photo}` was resolved independently of `{space}` and a
+        // provider could delete a FOREIGN photo by pairing it with a listing of their
+        // own. Checking only the parent is the chain break §21 rule 1 exists to stop.
+        if ($space->user_id !== $request->user()->id || $photo->space_id !== $space->id) {
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         Storage::disk('public')->delete($photo->file_path);

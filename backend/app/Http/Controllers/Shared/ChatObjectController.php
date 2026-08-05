@@ -25,8 +25,12 @@ class ChatObjectController extends Controller
     {
         $user = $request->user();
 
+        // 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+        // enough to enumerate another account's ids. "Not yours" and "does not exist"
+        // must be indistinguishable to a stranger. Same answer as ChatController::show()
+        // gives for the same chat, so the leak cannot be reached by changing verb.
         if (! $chat->userCanAccess($user)) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         $validated = $request->validate([
@@ -42,8 +46,13 @@ class ChatObjectController extends Controller
         }
 
         // R2: a chat never exposes an object its attacher could not already see.
+        //
+        // 404 with the SAME message as "no such object" above — §21 rule 2 (BR-3). This
+        // endpoint takes a raw {object_type, object_id} pair from the caller, so a 403
+        // reading "you cannot attach that object" was a per-type existence oracle: it
+        // separated "campaign #4181 is not yours" from "campaign #4181 does not exist".
         if (! $this->authorizer->canAttach($user, $object)) {
-            return response()->json(['message' => 'You cannot attach that object.'], 403);
+            return response()->json(['message' => 'Object not found.'], 404);
         }
 
         DB::transaction(function () use ($chat, $object, $user) {
@@ -70,8 +79,14 @@ class ChatObjectController extends Controller
 
         // Detach is rare — Support/Admin housekeeping; anyone with chat access may
         // detach an object they could attach.
+        //
+        // 404, never 403 — §21 rule 2 (BR-3). Both halves leak: the access half confirms
+        // the chat exists, and the `chat_id` half confirms that chat_object #id exists on
+        // SOME OTHER chat (this route is not ->scopeBindings(), so `{object}` is resolved
+        // independently of `{chat}`). One answer for both, and it is the same answer a
+        // missing id gets.
         if (! $chat->userCanAccess($user) || $object->chat_id !== $chat->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         DB::transaction(function () use ($chat, $object, $user) {

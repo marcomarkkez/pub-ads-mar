@@ -17,6 +17,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // BR-17 — one line per API request into storage/logs/walk.log, for the human
+        // walkthroughs. Inert unless WALK_TRACE=true, and appended LAST so it observes
+        // the final status, including refusals produced by the middleware above it.
+        $middleware->appendToGroup('api', [
+            \App\Http\Middleware\WalkTrace::class,
+        ]);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,

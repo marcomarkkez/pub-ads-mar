@@ -37,15 +37,17 @@ class DisputeThreadAclPostTest extends TestCase
 
         $post = fn (int $id) => $this->postJson("/api/chats/{$id}/messages", ['body' => 'hi']);
 
+        // Refusals are 404, not 403 — §21 rule 2 (BR-3): posting into a thread you cannot
+        // see must not tell you the thread is there. Same answer GET gives (DisputeThreadsTest).
         Sanctum::actingAs($client);
         $post($chats['support_client']->id)->assertStatus(201);
-        $post($chats['support_provider']->id)->assertStatus(403);
-        $post($chats['internal']->id)->assertStatus(403);
+        $post($chats['support_provider']->id)->assertStatus(404);
+        $post($chats['internal']->id)->assertStatus(404);
 
         Sanctum::actingAs($provider);
         $post($chats['support_provider']->id)->assertStatus(201);
-        $post($chats['support_client']->id)->assertStatus(403);
-        $post($chats['internal']->id)->assertStatus(403);
+        $post($chats['support_client']->id)->assertStatus(404);
+        $post($chats['internal']->id)->assertStatus(404);
 
         $support = User::factory()->create(['role' => 'support']);
         Sanctum::actingAs($support);

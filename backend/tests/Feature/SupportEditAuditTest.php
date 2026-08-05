@@ -199,8 +199,9 @@ class SupportEditAuditTest extends TestCase
 
         Sanctum::actingAs(User::factory()->create(['role' => 'client']));
 
+        // EH-14: 404 — a 403 would confirm to any client that this listing id exists.
         $this->putJson("/api/support/spaces/{$space->id}", ['name' => 'pwned'])
-            ->assertStatus(403);
+            ->assertStatus(404);
 
         $this->assertSame('Barda Centro', $space->fresh()->name);
     }
@@ -212,7 +213,7 @@ class SupportEditAuditTest extends TestCase
         Sanctum::actingAs(User::factory()->create(['role' => 'payments']));
 
         $this->putJson("/api/support/spaces/{$space->id}", ['name' => 'pwned'])
-            ->assertStatus(403);
+            ->assertStatus(404);
     }
 
     // ── UC-31: the log itself ─────────────────────────────────────────────────

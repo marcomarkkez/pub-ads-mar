@@ -2,13 +2,26 @@
 
 namespace App\Http\Controllers\Client;
 
+use App\Http\Controllers\Concerns\AuthorizesOwnershipChain;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * The campaign is the ROOT of the ownership chain (§21 · UC-43), so it authorizes
+ * through the same trait as every link below it — {@see AuthorizesOwnershipChain}.
+ *
+ * It did not, until now: this controller answered 403 on a foreign campaign while
+ * `/client/campaigns/{c}/adsets` answered 404 for the very same campaign. The leak
+ * therefore depended on WHICH door the caller knocked at, and the test that guards
+ * rule 2 (OwnershipChainTest::test_foreign_campaign_is_404_not_403) only knocked at
+ * the nested one — so the root looked audited and was not.
+ */
 class CampaignController extends Controller
 {
+    use AuthorizesOwnershipChain;
+
     public function index(Request $request): JsonResponse
     {
         $campaigns = $request->user()->campaigns()->with('adsets')->latest()->get();
@@ -34,18 +47,17 @@ class CampaignController extends Controller
 
     public function show(Request $request, Campaign $campaign): JsonResponse
     {
-        if ($campaign->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
+        // 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+        // enough to enumerate another account's ids. "Not yours" and "does not exist"
+        // must be indistinguishable to a stranger.
+        $this->authorizeCampaign($request, $campaign);
 
         return response()->json($campaign->load('adsets.ads'));
     }
 
     public function update(Request $request, Campaign $campaign): JsonResponse
     {
-        if ($campaign->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
+        $this->authorizeCampaign($request, $campaign); // 404, never 403 — §21 rule 2 (BR-3).
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -63,9 +75,7 @@ class CampaignController extends Controller
 
     public function destroy(Request $request, Campaign $campaign): JsonResponse
     {
-        if ($campaign->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
+        $this->authorizeCampaign($request, $campaign); // 404, never 403 — §21 rule 2 (BR-3).
 
         $campaign->delete();
 

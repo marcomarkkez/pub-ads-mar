@@ -64,16 +64,45 @@ export class AuthService {
   }
 
   /**
-   * /login and /register return the user + permissions but NOT the account context
-   * (BR-8: account_id / is_owner / collaborating_on live on /me). The APP_INITIALIZER
-   * only runs on a full page load, so without this follow-up a user who just logged in
-   * would carry an empty account context for the whole session.
+   * BR-8 · §3 — /login and /register now answer with the SAME account block as /me, so
+   * the session starts COMPLETE: the sidebar computes off `isAccountOwner()` on the very
+   * first render after login, with no reload and no second request.
+   *
+   * Before this, the account context only ever arrived through /me, and /me only ran in
+   * the APP_INITIALIZER — i.e. on a full page load. A user who had just logged in lost
+   * their Collaborators tab until they refreshed the browser.
+   *
+   * The `account_id === undefined` branch is the compatibility path, not dead code: the
+   * API change ships in the same MVP but not necessarily in the same deploy, and against
+   * an older backend "no account block" must mean "go ask /me", never "not an owner".
+   * `null` is a real answer (staff have no account) and is honoured as one.
    */
   private startSession(res: AuthResponse): void {
     localStorage.setItem(this.TOKEN_KEY, res.token);
     this.currentUser.set(res.user);
     this.permissions.set(res.permissions);
-    this.loadUser().subscribe();
+
+    if (res.account_id === undefined) {
+      this.loadUser().subscribe();
+      return;
+    }
+
+    this.applyAccountContext(res);
+  }
+
+  /**
+   * The ONE writer of the account signals. /me and login/register feed the same three
+   * fields, so they go through the same setter — two copies of this would be two chances
+   * for the screens to disagree about who owns what.
+   */
+  private applyAccountContext(res: {
+    account_id?: number | null;
+    is_owner?: boolean;
+    collaborating_on?: number[];
+  }): void {
+    this.accountIdSig.set(res.account_id ?? null);
+    this.isOwnerSig.set(!!res.is_owner);
+    this.collaboratingOnSig.set(res.collaborating_on ?? []);
   }
 
   logout(): Observable<void> {
@@ -86,18 +115,40 @@ export class AuthService {
     );
   }
 
+  /**
+   * §3 · UC-20 — one accepted invitation, folded into the live session.
+   *
+   * `collaborating_on` is filled from the `accepted` rows, so the instant
+   * POST /collaborations/{id}/accept returns 200 the session's copy of it is stale. This
+   * takes the SAME path login/register take: the response that already carries the
+   * authoritative fact (the accepted row's `account.id`) writes the signal, instead of a
+   * /me round trip whose only job would be to tell us what we were just told.
+   *
+   * Idempotent, because accepting twice is the same fact stated twice (the endpoint says
+   * so explicitly) and a duplicate id in this list would double-count nothing usefully.
+   */
+  noteCollaborationAccepted(accountId: number): void {
+    this.collaboratingOnSig.update(ids => (ids.includes(accountId) ? ids : [...ids, accountId]));
+  }
+
+  /**
+   * Drop the session WITHOUT calling /logout. Used after DELETE /account succeeds
+   * outright: the user row and its Sanctum tokens are already gone server-side, so
+   * POST /logout would 401 on a token that no longer exists and the only honest move
+   * left is local. Everything else must keep using logout().
+   */
+  endSessionLocally(): void {
+    this.clearSession();
+  }
+
   loadUser(): Observable<MeResponse | null> {
     if (!this.token) return of(null);
     return this.http.get<MeResponse>(`${this.api}/me`).pipe(
       tap(res => {
         this.currentUser.set(res.user);
         this.permissions.set(res.permissions);
-        // BR-8 — only /me carries the account context; login/register do not, which is
-        // why they chain a loadUser() above. Without it a freshly logged-in client had
-        // no account signal until the next full page load.
-        this.accountIdSig.set(res.account_id ?? null);
-        this.isOwnerSig.set(!!res.is_owner);
-        this.collaboratingOnSig.set(res.collaborating_on ?? []);
+        // BR-8 — same three signals login/register write, through the same setter.
+        this.applyAccountContext(res);
       }),
       catchError(() => {
         this.clearSession();

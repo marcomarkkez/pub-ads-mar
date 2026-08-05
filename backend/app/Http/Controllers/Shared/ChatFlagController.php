@@ -22,12 +22,19 @@ class ChatFlagController extends Controller
     {
         $user = $request->user();
 
+        // 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+        // enough to enumerate another account's ids. "Not yours" and "does not exist"
+        // must be indistinguishable to a stranger. Asked BEFORE the staff check, so a
+        // client probing chat ids gets the same answer whatever the id.
         if (! $chat->userCanAccess($user)) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         // Money flags are Support's power (Payments executes); clients/providers do
         // not raise money flags. Support/Payments/Admin may flag.
+        //
+        // 403 KEPT: the caller can already read this chat, so its existence is not news
+        // to them — this is a pure statement about who they are, true of every chat.
         if (! $user->isStaff()) {
             return response()->json(['message' => 'Only staff can raise a flag.'], 403);
         }

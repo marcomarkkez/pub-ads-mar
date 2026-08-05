@@ -51,7 +51,7 @@ class ChatAclMatrixTest extends TestCase
 
         Sanctum::actingAs($admin);
         // No chats.create for admin → the shared post path is refused.
-        $this->postJson("/api/chats/{$chat->id}/messages", ['body' => 'ghost'])->assertStatus(403);
+        $this->postJson("/api/chats/{$chat->id}/messages", ['body' => 'ghost'])->assertStatus(404);
         // Reads the full chat silently via oversight.
         $this->getJson("/api/admin/oversight/chats/{$chat->id}")->assertStatus(200);
     }
@@ -99,8 +99,10 @@ class ChatAclMatrixTest extends TestCase
         Sanctum::actingAs($manager);
         $this->getJson("/api/chats/{$chat->id}")->assertStatus(200);
 
+        // 404, not 403 — §21 rule 2 (BR-3). An installator is inside the account but
+        // outside its chats; a 403 would confirm to them that this thread exists.
         Sanctum::actingAs($installer);
-        $this->getJson("/api/chats/{$chat->id}")->assertStatus(403);
+        $this->getJson("/api/chats/{$chat->id}")->assertStatus(404);
     }
 
     /** R3 — a closed chat is NOT user-reopenable; only Admin reopens. */
@@ -113,7 +115,7 @@ class ChatAclMatrixTest extends TestCase
 
         // The opener (client) has no reopen route; the admin route is role-sealed.
         Sanctum::actingAs($client);
-        $this->postJson("/api/admin/chats/{$chat->id}/reopen")->assertStatus(403);
+        $this->postJson("/api/admin/chats/{$chat->id}/reopen")->assertStatus(404);
 
         Sanctum::actingAs($admin);
         $this->postJson("/api/admin/chats/{$chat->id}/reopen")->assertStatus(200);
@@ -171,11 +173,12 @@ class ChatAclMatrixTest extends TestCase
         $chat = Chat::create(['opened_by_user_id' => $provider->id, 'provider_user_id' => $provider->id, 'status' => Chat::STATUS_OPEN]);
         $chat->participants()->create(['user_id' => $provider->id, 'side' => ChatParticipant::SIDE_PROVIDER]);
 
+        // 404, not 403 — §21 rule 2 (BR-3): the client must not learn this chat exists.
         Sanctum::actingAs($client);
-        $this->getJson("/api/chats/{$chat->id}")->assertStatus(403);
+        $this->getJson("/api/chats/{$chat->id}")->assertStatus(404);
 
         // Raising a flag on the chat does not change the client's access.
         $chat->flags()->create(['type' => ChatFlag::TYPE_PAYMENT_HELD, 'active' => true, 'created_by_user_id' => $provider->id]);
-        $this->getJson("/api/chats/{$chat->id}")->assertStatus(403);
+        $this->getJson("/api/chats/{$chat->id}")->assertStatus(404);
     }
 }

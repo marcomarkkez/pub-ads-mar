@@ -30,6 +30,22 @@ Patterns the owner explicitly praised and wants repeated — a "do more of this"
   partir de ahí pulimos desde los walks solamente, nada de teoría en código seco." Nothing
   planned stays half-written. Once it runs, further changes come ONLY from a human WALK-n
   walkthrough finding a real problem — never from speculative design.
+- **One circuit per fault, in this order — BR-16 (`sin-bucles-de-codigo-seco`).** "Si bien
+  revisar el código en seco es bueno, produce bucles entre los agentes y se repiten las mismas
+  preguntas constantemente." So: (1) a fault that recurs enters `errorHunt` as a PATTERN, not as
+  an incident; (2) if the fix is already agreed, it goes into CODE in the same patch, without
+  asking again; (3) then the todo; (4) then the todo hangs off a WALK. After that, hands off
+  until there is a reproducible error or the human walkthrough finds the mismatch. Q35, Q38 and
+  Q40 were the same question three times — that is the failure mode this rule exists to stop.
+- **A WALK's references are the closure criterion.** Each walkthrough points at what it proves:
+  `closes` (todos), `specs`, `ucs`, `br`, `eh`. While its `status` is `pending` or `failed`,
+  everything it references is OPEN — however green the suite is. Only `passed` marks those
+  references done; todos that existed solely for that walk can then be deleted. A `§` is never
+  finished by reading code.
+- **A walk may use the console, HTTP and cURL — BR-17.** A step can carry a `probe`: a
+  browser-console check or a cURL call run during the walkthrough. It is still human — a person
+  runs it — but it reaches what the screen cannot show. A 404 and a 403 look identical in the
+  interface and are the whole of BR-3.
 
 ## Quick Reference
 

@@ -2,6 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { CollaborationService } from '../../../core/services/collaboration.service';
 
 interface NavItem {
   label: string;
@@ -18,8 +19,46 @@ interface NavItem {
 })
 export class SidebarComponent {
   private auth = inject(AuthService);
+  private collabs = inject(CollaborationService);
   role = this.auth.userRole;
   menuOpen = false;
+
+  constructor() {
+    // §3 · UC-20 — the menu has to know whether there is anything to answer BEFORE the
+    // screen is opened, so the list is fetched once when the authenticated shell mounts
+    // (this component lives inside MainLayout). The service no-ops for staff roles and
+    // caches, so this is one request per session, not one per navigation.
+    this.collabs.refresh();
+  }
+
+  /**
+   * §3 · UC-19/UC-20 (WALK-6 step 3) — the Invitations entry appears ONLY when there is
+   * something in it. An always-present tab that is empty for almost every user is noise,
+   * and noise is what makes people stop reading the menu; but with no entry at all the
+   * invitation flow had no way in and `collaborating_on` could never be filled, which is
+   * the dead end this closes.
+   */
+  hasInvitations = this.collabs.hasAny;
+
+  /** Pending ones only: an accepted collaboration is a fact to look at, not a task. */
+  pendingInvitations = this.collabs.pendingCount;
+
+  /**
+   * The count travels in the LABEL, built here in TypeScript. Deliberately not a badge
+   * interpolated in the template next to the icon: this sidebar renders its icons through
+   * {{ item.icon }}, and mixing an emoji and a computed number inside one interpolation is
+   * the exact shape that has silently rendered empty in this codebase before.
+   */
+  private invitationsItem(): NavItem[] {
+    if (!this.hasInvitations()) return [];
+    const n = this.pendingInvitations();
+
+    return [{
+      label: n > 0 ? 'Invitations (' + n + ')' : 'Invitations',
+      icon: '📨',
+      route: '/collaborations',
+    }];
+  }
 
   /**
    * BR-8 · §3 (UC-19) — Collaborators is the account OWNER's screen.
@@ -43,6 +82,15 @@ export class SidebarComponent {
    */
   canManageCollaborators = computed(() => this.auth.isAccountOwner());
 
+  /**
+   * §3 · UC-37 — the same fact under the name the Account screen needs it by:
+   * GET/DELETE /account are gated `role:client,provider` and 404 when the caller has no
+   * account, which is `account_id !== null`, which is `is_owner`. Kept as its own
+   * computed rather than reusing the collaborators one so that when the two questions
+   * stop having the same answer (multi-owner accounts), only one of them moves.
+   */
+  hasOwnAccount = computed(() => this.auth.isAccountOwner());
+
   // design.json §10 — ONE "Messages" area for ALL roles; no separate Support/Tickets menu.
   navItems = computed<NavItem[]>(() => {
     const role = this.role();
@@ -62,6 +110,12 @@ export class SidebarComponent {
           ...(this.canManageCollaborators()
             ? [{ label: 'Collaborators', icon: '👥', route: '/client/collaborators' }]
             : []),
+          // design.json §3 · UC-37 — GET/DELETE /account answers exactly "I have an
+          // account of my own", i.e. `is_owner`, so the tab is gated on the same signal
+          // as Collaborators and for the same reason.
+          ...(this.hasOwnAccount()
+            ? [{ label: 'Account', icon: '⚙️', route: '/account' }]
+            : []),
         ];
       case 'provider':
         return [
@@ -70,6 +124,12 @@ export class SidebarComponent {
           { label: 'Bookings', icon: '📅', route: '/provider/bookings' },
           { label: 'Proofs', icon: '📸', route: '/provider/proofs' },
           { label: 'Messages', icon: '💬', route: '/messages' },
+          // Same account screen, same gate. A provider deleting themselves is the case
+          // the dispute guardrail exists for (§3 · AD-delguard-09), so they need the
+          // screen that shows the refusal at least as much as a client does.
+          ...(this.hasOwnAccount()
+            ? [{ label: 'Account', icon: '⚙️', route: '/account' }]
+            : []),
         ];
       case 'admin':
         return [

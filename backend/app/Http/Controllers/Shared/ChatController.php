@@ -24,6 +24,30 @@ class ChatController extends Controller
     {
     }
 
+    /**
+     * 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+     * enough to enumerate another account's ids. "Not yours" and "does not exist"
+     * must be indistinguishable to a stranger.
+     *
+     * Chats are the sharpest case in the API. A 403 on `GET /chats/{id}` told any
+     * logged-in client that chat #id exists — and, walked over the id space, how many
+     * disputes the platform is running and roughly when each one opened. Worse for the
+     * INTERNAL Support↔Payments threads: a 403 there confirms to the very client under
+     * discussion that staff have a private thread about their case, which §10 makes
+     * invisible on purpose.
+     *
+     * Access here is not "permission to act on a thing you can see" — it is whether the
+     * thread is on the caller's side of the wall at all. So the miss is a miss.
+     */
+    private function refuseUnreachableChat(Request $request, Chat $chat): ?JsonResponse
+    {
+        if (! $chat->userCanAccess($request->user())) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        return null;
+    }
+
     /** UC-8/UC-9/UC-27 — the caller's Messages list (derived queue). */
     public function index(Request $request): JsonResponse
     {
@@ -49,6 +73,8 @@ class ChatController extends Controller
     {
         $user = $request->user();
 
+        // 403 KEPT: no row is named yet — this is a statement about the caller's role on
+        // a collection endpoint, so there is nothing whose existence it could confirm.
         if (! in_array($user->role, ['client', 'provider'], true)) {
             return response()->json(['message' => 'Only clients and providers can open a chat.'], 403);
         }
@@ -72,8 +98,13 @@ class ChatController extends Controller
             if (! $object) {
                 return response()->json(['message' => 'Object not found.'], 404);
             }
+            // 404 and the SAME message as "no such object" — §21 rule 2 (BR-3). A 403
+            // reading "you cannot attach that object" answered the only question an
+            // attacker had: whether campaign/payment/booking #id exists. The chat-open
+            // form takes a free-form id, so this was a ready-made enumeration oracle
+            // over every object type in the enum.
             if (! $this->authorizer->canAttach($user, $object)) {
-                return response()->json(['message' => 'You cannot attach that object.'], 403);
+                return response()->json(['message' => 'Object not found.'], 404);
             }
         }
 
@@ -133,8 +164,8 @@ class ChatController extends Controller
     {
         $user = $request->user();
 
-        if (! $chat->userCanAccess($user)) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        if ($refusal = $this->refuseUnreachableChat($request, $chat)) {
+            return $refusal;
         }
 
         // A closed chat's history is hidden from normal users (visible to Admin via
@@ -176,8 +207,8 @@ class ChatController extends Controller
     {
         $user = $request->user();
 
-        if (! $chat->userCanAccess($user)) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        if ($refusal = $this->refuseUnreachableChat($request, $chat)) {
+            return $refusal;
         }
 
         // A closed chat is read-only — users open a NEW chat instead (design.json §10).
@@ -247,11 +278,22 @@ class ChatController extends Controller
     {
         $user = $request->user();
 
+        // Reachability FIRST, role second — and the order is not cosmetic here.
+        //
+        // `{chat}` is an implicit route binding, so a nonexistent id never reaches this
+        // method: the router already answered 404. Asking the role question first would
+        // therefore have answered the only question left, because a client probing ids
+        // would get 404 for every chat that does not exist and 403 ("only staff can
+        // resolve") for every chat that does. Same 403, same wording, perfect oracle.
+        //
+        // Asked in this order, a stranger gets the router's own answer back (§21 rule 2 ·
+        // BR-3) and the 403 below is only ever seen by someone who can already read the
+        // chat — for whom it says nothing but "this action is staff work".
+        if ($refusal = $this->refuseUnreachableChat($request, $chat)) {
+            return $refusal;
+        }
         if (! in_array($user->role, ['support', 'payments'], true)) {
             return response()->json(['message' => 'Only staff can resolve a chat.'], 403);
-        }
-        if (! $chat->userCanAccess($user)) {
-            return response()->json(['message' => 'Forbidden.'], 403);
         }
 
         $chat->update(['status' => Chat::STATUS_RESOLVED, 'resolved_at' => now()]);
@@ -270,11 +312,20 @@ class ChatController extends Controller
         $isOpener = $chat->opened_by_user_id === $user->id;
         $isStaff = in_array($user->role, ['support', 'payments'], true);
 
-        if (! $isOpener && ! $isStaff) {
-            return response()->json(['message' => 'Only the opener or staff can close a chat.'], 403);
-        }
-        if (! $isStaff && ! $chat->userCanAccess($user)) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        // The order of these two is the whole point (§21 rule 2 · BR-3). Reachability is
+        // asked FIRST and answers 404, so a stranger cannot tell an existing chat from a
+        // missing one. Only once the caller is on this chat's side of the wall — and so
+        // already knows it exists — does the opener rule get to speak, and there a 403 is
+        // correct and reveals nothing: it is a statement about the caller, not the row.
+        //
+        // Staff keep their bypass: a force-close is deliberate (§10) and unchanged here.
+        if (! $isStaff) {
+            if ($refusal = $this->refuseUnreachableChat($request, $chat)) {
+                return $refusal;
+            }
+            if (! $isOpener) {
+                return response()->json(['message' => 'Only the opener or staff can close a chat.'], 403);
+            }
         }
 
         $chat->update([

@@ -41,9 +41,11 @@ class InternalThreadAclTest extends TestCase
 
         $chat = $this->internalChat($payments);
 
+        // 404, not 403 — §21 rule 2 (BR-3). The internal Support↔Payments thread is the
+        // sharpest case: a 403 would tell the client that staff have a private thread.
         Sanctum::actingAs($client);
-        $this->getJson("/api/chats/{$chat->id}")->assertStatus(403);
-        $this->postJson("/api/chats/{$chat->id}/messages", ['body' => 'hi'])->assertStatus(403);
+        $this->getJson("/api/chats/{$chat->id}")->assertStatus(404);
+        $this->postJson("/api/chats/{$chat->id}/messages", ['body' => 'hi'])->assertStatus(404);
     }
 
     public function test_payments_and_support_can_fetch_internal_chat(): void

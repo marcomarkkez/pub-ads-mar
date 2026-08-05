@@ -58,6 +58,16 @@ return [
             'ignore_exceptions' => false,
         ],
 
+        // BR-17 — the walkthrough trace. Its own file on purpose: a person running a
+        // WALK wants `tail -f storage/logs/walk.log` to show THEIR requests and nothing
+        // else. Mixed into laravel.log it would be unreadable within seconds.
+        'walk' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/walk.log'),
+            'level' => 'info',
+            'replace_placeholders' => true,
+        ],
+
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),

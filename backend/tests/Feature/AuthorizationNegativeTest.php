@@ -40,8 +40,9 @@ class AuthorizationNegativeTest extends TestCase
         ['provider' => $provider, 'proof' => $proof] = $this->bookingScenario();
 
         Sanctum::actingAs($provider);
-        $this->postJson("/api/client/proofs/{$proof->id}/accept")->assertStatus(403);
-        $this->postJson("/api/client/proofs/{$proof->id}/reject")->assertStatus(403);
+        // EH-14: 404, not 403 — otherwise the provider learns this proof id is real.
+        $this->postJson("/api/client/proofs/{$proof->id}/accept")->assertStatus(404);
+        $this->postJson("/api/client/proofs/{$proof->id}/reject")->assertStatus(404);
     }
 
     public function test_client_cannot_reach_payments_or_support_prefixes(): void
@@ -70,9 +71,18 @@ class AuthorizationNegativeTest extends TestCase
         Sanctum::actingAs($client);
         $chatId = $this->postJson('/api/chats', ['body' => 'help'])->assertStatus(201)->json('id');
 
-        // Attaching the foreign campaign is refused.
+        // Attaching the foreign campaign is refused — 404, not 403, and with the same
+        // body a nonexistent id gets (§21 rule 2 · BR-3). This endpoint takes a raw
+        // {type, id} pair, so a distinguishable refusal was an existence oracle over
+        // every object type in the enum.
         $this->postJson("/api/chats/{$chatId}/objects", ['object_type' => 'campaign', 'object_id' => $foreignCampaign->id])
-            ->assertStatus(403);
+            ->assertStatus(404)
+            ->assertJsonPath('message', 'Object not found.');
+
+        // Indistinguishable from an id that simply is not there.
+        $this->postJson("/api/chats/{$chatId}/objects", ['object_type' => 'campaign', 'object_id' => 987654])
+            ->assertStatus(404)
+            ->assertJsonPath('message', 'Object not found.');
 
         // Attaching another provider's ad (not this client's) is refused too.
         $foreignAd = Ad::create([
@@ -80,7 +90,7 @@ class AuthorizationNegativeTest extends TestCase
             'name' => 'Foreign Ad', 'media_type' => 'image', 'status' => 'active',
         ]);
         $this->postJson("/api/chats/{$chatId}/objects", ['object_type' => 'ad', 'object_id' => $foreignAd->id])
-            ->assertStatus(403);
+            ->assertStatus(404);
     }
 
     /**

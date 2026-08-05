@@ -68,8 +68,10 @@ class SupportJoinConversationTest extends TestCase
         $this->seed(RolePermissionSeeder::class);
         ['support' => $support, 'chat' => $chat] = $this->makeChat();
 
+        // 404, not 403 — §21 rule 2 (BR-3): before joining, this client↔provider chat is
+        // not on support's side of the wall, and a 403 would confirm it exists.
         Sanctum::actingAs($support);
-        $this->getJson("/api/chats/{$chat->id}")->assertStatus(403);
+        $this->getJson("/api/chats/{$chat->id}")->assertStatus(404);
 
         $this->postJson("/api/chats/{$chat->id}/join")->assertStatus(200);
         $this->getJson("/api/chats/{$chat->id}")->assertStatus(200);

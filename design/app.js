@@ -210,7 +210,7 @@
       setView(itemViews[head]);
       return goto(head === "uc" ? "story" : head, id); // opens the item's drawer
     }
-    var views = ["specs", "todos", "flow", "er", "classes", "stories", "sprint", "glossary", "rules", "errors", "questions", "walks"];
+    var views = ["specs", "todos", "flow", "er", "classes", "stories", "sprint", "glossary", "rules", "errors", "questions", "endpoints", "walks"];
     setView(views.indexOf(head) !== -1 ? head : "specs");
   }
 
@@ -324,7 +324,7 @@
       if (b.getAttribute("data-view") === v) b.setAttribute("aria-selected", "true");
       else b.removeAttribute("aria-selected");
     });
-    var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories", sprint: "Sprint", glossary: "Glosario", rules: "Reglas de negocio", errors: "Cacería de errores", questions: "Preguntas abiertas", walks: "Recorridos humanos" };
+    var titles = { specs: "Specs", todos: "Todos", flow: "Flow", er: "ER", classes: "Classes", stories: "User Stories", sprint: "Sprint", glossary: "Glosario", rules: "Reglas de negocio", errors: "Cacería de errores", questions: "Preguntas abiertas", endpoints: "Endpoints", walks: "Recorridos humanos" };
     els.title.textContent = titles[v] || v;
     writeHash(v);
     render();
@@ -345,6 +345,7 @@
       case "rules": return renderBusinessRules();
       case "errors": return renderErrorHunt();
       case "questions": return renderQuestions();
+      case "endpoints": return renderEndpoints();
       case "walks": return renderWalks();
     }
   }
@@ -461,7 +462,7 @@
 
     function paint() {
       var items = (br.items || []).filter(function (r) {
-        var hay = r.id + " " + r.title + " " + r.rule + " " + r.why + " " +
+        var hay = r.id + " " + (r.key || "") + " " + r.title + " " + r.rule + " " + r.why + " " +
           (r.appliesTo || []).join(" ") + " " + r.enforcedBy + " " + r.status;
         return !q || hay.toLowerCase().indexOf(q) !== -1;
       });
@@ -470,6 +471,7 @@
       items.forEach(function (r) {
         html += '<div class="rule is-' + esc(r.status) + '"><div class="rule-head">' +
           '<span class="q-id">' + esc(r.id) + '</span>' +
+          keyChip(r.key) +
           '<span class="rule-title">' + esc(r.title) + '</span>' +
           '<span class="tag rule-state is-' + esc(r.status) + '">' + esc(r.status) + '</span>' +
           '</div>' +
@@ -508,7 +510,7 @@
 
     function paint() {
       var items = (eh.items || []).filter(function (e) {
-        var hay = e.id + " " + e.pattern + " " + e.howToFind + " " + e.whyItHides + " " +
+        var hay = e.id + " " + (e.key || "") + " " + e.pattern + " " + e.howToFind + " " + e.whyItHides + " " +
           e.realExample + " " + e.status;
         return !q || hay.toLowerCase().indexOf(q) !== -1;
       });
@@ -518,6 +520,7 @@
         var open = e.status === "open";
         html += '<div class="hunt' + (open ? " is-open" : "") + '"><div class="rule-head">' +
           '<span class="q-id">' + esc(e.id) + '</span>' +
+          keyChip(e.key) +
           '<span class="rule-title">' + esc(e.pattern) + '</span>' +
           '<span class="tag q-state ' + (open ? "open" : "done") + '">' + esc(e.status) + '</span>' +
           '</div>' +
@@ -582,6 +585,81 @@
     }
   }
 
+  /* ---------------- Endpoints ----------------
+     design.json .endpoints[] — el mapa de la API. Una entrada cuyo `group` NO empieza por
+     "Planned - " describe una ruta que el backend sirve HOY; una "Planned - " es trabajo sin
+     construir y nombra el Fxx que lo debe. Las dos direcciones las sostiene
+     PlanningCodeCongruenceTest, asi que esta vista no es una lista de intenciones: es lo que
+     de verdad responde, o rojo (BR-10). */
+  function renderEndpoints() {
+    var eps = state.data.endpoints || [];
+    els.content.innerHTML = "";
+
+    var q = "";
+    var search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Buscar rutas…";
+    search.addEventListener("input", function () { q = search.value.toLowerCase(); paint(); });
+    els.tools.appendChild(search);
+
+    var onlyPlanned = document.createElement("label");
+    onlyPlanned.className = "tool-check";
+    onlyPlanned.innerHTML = '<input type="checkbox"> solo pendientes';
+    onlyPlanned.querySelector("input").addEventListener("change", function () {
+      pendingOnly = this.checked; paint();
+    });
+    els.tools.appendChild(onlyPlanned);
+    var pendingOnly = false;
+
+    var box = document.createElement("div");
+    box.className = "sprint";
+    els.content.appendChild(box);
+    paint();
+
+    function paint() {
+      var items = eps.filter(function (e) {
+        if (pendingOnly && !isPlanned(e)) return false;
+        var hay = e.method + " " + e.path + " " + e.desc + " " + e.group + " " + (e.todo || "");
+        return !q || hay.toLowerCase().indexOf(q) !== -1;
+      });
+
+      var live = items.filter(function (e) { return !isPlanned(e); });
+      var html = '<p class="prose" style="color:var(--muted)">' +
+        esc((state.data.meta && state.data.meta.endpointsConvention) || "") + '</p>';
+      html += '<h3>Rutas <span class="badge">' + live.length + ' vivas</span> ' +
+        '<span class="badge">' + (items.length - live.length) + ' pendientes</span></h3>';
+
+      var groups = {};
+      items.forEach(function (e) { (groups[e.group] = groups[e.group] || []).push(e); });
+
+      Object.keys(groups).sort(function (a, b) {
+        /* Lo que existe primero; lo pendiente al final, que es donde se lee como backlog
+           y no como capacidad. */
+        var pa = a.indexOf("Planned") === 0, pb = b.indexOf("Planned") === 0;
+        return pa === pb ? a.localeCompare(b) : (pa ? 1 : -1);
+      }).forEach(function (g) {
+        html += '<div class="ep-group"><h4>' + esc(g) +
+          '<span class="badge">' + groups[g].length + '</span></h4><div class="ep-rows">';
+        groups[g].forEach(function (e) {
+          var planned = isPlanned(e);
+          html += '<div class="ep-row' + (planned ? " is-planned" : "") + '">' +
+            '<span class="ep-method m-' + esc(e.method.toLowerCase()) + '">' + esc(e.method) + '</span>' +
+            '<code class="ep-path">' + esc(e.path) + '</code>' +
+            '<span class="ep-desc">' + esc(e.desc) + '</span>' +
+            (planned ? '<span class="tag feat">falta ' + esc(e.todo || "?") + '</span>' : "") +
+            (e.sectionId ? '<span class="tag">§' + esc(e.sectionId) + '</span>' : "") +
+            '</div>';
+        });
+        html += '</div></div>';
+      });
+
+      if (!items.length) html += '<div class="empty">Ninguna ruta coincide.</div>';
+      box.innerHTML = html;
+    }
+
+    function isPlanned(e) { return (e.group || "").indexOf("Planned") === 0; }
+  }
+
   /* ---------------- Recorridos humanos ----------------
      design.json .walkthroughs — verificaciones que hace una PERSONA sobre la UI real. Un Fxx no
      pasa a `done` mientras su WALK siga pendiente, asi que esta vista dice literalmente que es lo
@@ -606,26 +684,47 @@
     function paint() {
       var items = (w.items || []).filter(function (it) {
         var hay = it.id + " " + it.title + " " + (it.closes || []).join(" ") + " " +
+          (it.br || []).join(" ") + " " + (it.eh || []).join(" ") + " " +
           (it.steps || []).map(function (s) { return s.role + " " + s.action + " " + s.expected; }).join(" ");
         return !q || hay.toLowerCase().indexOf(q) !== -1;
       });
       var html = '<p class="prose" style="color:var(--muted)">' + esc(w.convention || "") + '</p>';
       items.forEach(function (it) {
-        html += '<div class="walk"><div class="walk-head">' +
+        /* Un recorrido sin recorrer mantiene ABIERTO todo lo que referencia, por muy verde que
+           este la suite (walkthroughs.convention · BR-16). Por eso las referencias se pintan
+           siempre, y en `passed` cambian de tono en vez de desaparecer: son la evidencia de
+           que ESE § o ESE Fxx se cerro por un recorrido y no por revision en seco. */
+        var done = it.status === "passed";
+        var meta = walkStatusMeta(it.status);
+        html += '<div class="walk is-' + esc(it.status) + '"><div class="walk-head">' +
           '<span class="q-id">' + esc(it.id) + '</span>' +
           '<span class="walk-title">' + esc(it.title) + '</span>' +
-          '<span class="tag q-state ' + (it.status === "pending" ? "open" : "done") + '">' + esc(it.status) + '</span>' +
+          '<span class="tag q-state ' + (done ? "done" : "open") + '" style="border-color:' + esc(meta.color) + '">' +
+          esc(meta.label) + '</span>' +
           '</div><div class="row-tags">' +
-          (it.closes || []).map(function (c) { return '<span class="tag feat">cierra ' + esc(c) + '</span>'; }).join('') +
-          (it.specs || []).map(function (s) { return '<span class="tag">' + esc(s) + '</span>'; }).join('') +
-          (it.ucs || []).map(function (u) { return '<span class="tag">' + esc(u) + '</span>'; }).join('') +
+          (it.closes || []).map(function (c) { return refChip("cierra " + c, done); }).join('') +
+          (it.specs || []).map(function (s) { return refChip(s, done); }).join('') +
+          (it.ucs || []).map(function (u) { return refChip(u, done); }).join('') +
+          (it.br || []).map(function (b) { return refChip(b, done, "br"); }).join('') +
+          (it.eh || []).map(function (e) { return refChip(e, done, "eh"); }).join('') +
           '</div><ol class="walk-steps">';
         (it.steps || []).forEach(function (s) {
           html += '<li class="walk-step"><span class="walk-role">' + esc(s.role) + '</span>' +
             '<div class="walk-action">' + esc(s.action) + '</div>' +
-            '<div class="walk-expect"><span>se espera</span> ' + esc(s.expected) + '</div></li>';
+            '<div class="walk-expect"><span>se espera</span> ' + esc(s.expected) + '</div>' +
+            /* BR-17: hay verdades que la pantalla no ensena. Un 404 y un 403 se ven identicos
+               en la interfaz y son toda la diferencia de BR-3, asi que el paso lleva su
+               comprobacion de consola/cURL al lado de lo que hay que mirar. */
+            (s.probe ? '<div class="walk-probe"><span>comprobar</span> <code>' + esc(s.probe) + '</code></div>' : "") +
+            '</li>';
         });
-        html += '</ol>' + (it.notes ? '<p class="prose walk-note">' + esc(it.notes) + '</p>' : "") + '</div>';
+        html += '</ol>';
+        if (it.result) {
+          html += '<p class="prose walk-result"><span class="lbl">resultado</span> ' +
+            esc([it.result.date, it.result.by].filter(Boolean).join(" · ")) + ' — ' +
+            esc(it.result.notes || "") + '</p>';
+        }
+        html += (it.notes ? '<p class="prose walk-note">' + esc(it.notes) + '</p>' : "") + '</div>';
       });
       if (!items.length) html += '<div class="empty">Ningun recorrido coincide.</div>';
       box.innerHTML = html;
@@ -638,6 +737,46 @@
     for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
     return { key: key, label: key || "—", color: "#94a3b8" };
   }
+
+  /* Un recorrido no usa los estados del kanban: no esta "en curso", esta hecho o no.
+     Si `legend.walkStatuses` no existe todavia, el fallback deja el id crudo en pantalla
+     antes que inventarse una etiqueta — un estado desconocido tiene que NOTARSE. */
+  function walkStatusMeta(key) {
+    var list = state.data.legend.walkStatuses || [];
+    for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+    return { key: key, label: key || "—", color: "#94a3b8" };
+  }
+
+  /* Referencia de un recorrido (§, UC, Fxx, BR, EH). Mientras el recorrido no haya pasado,
+     la referencia se lee como trabajo abierto; cuando pasa, se apaga. */
+  function refChip(text, done, kind) {
+    return '<span class="tag walk-ref' + (kind ? " is-" + kind : "") +
+      (done ? " is-done" : "") + '">' + esc(text) + '</span>';
+  }
+
+  /* La `key` de una BR/EH existe para poder citarla en una conversacion sin reescribirla
+     entera (owner 2026-08-04), asi que aqui es un boton que copia, no un adorno. */
+  function keyChip(key) {
+    if (!key) return "";
+    return '<button type="button" class="key-chip" data-key="' + esc(key) + '" ' +
+      'title="Copiar «' + esc(key) + '»">' + esc(key) + '</button>';
+  }
+
+  document.addEventListener("click", function (ev) {
+    var chip = ev.target.closest ? ev.target.closest(".key-chip") : null;
+    if (!chip) return;
+    var key = chip.getAttribute("data-key");
+    var done = function () {
+      var prev = chip.textContent;
+      chip.textContent = "copiado";
+      setTimeout(function () { chip.textContent = prev; }, 900);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(key).then(done, function () { window.prompt("Copia la clave:", key); });
+    } else {
+      window.prompt("Copia la clave:", key);
+    }
+  });
   function allFeatures() {
     var set = {};
     state.data.specs.forEach(function (s) { (s.features || []).forEach(function (f) { set[f] = 1; }); });

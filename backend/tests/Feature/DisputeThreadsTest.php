@@ -72,17 +72,21 @@ class DisputeThreadsTest extends TestCase
 
         $chats = $this->disputeChats($s);
 
+        // "Blocked" is 404, not 403 — §21 rule 2 (BR-3). The three dispute threads carry
+        // consecutive ids by construction, so a 403 on the two the caller cannot see would
+        // hand them the ids of the other side's thread and of the internal staff one.
+
         // Client: sees support_client, blocked from support_provider and internal.
         Sanctum::actingAs($client);
         $this->getJson("/api/chats/{$chats['support_client']->id}")->assertStatus(200);
-        $this->getJson("/api/chats/{$chats['support_provider']->id}")->assertStatus(403);
-        $this->getJson("/api/chats/{$chats['internal']->id}")->assertStatus(403);
+        $this->getJson("/api/chats/{$chats['support_provider']->id}")->assertStatus(404);
+        $this->getJson("/api/chats/{$chats['internal']->id}")->assertStatus(404);
 
         // Provider: sees support_provider, blocked from support_client and internal.
         Sanctum::actingAs($provider);
         $this->getJson("/api/chats/{$chats['support_provider']->id}")->assertStatus(200);
-        $this->getJson("/api/chats/{$chats['support_client']->id}")->assertStatus(403);
-        $this->getJson("/api/chats/{$chats['internal']->id}")->assertStatus(403);
+        $this->getJson("/api/chats/{$chats['support_client']->id}")->assertStatus(404);
+        $this->getJson("/api/chats/{$chats['internal']->id}")->assertStatus(404);
 
         // Support: sees all three (its derived queue).
         $support = User::factory()->create(['role' => 'support']);
@@ -95,7 +99,7 @@ class DisputeThreadsTest extends TestCase
         $payments = User::factory()->create(['role' => 'payments']);
         Sanctum::actingAs($payments);
         $this->getJson("/api/chats/{$chats['internal']->id}")->assertStatus(200);
-        $this->getJson("/api/chats/{$chats['support_client']->id}")->assertStatus(403);
-        $this->getJson("/api/chats/{$chats['support_provider']->id}")->assertStatus(403);
+        $this->getJson("/api/chats/{$chats['support_client']->id}")->assertStatus(404);
+        $this->getJson("/api/chats/{$chats['support_provider']->id}")->assertStatus(404);
     }
 }

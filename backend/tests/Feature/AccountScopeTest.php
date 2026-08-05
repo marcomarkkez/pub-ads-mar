@@ -170,6 +170,130 @@ class AccountScopeTest extends TestCase
         $this->assertSame('revoked', Collaborator::find($id)->status);
     }
 
+    // ── §3 (owner 2026-08-04): a collaboration cannot be left by the collaborator ──
+
+    public function test_a_collaborator_cannot_unlink_themselves(): void
+    {
+        // "no hay formas de desvincular la cuenta de colaboración si alguien la agrega
+        // excepto que hablen con soporte" — anti-fraud: the person who did the acting
+        // must not be able to delete the record that says they were acting.
+        $owner = User::factory()->create(['role' => 'client']);
+        $helper = User::factory()->create(['role' => 'client', 'email' => 'ana@x.test']);
+
+        Sanctum::actingAs($owner);
+        $id = $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+            ->assertStatus(201)
+            ->json('id');
+
+        Sanctum::actingAs($helper);
+
+        // 409 and NOT 404: §21 rule 2 sends a broken ownership chain to 404 because a
+        // 403 would confirm the row exists — but this caller IS the row's subject and
+        // already knows it exists. The refusal is about state, so it says so.
+        $response = $this->deleteJson("/api/client/collaborators/{$id}")->assertStatus(409);
+
+        $response->assertJsonPath('error_code', 'CONFLICTING_STATE');
+        // Still PENDING, so the truthful answer is not "talk to Support" — it is "you can
+        // decline this one". BR-15 only starts once the invitation has been accepted.
+        $this->assertStringContainsString('decline', $response->json('message'));
+
+        // And nothing moved.
+        $this->assertSame('pending', Collaborator::find($id)->status);
+    }
+
+    public function test_a_collaborator_who_has_accepted_still_cannot_unlink_themselves(): void
+    {
+        $owner = User::factory()->create(['role' => 'client']);
+        $helper = User::factory()->create(['role' => 'client']);
+
+        $grant = Collaborator::create([
+            'account_id' => $owner->account_id,
+            'invited_by_user_id' => $owner->id,
+            'user_id' => $helper->id,
+            'email' => $helper->email,
+            'role' => 'manager',
+            'status' => 'accepted',
+        ]);
+
+        Sanctum::actingAs($helper);
+        $response = $this->deleteJson("/api/client/collaborators/{$grant->id}")
+            ->assertStatus(409)
+            ->assertJsonPath('error_code', 'CONFLICTING_STATE');
+
+        // From `accepted` on, Support is the only truthful answer — and the message says
+        // that the capability does not exist yet instead of pointing at a route.
+        $this->assertStringContainsString('Support', $response->json('message'));
+        $this->assertSame('accepted', $grant->fresh()->status);
+    }
+
+    public function test_an_invitee_who_registered_later_is_matched_by_email(): void
+    {
+        // `collaborators.user_id` is NULL while the invitee has no account yet, so in
+        // that window the email is the only link between the row and the human. Without
+        // the email arm this person would get a 404 for a row that is plainly theirs.
+        $owner = User::factory()->create(['role' => 'client']);
+
+        Sanctum::actingAs($owner);
+        $id = $this->postJson('/api/client/collaborators', ['email' => 'later@x.test', 'role' => 'publicist'])
+            ->assertStatus(201)
+            ->json('id');
+
+        $this->assertNull(Collaborator::find($id)->user_id);
+
+        $this->postJson('/api/register', [
+            'name' => 'Later',
+            'email' => 'Later@x.test', // typed with different case on purpose
+            'password' => 'secret-pass',
+            'password_confirmation' => 'secret-pass',
+            'role' => 'client',
+        ])->assertStatus(201);
+
+        $invitee = User::where('email', 'Later@x.test')->firstOrFail();
+
+        // Registration back-links the waiting invitation (User::booted →
+        // Collaborator::linkNewUser) but does NOT accept it: signing up is not the same
+        // act as agreeing to operate somebody else's account.
+        $this->assertSame($invitee->id, Collaborator::find($id)->user_id);
+        $this->assertSame('pending', Collaborator::find($id)->status);
+
+        Sanctum::actingAs($invitee);
+        $this->deleteJson("/api/client/collaborators/{$id}")
+            ->assertStatus(409)
+            ->assertJsonPath('error_code', 'CONFLICTING_STATE');
+    }
+
+    public function test_a_stranger_still_gets_404_not_the_conflict_message(): void
+    {
+        // The 409 is only for the row's own subject. Everyone else stays on §21 rule 2,
+        // where 404 is what keeps the existence of the row private.
+        $owner = User::factory()->create(['role' => 'client']);
+        $stranger = User::factory()->create(['role' => 'client']);
+
+        Sanctum::actingAs($owner);
+        $id = $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+            ->json('id');
+
+        Sanctum::actingAs($stranger);
+        $this->deleteJson("/api/client/collaborators/{$id}")
+            ->assertStatus(404)
+            ->assertJsonMissingPath('error_code');
+    }
+
+    public function test_the_owner_can_still_revoke_a_collaborator_they_invited_by_their_own_email(): void
+    {
+        // The guard must not catch the owner. A row on MY account is resolved by the
+        // account scope and never reaches it — including this silly self-invite.
+        $owner = User::factory()->create(['role' => 'client']);
+
+        Sanctum::actingAs($owner);
+        $id = $this->postJson('/api/client/collaborators', ['email' => $owner->email, 'role' => 'manager'])
+            ->assertStatus(201)
+            ->json('id');
+
+        $this->deleteJson("/api/client/collaborators/{$id}")->assertStatus(200);
+        $this->assertSame('revoked', Collaborator::find($id)->status);
+    }
+
     public function test_installator_is_refused_on_the_client_side(): void
     {
         $owner = User::factory()->create(['role' => 'client']);
@@ -215,7 +339,9 @@ class AccountScopeTest extends TestCase
         Sanctum::actingAs($supervisor);
 
         $this->getJson("/api/chats/{$chatIds['mine']}")->assertStatus(200);
-        $this->getJson("/api/chats/{$chatIds['other']}")->assertStatus(403);
+        // 404, not 403 — §21 rule 2 (BR-3): a supervisor of ONE provider account must not
+        // be able to walk chat ids and learn which of them belong to a rival account.
+        $this->getJson("/api/chats/{$chatIds['other']}")->assertStatus(404);
     }
 
     public function test_the_campaign_nested_collaborator_routes_are_gone(): void

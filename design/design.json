@@ -10,7 +10,8 @@
     "version": "2",
     "preamble": "This file is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed ARCHITECTURE.md, cases.md, platform-graph.md and the useful parts of\ncompliance-report.md (2026-06-27), then the former standalone spec document and .claude/todos/mvp-sprint.json (2026-08-02).\nThere is no second document: schema, routes, specs, decisions, the role/object graph, user\nstories and the build backlog all live here.\n\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSpecs 1-18 are the SPECS (kept tight); spec 19 is the verbose USER STORIES, also structured in\n`userStories[]`. Spec 0 lives in `notation` — read it first to parse the `kanban` state.\n\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering.\n\nCode traceability: every file/class/method implementing a behavior here carries a short comment\nnaming the spec it satisfies (e.g. `design.json §7 proof`). Older comments cite the retired document's §N —\nthe number still resolves, it is `specs[].id`.\n\nFeature codes: each spec carries `features` (`[Fxx]`) matching `todos[]`; `[infra]`/`[dev]`/\n`[all]` mark cross-cutting specs that are not a single feature. The granular build backlog and\nits `mvp-sprint:` prefixed ids are under `mvpSprint`.",
     "sectionRefConvention": "Older code comments cite a §N of the retired standalone document. That document is gone; §N still resolves — it is specs[].id N in this file. New comments should say \"design.json §N\".",
-    "preambleHistory": "This document is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed the former ARCHITECTURE.md, cases.md, platform-graph.md, and the\nuseful parts of compliance-report.md (consolidated 2026-06-27) — it is now the one\nhome for schema, routes, specs, decisions, the role/object graph, and user stories.\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSections 1–18 are the SPECS (kept tight); section 19 is the verbose USER STORIES.\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering. Code traceability: every file/class/method implementing a\nbehavior here carries a short comment naming the spec it satisfies (e.g. `§7 proof`).\nFeature codes: section/sub-section headers carry a `[Fxx]` tag matching the feature index in\n`.claude/todos/mvp-sprint.json` → `feature_review` (e.g. `[F06]` = booking action & per-ad\ngo-live). Use these shared codes when referring to a feature. `[infra]`/`[dev]`/`[all]` mark\ncross-cutting sections that are not a single feature.\nSpec-Kanban: every spec header ALSO carries a one-line `kanban:` state tag (status/weight/\nimpacts/deps/ids) so this doc doubles as a live board — **read §0 first** for the notation."
+    "preambleHistory": "This document is the SINGLE canonical design reference for the whole app (API + headless\nfrontend). It absorbed the former ARCHITECTURE.md, cases.md, platform-graph.md, and the\nuseful parts of compliance-report.md (consolidated 2026-06-27) — it is now the one\nhome for schema, routes, specs, decisions, the role/object graph, and user stories.\n`[owner YYYY-MM-DD]` marks an explicit owner decision; latest decision wins on conflict.\nSections 1–18 are the SPECS (kept tight); section 19 is the verbose USER STORIES.\nWriting rule: state each rule ONCE in the fewest human-readable words — no redundancy,\nverbosity or over-engineering. Code traceability: every file/class/method implementing a\nbehavior here carries a short comment naming the spec it satisfies (e.g. `§7 proof`).\nFeature codes: section/sub-section headers carry a `[Fxx]` tag matching the feature index in\n`.claude/todos/mvp-sprint.json` → `feature_review` (e.g. `[F06]` = booking action & per-ad\ngo-live). Use these shared codes when referring to a feature. `[infra]`/`[dev]`/`[all]` mark\ncross-cutting sections that are not a single feature.\nSpec-Kanban: every spec header ALSO carries a one-line `kanban:` state tag (status/weight/\nimpacts/deps/ids) so this doc doubles as a live board — **read §0 first** for the notation.",
+    "endpointsConvention": "Una entrada de `endpoints[]` cuyo `group` NO empieza por \"Planned - \" describe una ruta que el backend sirve HOY, con el nombre real de sus parametros y una fila por metodo. Una entrada \"Planned - \" es trabajo no construido y nombra en `todo` el Fxx que lo debe. El test PlanningCodeCongruenceTest exige las tres direcciones: ninguna ruta viva sin documentar, ninguna entrada normal sin ruta, y ninguna entrada \"Planned\" que ya se este sirviendo. Es lo que hace verificable a BR-10 (ui-endpoints-planeacion-juntos)."
   },
   "notation": {
     "title": "Spec-Kanban (how to read this file)",
@@ -71,6 +72,23 @@
         "key": "deferred",
         "label": "Diferido",
         "color": "#94a3b8"
+      }
+    ],
+    "walkStatuses": [
+      {
+        "key": "passed",
+        "label": "Recorrido OK",
+        "color": "#22c55e"
+      },
+      {
+        "key": "failed",
+        "label": "Fallo el recorrido",
+        "color": "#ef4444"
+      },
+      {
+        "key": "pending",
+        "label": "Sin recorrer",
+        "color": "#f59e0b"
       }
     ]
   },
@@ -245,10 +263,11 @@
     ]
   },
   "businessRules": {
-    "convention": "Los GUARDRAILES del proyecto: reglas de negocio que ya fallo el owner y que el codigo debe hacer ciertas. No es una lista de deseos — cada regla nombra en `enforcedBy` el archivo, la clase o el test que la sostiene hoy, y `status` dice si eso existe (`built`), esta a medias (`partial`) o todavia no (`missing`). Una regla `partial` es una promesa que el codigo aun no cumple: se lee como trabajo pendiente, no como hecho. Para reabrir una regla hace falta un fallo NUEVO y fechado del owner (BR-11).",
+    "convention": "Los GUARDRAILES del proyecto: reglas de negocio que ya fallo el owner y que el codigo debe hacer ciertas. No es una lista de deseos — cada regla nombra en `enforcedBy` el archivo, la clase o el test que la sostiene hoy, y `status` dice si eso existe (`built`), esta a medias (`partial`) o todavia no (`missing`). Una regla `partial` es una promesa que el codigo aun no cumple: se lee como trabajo pendiente, no como hecho. Para reabrir una regla hace falta un fallo NUEVO y fechado del owner (BR-11). Cada regla lleva una `key` corta y estable: se cita como `BR-4` o como `dinero-depositado-no-se-devuelve`, y las dos formas llevan al mismo sitio. La clave existe para poder nombrar una regla en una conversacion sin tener que reescribirla entera.",
     "items": [
       {
         "id": "BR-1",
+        "key": "nada-en-uso-se-destruye",
         "title": "Nada que este en uso se destruye jamas",
         "rule": "Un DELETE sobre un objeto del que otros dependen no borra: despublica y PROGRAMA el borrado con fecha. La peticion se rechaza con 409 y los bloqueadores viajan DENTRO de la respuesta (`blockers[]`: que tipo, cuantos y por que). La destruccion real solo ocurre despues, en un comando que corre una PERSONA, y ese comando vuelve a comprobar los bloqueadores en ese momento en vez de fiarse del chequeo de hace un mes.",
         "why": "\"No deben poder borrarse ads que tengan aun clientes usandolos, se pueden despublicar y programar para borrado\" [owner 2026-08-03]. Antes de esto, un proveedor ordenando su catalogo ejecutaba un DELETE que, por CASCADE, se llevaba por delante cada booking del espacio y cada pago de esos bookings: la campana pagada de un cliente desaparecia sin que nadie lo pidiera. Un \"no\" sin motivo tampoco sirve — el proveedor se queda adivinando cual de sus clientes retiene el espacio —, por eso los bloqueadores forman parte del rechazo.",
@@ -264,6 +283,7 @@
       },
       {
         "id": "BR-2",
+        "key": "cuenta-con-disputa-no-se-borra",
         "title": "Una CUENTA con disputas vivas cae bajo la misma regla",
         "rule": "`DELETE /account` no destruye una cuenta que sostiene objetos que la plataforma debe conservar, y una DISPUTA VIVA (pago en `held`, flag `payment_held` activo, chats de disputa abiertos) cuenta como uso. La cuenta se despublica/queda programada, no se destruye, y el 409 nombra la disputa concreta.",
         "why": "Extension explicita del owner sobre BR-1: la cuenta es el objeto del que cuelga todo lo demas, asi que es donde mas caro sale una destruccion silenciosa. Hoy el controlador ya rechaza 409 por FK RESTRICT (campanas, espacios, bookings, wallet_entries) y exige `confirm_proof_loss` para las pruebas del dueno; lo que falta es que una disputa abierta, que no es una FK, bloquee igual — un pago congelado se argumenta con los chats y las pruebas que la destruccion se llevaria.",
@@ -278,8 +298,9 @@
       },
       {
         "id": "BR-3",
+        "key": "codigos-409-422-404",
         "title": "Codigos de rechazo: 409 por estado, 422 por payload, 404 en vez de 403",
-        "rule": "409 cuando el ESTADO del objeto prohibe la accion (esta en uso, ya esta liquidado, hay conflicto). 422 SOLO cuando el payload en si esta mal formado o es estructuralmente imposible de satisfacer. 404 —nunca 403— cuando responder otra cosa confirmaria que la fila existe. Cada 409 lleva `error_code` estable (ALREADY_EXISTS, OBJECT_IN_USE, CONFIRMATION_REQUIRED, CONFLICTING_STATE) para que el frontend ramifique por codigo y no por el texto del mensaje.",
+        "rule": "409 cuando el ESTADO del objeto prohibe la accion (esta en uso, ya esta liquidado, hay conflicto). 422 SOLO cuando el payload en si esta mal formado o es estructuralmente imposible de satisfacer. 404 —nunca 403— cuando responder otra cosa confirmaria que la fila existe. Cada 409 lleva `error_code` estable (ALREADY_EXISTS, OBJECT_IN_USE, CONFIRMATION_REQUIRED, CONFLICTING_STATE) para que el frontend ramifique por codigo y no por el texto del mensaje. Y se verifica POR PARES, nunca respuesta a respuesta: el mismo camino con un id real y con uno inventado tiene que devolver identico estado e identico cuerpo. Una negativa que se defiende sola puede seguir filtrando al restarla de su gemela (EH-14). Corolario practico: la denegacion por rol o permiso es 404 cuando la ruta lleva parametros —entonces nombra una fila— y 403 cuando no los lleva, porque una ruta de coleccion no revela nada de nadie y ahi el 403 es mas util y es honesto.",
         "why": "[owner 2026-08-03] \"Cuando la API rechaza porque el objeto esta EN USO o en un ESTADO conflictivo, el status es 409.\" Y §21 regla 2: un 403 sobre un objeto de otra cuenta confirma que ese objeto existe y filtra su existencia. La separacion importa porque el cliente reacciona distinto: un 422 se arregla corrigiendo el formulario, un 409 se arregla cambiando el mundo (resolver la disputa, liberar el espacio), y un 404 no se arregla.",
         "appliesTo": [
           "toda la API",
@@ -292,6 +313,7 @@
       },
       {
         "id": "BR-4",
+        "key": "dinero-depositado-no-se-devuelve",
         "title": "A un proveedor no se le obliga a devolver dinero ya depositado",
         "rule": "Revertir un payout YA LIBERADO es un CLAWBACK (UC-32): un acto administrativo explicito, con motivo obligatorio, escrito como su PROPIA entrada NEGATIVA en el libro. Nunca es un refund, nunca es automatico y nunca es un cambio de estado a secas. `PaymentController::refund` responde 409 sobre `released`/`refunded` y dice en el mensaje que lo que se pide es un clawback.",
         "why": "Una vez que el dinero salio hacia el proveedor, es suyo hasta que una persona decida lo contrario; la plataforma no lo recupera en silencio. Antes, la clave de idempotencia impedia el DOBLE refund pero no impedia un refund DESPUES de la liberacion: se acreditaba la wallet del cliente con el proveedor ya cobrado, la plataforma se comia el importe y ninguna entrada del libro lo decia. El stop (antes de que el dinero se mueva) y el clawback (despues) son dos acciones distintas y no deben ser alcanzables la una desde la otra.",
@@ -306,6 +328,7 @@
       },
       {
         "id": "BR-5",
+        "key": "el-libro-no-se-netea",
         "title": "El libro no se netea",
         "rule": "Una reversion es una FILA NUEVA con importe negativo, jamas una edicion ni un borrado de la original. `wallet_entries` es append-only: la entrada `escrow_release` queda intacta y al lado aparece la `clawback` en negativo, cada una con su propia clave de idempotencia.",
         "why": "Un libro donde dos hechos se cancelan entre si deja de registrar lo que paso. Netear la reversion contra la liberacion borraria el hecho de que al proveedor se le pago alguna vez, que es exactamente el hecho sobre el que gira un caso de fraude. El saldo se calcula sumando; la historia se lee fila por fila.",
@@ -319,6 +342,7 @@
       },
       {
         "id": "BR-6",
+        "key": "payments-status-manda",
         "title": "`payments.status` es la unica autoridad sobre el dinero",
         "rule": "Donde esta el dinero lo dice `payments.status` y nada mas. Un flag de chat ANOTA el porque; no decide. Y dos estados que se confundieron una vez no vuelven a confundirse: `free_payment` = el cliente acepto la prueba, el payout es liberable y espera a Payments; `held` = congelado dentro de una disputa viva. No son sinonimos ni se pintan igual.",
         "why": "Cuando la autoridad vivia repartida, un usuario de Payments podia coger un pago congelado por el rechazo de una prueba —tres chats de disputa abiertos, flag `payment_held` activo— y pasarlo a `completed` de un clic: los chats seguian diciendo \"payout retenido\" y la autoridad decia \"pagado\". Nada fallaba y nada se registraba, porque para el codigo no habia pasado nada raro.",
@@ -333,6 +357,7 @@
       },
       {
         "id": "BR-7",
+        "key": "guarda-en-los-dos-gemelos",
         "title": "Una guarda existe en TODOS los caminos gemelos, no en uno",
         "rule": "Cuando dos endpoints mutan el mismo objeto, sus precondiciones se escriben juntas y se comparan. Si `holdPayout()` mira el estado, `approve()`/`reject()` tambien. La comprobacion vive en un metodo compartido (`refuseIfLocked`) para que anadir un estado nuevo no obligue a acordarse de tres sitios.",
         "why": "`holdPayout()` tenia guarda de estado y `settle()` no, asi que approve/reject podian sobrescribir un pago en disputa. Una guarda a medias es peor que ninguna: da la sensacion de que el caso esta cubierto.",
@@ -346,6 +371,7 @@
       },
       {
         "id": "BR-8",
+        "key": "quien-es-dueno",
         "title": "Dueno de una cuenta",
         "rule": "Un dueno es la persona que ABRIO la cuenta y que puede anadir colaboradores. Eso es todo — no hay un rol \"owner\" aparte ni una jerarquia. `GET /me` expone las DOS mitades del hecho: `account_id` + `is_owner` (mi cuenta) y `collaborating_on` (las cuentas AJENAS donde soy colaborador). Bajo el indice UNIQUE del MVP sobre `users.account_id` todo cliente o proveedor registrado posee exactamente una cuenta, asi que `is_owner` se reduce a \"tengo cuenta\" y NO distingue por si solo a un dueno de alguien que ademas colabora en otra cuenta: la mitad que distingue es `collaborating_on`.",
         "why": "[owner 2026-08-04] \"un dueno es la persona que abre la cuenta y puede anadir colaboradores, asi de simple.\" Poseer mi cuenta y ayudar a llevar la tuya son dos hechos distintos, y una pantalla que no los separa ensena el menu equivocado. Antes `GET /me` solo devolvia nombre/email/rol, asi que el frontend APROXIMABA la propiedad preguntando por el permiso `collaborators.create` — y una aproximacion en una decision con forma de autorizacion acaba adivinando mal, porque el permiso es de ROL y no de CUENTA. Cuando lleguen las cuentas multi-dueno se cae ese indice unico y `is_owner` pasa a ser una comparacion de verdad, en un solo sitio.",
@@ -360,6 +386,7 @@
       },
       {
         "id": "BR-9",
+        "key": "auditoria-simetrica",
         "title": "Toda accion de staff (✏/$) se audita, y las dos mitades de un par simetrico tambien",
         "rule": "Cada escritura de Support, Payments o Admin deja fila de auditoria, con before/after real, en la MISMA transaccion que el cambio y sin secretos dentro. Y si la accion tiene gemela (approve/reject, hold/release, stop/clawback, freeze/unfreeze, takedown/restore), se auditan LAS DOS.",
         "why": "Auditar solo un lado se lee como \"eso nunca paso\": el registro muestra las aprobaciones y no los rechazos, o las retenciones y no las liberaciones, y cualquiera que lo lea saca una conclusion falsa sobre lo que hizo el equipo. Que la fila y el cambio compartan transaccion es parte de la regla — una auditoria que sobrevive a un rollback miente igual.",
@@ -377,20 +404,22 @@
       },
       {
         "id": "BR-10",
+        "key": "ui-endpoints-planeacion-juntos",
         "title": "UI, endpoints y planeacion se mueven juntos",
         "rule": "Cuando la API gana un estado, el conjunto de acciones de la UI y la entrada de design.json viajan en el MISMO patch. Un boton que solo existe para ser rechazado se lee como permiso.",
-        "why": "[owner] \"Asegurate que el UI siempre vaya de la mano con los endpoints y que vayan ambos con la planeacion.\" Los tres desincronizados producen exactamente los fallos mas caros de este proyecto: la UI ofreciendo `paid_at` que no existe, un `<select>` con subroles que el backend rechaza, o la planeacion describiendo un enum de bookings que la base nunca tuvo (y por tanto filtros que devolvian cero filas).",
+        "why": "[owner] \"Asegurate que el UI siempre vaya de la mano con los endpoints y que vayan ambos con la planeacion.\" Los tres desincronizados producen exactamente los fallos mas caros de este proyecto: la UI ofreciendo `paid_at` que no existe, un `<select>` con subroles que el backend rechaza, o la planeacion describiendo un enum de bookings que la base nunca tuvo (y por tanto filtros que devolvian cero filas). Lo que faltaba era la verificacion, y su ausencia se noto en cuanto se escribio: al correrla por primera vez habia 16 rutas servidas sin documentar y 24 entradas describiendo rutas que nadie atiende — entre ellas el DELETE de usuarios del admin, retirado por ruling, que seguia escrito como si existiera y contra el que la interfaz seguia teniendo un boton.",
         "appliesTo": [
           "frontend",
           "endpoints[]",
           "design.json",
           "todo el proyecto"
         ],
-        "enforcedBy": "Convencion de trabajo, no codigo. Lo mas cerca de una verificacion automatica: backend/tests/test_all_endpoints.py y errorHunt EH-2 (campos fantasma) / EH-7 (vocabulario inventado).",
-        "status": "partial"
+        "enforcedBy": "backend/tests/Feature/PlanningCodeCongruenceTest.php — cuatro comprobaciones sin base de datos: ninguna ruta servida sin entrada en `endpoints[]`, ninguna entrada normal sin ruta que la sirva, ninguna entrada \"Planned - \" que ya se este sirviendo (y todas nombrando el Fxx que las debe), y ninguna URL del frontend que no resuelva a una ruta viva. Deja de ser convencion de trabajo: ahora el desfase se pone rojo.",
+        "status": "built"
       },
       {
         "id": "BR-11",
+        "key": "decisiones-cerradas-con-test",
         "title": "Las decisiones se cierran y se testean, no se reabren",
         "rule": "Una decision registrada aqui esta zanjada. Volver a discutirla exige un fallo NUEVO y fechado del owner, que gana sobre el anterior. Y toda decision zanjada carga con un test que falla si alguien la deshace en silencio.",
         "why": "[owner] \"En algunas cosas siento que estamos dando vueltas en circulos, cerremos decisiones y testeamos.\" Sin test, una decision es una frase en un documento: el codigo se refactoriza, la regla se cae y nadie se entera hasta que un cliente la encuentra. El marcador `[owner YYYY-MM-DD]` existe para que el ultimo fallo sea identificable sin leer todo el historial. El circulo tiene ademas una causa concreta y barata de evitar: Q35, Q38 y Q40 estuvieron abiertas semanas ESPERANDO AL OWNER cuando la regla que las respondia ya estaba escrita (`walkthroughs.convention`: un Fxx no pasa a `done` mientras su WALK siga `pending`). Una pregunta redactada como si necesitara un fallo nuevo, cuando en realidad solo hay que aplicar una regla existente, bloquea trabajo sin aportar nada — antes de abrir una pregunta hay que buscar la regla que ya la contesta.",
@@ -405,6 +434,7 @@
       },
       {
         "id": "BR-12",
+        "key": "pulir-solo-desde-walks",
         "title": "De aqui en adelante se pule desde los WALKs",
         "rule": "El trabajo nuevo nace de que una PERSONA recorra la UI real y encuentre algo, no de disenar en abstracto. Un Fxx no pasa a `done` mientras su WALK siga pendiente.",
         "why": "[owner] \"a partir de ahi pulimos desde los walks solamente, nada de teoria en codigo seco.\" La teoria produjo campos que no existian, claves de configuracion que nadie leia y enums inventados: todos habrian muerto en el primer recorrido humano.",
@@ -413,11 +443,12 @@
           "todos[]",
           "mvpSprint"
         ],
-        "enforcedBy": "`.walkthroughs.items[]` (cada WALK declara que Fxx cierra) · vista Recorridos del dashboard",
+        "enforcedBy": "design/walk.py — ejecuta el mecanismo: `--status` dice que recorridos faltan y que todos quedan bloqueados por ellos, y `--pass` es la unica via que cierra un todo colgado de un recorrido. Sigue en `partial` porque nada IMPIDE editar un `status` a mano en design.json; lo que ya no existe es la excusa de que el mecanismo no estaba escrito.",
         "status": "partial"
       },
       {
         "id": "BR-13",
+        "key": "estado-fuera-de-fillable",
         "title": "Un estado que ningun payload debe poder tocar se saca de `$fillable`",
         "rule": "Los atributos de moderacion y de propiedad (`taken_down_at`, `takedown_reason`, `frozen_at`, `freeze_reason`, `delete_scheduled_at`, `publication_status`, `users.account_id`) NO son fillable. Quien tiene derecho a escribirlos los nombra atributo por atributo.",
         "why": "Esa ausencia ES la garantia: el PUT del propio proveedor, el edit-any de Support y cualquier asignacion masiva futura pasan por `$fillable`, asi que ninguno puede limpiar un takedown de admin ni sacar un listado de un borrado programado ni por accidente. Una guarda escrita en un controlador solo protege ese controlador; una columna fuera de `$fillable` protege todos los que aun no existen.",
@@ -434,6 +465,7 @@
       },
       {
         "id": "BR-14",
+        "key": "el-contenido-sobrevive-al-autor",
         "title": "El contenido autorado sobrevive a su autor; la propiedad y el dinero bloquean",
         "rule": "Al borrar un usuario: mensajes y pruebas de un COLABORADOR se conservan con la autoria a NULL (`ON DELETE SET NULL`). Campanas, espacios, bookings y wallet_entries son `ON DELETE RESTRICT` y bloquean el borrado. La unica excepcion es el DUENO de la cuenta con sus propias pruebas, y tiene que decirlo: `confirm_proof_loss: true`, y la confirmacion se audita.",
         "why": "[owner 2026-08-03] \"Si, a menos que el autor sea el dueno de la cuenta, no un usuario collaborator, que confirma que sabe que sin pruebas no se le hara el pago.\" Una prueba es la evidencia de que la exhibicion ocurrio: es con lo que se argumenta un payout en una disputa. Un instalador que se va no puede llevarsela. Los mensajes se conservan siempre porque un chat es un registro COMPARTIDO — agujerear la mitad de una parte corrompe la copia de la contraparte, que es justo la conversacion que se lee en la disputa.",
@@ -450,14 +482,56 @@
         ],
         "enforcedBy": "AccountController::destroy (409 ConfirmationRequired + AuditLog `confirm_proof_loss` antes de borrar) · FKs RESTRICT/SET NULL en las migraciones · AccountController::blockingCounts() (se lee DESPUES del rechazo, para explicarlo, nunca para decidirlo)",
         "status": "built"
+      },
+      {
+        "id": "BR-15",
+        "key": "colaborador-no-se-desvincula",
+        "title": "Un colaborador no se desvincula solo",
+        "rule": "Quien acepta ser colaborador queda bajo la cuenta del dueno que lo anadio. No existe ninguna via por la que el propio colaborador se quite: el DELETE sobre la fila es del DUENO de la cuenta. La unica salida es Soporte, y esa capacidad todavia NO esta construida en la plataforma. Un intento de auto-desvinculacion se rechaza con 409 (no 404: el colaborador sabe legitimamente que su propia fila existe) diciendo cual es la via real.",
+        "why": "[owner 2026-08-04] \"un colaborador aunque es registrado, estaria bajo la cuenta del dueno original, en un futuro veremos formas de desvincular pero eso evitara que haya algun fraude\". El fraude que cierra es concreto: si el colaborador puede soltarse solo, puede entrar a una cuenta, actuar, y desaparecer del organigrama dejando los actos sin dueno visible. Que el vinculo solo lo rompa un tercero es lo que mantiene la cadena de responsabilidad. Que Soporte todavia no pueda hacerlo es deuda CONOCIDA, no un olvido — se registra aqui para que no se implemente por sorpresa como un boton del colaborador.",
+        "appliesTo": [
+          "collaborators",
+          "accounts",
+          "§3"
+        ],
+        "enforcedBy": "backend/app/Http/Controllers/Client/CollaboratorController.php::destroy + su test. La capacidad de Soporte queda anotada en mvpSprint.futureDebt.",
+        "status": "built"
+      },
+      {
+        "id": "BR-16",
+        "key": "sin-bucles-de-codigo-seco",
+        "title": "La revision de codigo en seco no cierra nada: lo cierra un walk",
+        "rule": "Circuito unico para un fallo, en este orden y sin saltarse pasos: (1) si el error se repite, entra a `errorHunt` como PATRON, no como incidente; (2) si ya hay solucion acordada, va a CODIGO en el mismo patch, sin volver a preguntar; (3) se crea el todo; (4) el todo se cuelga de un WALK. A partir de ahi NO se toca de nuevo hasta que haya un error comprobable o el walk humano encuentre la incongruencia.",
+        "why": "[owner 2026-08-04] \"si bien revisar el codigo en seco es bueno, produce bucles entre los agentes y se repiten las mismas preguntas constantemente\". Paso exactamente eso: Q35, Q38 y Q40 eran la misma pregunta tres veces, ya respondida por la convencion de walkthroughs. Leer codigo sin ejecutarlo genera hipotesis infinitas y ninguna prueba; cada vuelta cuesta una decision del dueno y no anade informacion. Una duda con una opcion obvia se APLICA y se espera al walk.",
+        "appliesTo": [
+          "proceso",
+          "agentes",
+          "todo el proyecto"
+        ],
+        "enforcedBy": "backend/tests/Feature/PlanningCodeCongruenceTest::test_no_todo_is_done_while_the_walk_that_closes_it_is_not — un todo no puede estar `done` mientras un WALK que lo cierra siga `pending` o `failed`. No juzga si el codigo funciona (de eso va la suite): juzga si todavia se puede DECIR que esta hecho. En su primera ejecucion bajo F10 de `done` a `review`, porque el recorrido del dinero nunca se habia corrido. La otra mitad, \"una duda con opcion obvia se aplica y no se pregunta\", sigue siendo convencion.",
+        "status": "built"
+      },
+      {
+        "id": "BR-17",
+        "key": "un-walk-tambien-se-comprueba-con-curl",
+        "title": "Un recorrido humano puede usar consola, HTTP y cURL",
+        "rule": "Un paso de WALK puede llevar un `probe`: una comprobacion por consola del navegador, por peticion HTTP directa o por cURL. Sigue siendo un recorrido humano — lo corre la persona, con sus ojos encima — pero no se limita a lo que la pantalla pinta.",
+        "why": "[owner 2026-08-04] \"tambien se pueden comprobar cosas en console y mediante solicitudes HTTP o con cURL durante los walks, para comprobar humanamente\". Hay verdades que la pantalla no puede ensenar y que son justamente las que este proyecto se juega: la diferencia entre un 404 y un 403 (BR-3) se ve identica en la interfaz y es toda la diferencia entre filtrar la existencia de una fila ajena o no. Sin `probe`, W2-3 seria infalsable.",
+        "appliesTo": [
+          "walkthroughs",
+          "proceso"
+        ],
+        "enforcedBy": "Campo `probe` en walkthroughs[].steps[], renderizado en la pestana Recorridos, y App\\Http\\Middleware\\WalkTrace + config/walk.php + canal de log `walk`: una linea por peticion en storage/logs/walk.log, inerte salvo WALK_TRACE=true. WALK-7 es el recorrido que lo usa.",
+        "status": "built"
       }
     ]
   },
   "errorHunt": {
-    "convention": "CACERIA DE ERRORES: patrones de fallo que YA aparecieron en este repositorio, con el caso real que los delato y con la forma concreta de ir a buscar los que queden. Cada uno describe una CLASE de error, no un incidente: el valor esta en `howToFind`, que es la busqueda que se puede repetir manana sobre codigo nuevo. `whyItHides` explica por que ninguna prueba fallaba mientras el error estaba vivo — casi siempre porque el codigo equivocado no rompia nada, solo mentia.",
+    "convention": "CACERIA DE ERRORES: patrones de fallo que YA aparecieron en este repositorio, con el caso real que los delato y con la forma concreta de ir a buscar los que queden. Cada uno describe una CLASE de error, no un incidente: el valor esta en `howToFind`, que es la busqueda que se puede repetir manana sobre codigo nuevo. `whyItHides` explica por que ninguna prueba fallaba mientras el error estaba vivo — casi siempre porque el codigo equivocado no rompia nada, solo mentia. Igual que las reglas de negocio, cada patron lleva una `key` corta y copiable: `EH-8` o `boton-para-ser-rechazado`.",
     "items": [
       {
         "id": "EH-1",
+        "key": "codigo-muerto-con-aire-de-autoridad",
         "pattern": "Codigo muerto que sigue pareciendo la autoridad",
         "howToFind": "Por cada simbolo exportado, buscar quien lo importa (`grep -rn \"nombreDelSimbolo\" src/ | grep -v \"el propio archivo\"`). Cero importadores = borrarlo. Y despues —esto es la mitad util— ir a buscar DONDE vive de verdad ese comportamiento, porque sigue vivo en algun sitio.",
         "whyItHides": "El archivo se lee como la fuente de verdad: tiene nombre de helper, esta bien escrito y contiene la lista completa. Quien audita lo encuentra, lo corrige y se va convencido de haber arreglado el bug. La UI no cambia, porque nunca leyo ese archivo.",
@@ -466,14 +540,16 @@
       },
       {
         "id": "EH-2",
+        "key": "campos-fantasma-en-el-frontend",
         "pattern": "Campos fantasma en el modelo del frontend",
-        "howToFind": "Enfrentar campo a campo cada `interface` de `frontend/src/app/core/models/` contra las migraciones de `backend/database/migrations/`. Todo campo sin columna detras es fantasma. Para los que se usan en plantilla: buscar `@if (x.campo)` — si la columna no existe, esa rama esta muerta desde el dia uno.",
+        "howToFind": "Enfrentar campo a campo cada `interface` de `frontend/src/app/core/models/` contra las migraciones de `backend/database/migrations/`. Todo campo sin columna detras es fantasma. Para los que se usan en plantilla: buscar `@if (x.campo)` — si la columna no existe, esa rama esta muerta desde el dia uno. Cazado automaticamente desde p83 por PlanningCodeCongruenceTest::test_every_url_the_frontend_calls_resolves_to_a_route.",
         "whyItHides": "TypeScript valida contra la INTERFAZ, no contra la base. El JSON llega sin la clave, la propiedad es `undefined`, el `@if` da falso y la columna pinta \"-\". No hay error, no hay warning, no hay excepcion: hay una funcionalidad que simplemente nunca se ve, y se confunde con \"todavia no hay datos\".",
         "realExample": "`Payment.paid_at`, `Invoice.paid_at`, `Booking.notes` y `Booking.book_for_later` estaban declarados sin columna detras: `@if (booking.payment.paid_at)` era permanentemente falso y la columna \"Pagado\" de facturas mostraba \"-\" para siempre. En el mismo modelo, `Payment.status` declaraba `'pending' | 'approved' | 'rejected'`, tres valores de los cuales dos NO EXISTEN en el backend, mientras faltaban `free_payment`, `held`, `released` y `refunded`.",
         "status": "found+fixed"
       },
       {
         "id": "EH-3",
+        "key": "dial-que-no-hace-nada",
         "pattern": "Una clave de configuracion que nadie lee",
         "howToFind": "Por cada clave sembrada o editable en la pantalla de admin, buscar su lectura (`SystemConfiguration::get('clave'`). Cero lecturas = la clave miente. Al reves tambien: por cada `::get('clave')`, comprobar que la clave esta en la lista conocida y sembrada, o el default silencioso pasa a ser la politica real.",
         "whyItHides": "La pantalla de admin la muestra, se puede editar y se guarda. Todo el circuito visible funciona. Lo unico que no ocurre es el efecto — y el efecto no se comprueba desde la pantalla, se comprueba semanas despues cuando alguien se pregunta por que cambiar el valor no cambio nada.",
@@ -482,6 +558,7 @@
       },
       {
         "id": "EH-4",
+        "key": "guarda-en-un-solo-gemelo",
         "pattern": "Una guarda en un camino y no en su gemelo",
         "howToFind": "Por cada mutacion, listar sus hermanas (las que tocan el mismo objeto o el mismo campo) y comparar sus precondiciones linea a linea. Si una comprueba el estado y otra no, el bug esta en la que no. Sospechosos habituales: los pares approve/reject, hold/release, stop/clawback, freeze/unfreeze.",
         "whyItHides": "El camino con guarda es el que se prueba, porque es el que alguien penso. El gemelo tiene el mismo aspecto desde fuera —mismo verbo, misma ruta, mismo formulario— asi que se asume cubierto por la misma revision.",
@@ -490,6 +567,7 @@
       },
       {
         "id": "EH-5",
+        "key": "permiso-sin-ambito",
         "pattern": "Una comprobacion de permisos sin ambito",
         "howToFind": "Buscar toda consulta de permisos/grants que no lleve un `account_id`, `user_id` o id de objeto en el WHERE. La pregunta \"¿tiene este usuario este grant?\" casi siempre esta incompleta: la buena es \"¿lo tiene AQUI?\".",
         "whyItHides": "Con un solo proveedor o una sola cuenta en la base de pruebas, la version sin ambito da exactamente la misma respuesta que la version correcta. El fallo solo aparece con DOS cuentas y un colaborador en una de ellas — que es un escenario que un seed de demo rara vez monta.",
@@ -498,6 +576,7 @@
       },
       {
         "id": "EH-6",
+        "key": "cascade-invisible",
         "pattern": "Un CASCADE que la aplicacion no puede ver",
         "howToFind": "Leer las FKs de las migraciones y clasificarlas: propiedad y registro de dinero deben ser RESTRICT, contenido autorado SET NULL, y CASCADE solo para lo que de verdad es una parte del padre. Despues, por cada guarda de borrado en un controlador, comprobar que el motor la respalda — si el motor no acompana, la guarda es teatro.",
         "whyItHides": "El CASCADE actua DENTRO del `DELETE`, antes de que corra ningun `if` de la aplicacion. El codigo PHP se lee correcto y completo. Y lo que pasa a nivel de motor tambien se lo lleva por delante una sesion de psql, un seeder o un controlador futuro que nadie ha escrito aun.",
@@ -506,19 +585,75 @@
       },
       {
         "id": "EH-7",
+        "key": "vocabulario-que-el-codigo-no-usa",
         "pattern": "Documentacion que describe un vocabulario que el codigo no usa",
-        "howToFind": "Por cada enum de `schema.entities.*`, extraer los valores y compararlos con la migracion y con las constantes del modelo. Los que sobran son inventados; los que faltan son estados reales sin planear. Igual con los nombres de ruta y de permiso.",
+        "howToFind": "Por cada enum de `schema.entities.*`, extraer los valores y compararlos con la migracion y con las constantes del modelo. Los que sobran son inventados; los que faltan son estados reales sin planear. Igual con los nombres de ruta y de permiso. Cazado automaticamente desde p83 por PlanningCodeCongruenceTest::test_every_documented_route_is_served.",
         "whyItHides": "El documento se lee coherente consigo mismo, y quien planea a partir de el escribe filtros y pantallas con esos nombres. El resultado no es una excepcion: es una consulta que devuelve CERO filas, que se interpreta como \"aun no hay datos\" en vez de como \"este estado no existe\".",
         "realExample": "`bookings.status` en design.json llevaba cinco valores inventados (draft, waiting-approval, waiting-booking-confirmation, live, proof-pending...) y omitia cuatro reales. La migracion que se \"decidio\" el 2026-06-25 nunca se escribio: la columna es y siempre fue pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected. Cualquier filtro escrito desde la planeacion devolvia cero filas. La entidad ya refleja los 8 valores reales.",
         "status": "found+fixed"
       },
       {
         "id": "EH-8",
+        "key": "boton-para-ser-rechazado",
         "pattern": "Un boton que solo existe para ser rechazado",
         "howToFind": "Por cada accion de la UI, buscar el estado que el endpoint exige y comprobar que la UI la oculta o la deshabilita cuando el estado no se cumple. Al reves tambien: por cada 409 nuevo del backend, buscar quien lo dispara desde la pantalla.",
         "whyItHides": "Tecnicamente todo funciona: se pulsa, la API responde 409, sale un toast. Nadie lo cuenta como bug porque no hay excepcion. Pero un boton visible se lee como PERMISO, asi que la pantalla esta prometiendo algo que la API no concede.",
         "realExample": "Clase abierta por BR-10 al partir `held` de `free_payment`: cada estado nuevo del backend anade un rechazo que la UI tiene que dejar de provocar. Se busca recorriendo las pantallas (BR-12), no leyendo codigo.",
         "status": "open"
+      },
+      {
+        "id": "EH-9",
+        "key": "el-tablero-contradice-al-cuerpo",
+        "pattern": "El tablero y el cuerpo del mismo item dicen cosas distintas, o un estado en uso no existe en la leyenda",
+        "howToFind": "Dos barridos sobre design.json. (a) Por cada item con estado en dos sitios (`todos[].status` y `mvpSprint.featureReview`, o `specs[].status` y el texto de su cuerpo), comparar los dos y exigir que el cuerpo no afirme un estado distinto del que pinta el tablero. (b) Recoger TODOS los valores de `status` que aparecen de verdad en el JSON y restarles los `key` de `legend.*Statuses`: la diferencia son estados que el dashboard pinta como desconocidos.",
+        "whyItHides": "Nada falla. El JSON es valido, el dashboard renderiza, y el estado equivocado se lee como una decision deliberada de alguien. Peor: el cuerpo suele llevar la verdad reciente (quien lo edito escribio \"corregido, wip→review\" ahi mismo) mientras el campo `status`, que es lo que ordena el tablero, se quedo en el valor viejo. Asi que la vista de trabajo pendiente miente y el detalle acierta, que es la peor combinacion posible.",
+        "realExample": "§21 figuraba en `backlog` en el tablero mientras su propio cuerpo decia \"corregido wip→review\". Y `review` no existia en `legend.kanbanStatuses` aunque F11 ya lo usaba, asi que ese estado se pintaba como desconocido en el kanban. Dos errores del mismo patron a la vez, ninguno detectado por nada automatico.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-10",
+        "key": "control-muerto-que-llama-a-una-ruta-que-no-existe",
+        "pattern": "Un control de la UI llama a una ruta que ya no existe",
+        "howToFind": "Extraer todas las URLs que llama el frontend (`grep -rn \"http.\\(get\\|post\\|put\\|delete\\|patch\\)\" frontend/src`) y confrontarlas contra `backend/routes/api.php`. Al reves tambien: cada metodo publico de controlador sin ruta que lo alcance es codigo muerto. Durante un WALK: la consola del navegador abierta — cualquier 404 en la pestana de red es este patron en vivo. Cazado automaticamente desde p83 por PlanningCodeCongruenceTest::test_every_url_the_frontend_calls_resolves_to_a_route.",
+        "whyItHides": "Es el gemelo temporal de EH-8. Aquel es un boton que nunca debio existir; este es un boton que fue CORRECTO y se quedo huerfano cuando se retiro su ruta. Nadie lo borra porque quitar una ruta se siente completo: el backend ya no la sirve, el test que la cubria se elimino, la suite pasa verde. El boton sigue pintado, y solo falla en las manos del usuario, con un 404 que la UI suele tragarse como \"error\".",
+        "realExample": "El boton de borrar usuarios del admin daba 404 en cada clic desde que se retiro esa ruta al aplicar el ruling \"el admin solo puede quitar usuarios de sus roles, no eliminar\". Ni un test fallo: la ruta ya no existia, luego no habia nada que probar. Ahora la pantalla desactiva y reactiva, que es la capacidad que el admin tiene de verdad.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-11",
+        "key": "puerta-de-ui-colgada-de-la-senal-equivocada",
+        "pattern": "Una puerta de la UI colgada de una senal parecida pero distinta a la que el endpoint usa",
+        "howToFind": "Por cada `*ngIf` / `@if` que decide si una pantalla EXISTE para alguien, ir al endpoint que la alimenta y leer con que se acota alli. Las dos condiciones tienen que responder a la MISMA pregunta. Sospechoso inmediato: la puerta usa una lista (pertenezco a estos) donde el endpoint usa un escalar (esta es mi cuenta), o al reves.",
+        "whyItHides": "Las dos senales estan correlacionadas casi siempre, asi que la pantalla funciona para todo el mundo menos para el caso mixto — y el caso mixto es raro justo hasta que deja de serlo. No hay error, no hay 403, no hay log: simplemente a esa persona le falta un menu que la API le habria servido sin quejarse. Lo unico que lo delata es alguien mirando su propia pantalla y diciendo \"aqui deberia haber algo\".",
+        "realExample": "La pestana de Colaboradores. La propuesta era abrirla con `is_owner && collaborating_on`, y esta MAL: la pantalla pregunta \"puedo gestionar colaboradores en MI cuenta?\" y el endpoint se acota por `account_id`. Filtrar por `collaborating_on` habria escondido su propia pantalla a alguien solo porque ademas colabora en la cuenta de un amigo. Se abre con `is_owner` a secas, y el razonamiento quedo en el codigo para que no se vuelva a discutir.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-12",
+        "key": "estado-que-solo-escribe-el-seeder",
+        "pattern": "Un valor de estado que solo escribe el seeder: media escalera",
+        "howToFind": "Sacar todos los valores admitidos de cada enum (en Postgres son CHECK sobre varchar, asi que estan en las migraciones: `grep -rn \"in:\" backend/database/migrations` y los CHECK crudos). Por cada valor, buscar quien lo ESCRIBE dentro de `backend/app/`: `grep -rn \"'ese_valor'\" backend/app/`. Si los unicos resultados estan en `database/seeders` o `database/factories`, el flujo que produce ese estado no existe. Cruzarlo ademas con quien lo LEE: un valor que se lee y no se escribe es el caso grave.",
+        "whyItHides": "La base sembrada lo tapa entero. En desarrollo hay filas con ese valor —las puso el seeder— asi que la pantalla se ve poblada, la consulta devuelve resultados y los tests que usan factories pasan. El fallo solo aparece en una base que nacio de usuarios reales, donde la lista sale vacia sin error, sin 403 y sin una sola linea de log. Es la mitad de arriba de una escalera: el estado final existe en el esquema, en las lecturas y en la interfaz; lo que no existe es el escalon que lleva hasta el.",
+        "realExample": "`collaborators.status = 'accepted'` no lo escribia ningun controlador: el unico `accepted` de todo `backend/app/` era la LECTURA en `User::accountContext()`. Habia endpoint para invitar y endpoint para que el dueno quitase la invitacion, pero ninguno para aceptarla. Resultado: `collaborating_on` vacio para siempre en cualquier base real, y el paso W6-3 del recorrido (\"aceptar la invitacion desde la otra sesion\") imposible de ejecutar. Se cerro construyendo la mitad que faltaba, no borrando la que habia.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-13",
+        "key": "test-verde-que-probo-otra-cosa",
+        "pattern": "Un test que pasa habiendo probado a otro actor",
+        "howToFind": "Buscar metodos de test con MAS DE UN actor: `grep -n \"actingAs\\|withToken\" backend/tests -r` y revisar los que aparezcan dos veces en el mismo metodo. `Sanctum::actingAs()` fija el guard para el resto del metodo, asi que un `$this->withToken($otroToken)` posterior se ignora en silencio y la peticion sigue corriendo como el primero. La forma segura es un actor por metodo de test. Prima hermana: toda asercion sobre una coleccion necesita antes una asercion de que la coleccion NO esta vacia, o pasa por vacuidad.",
+        "whyItHides": "Es el unico patron de esta lista que se esconde DENTRO de la red de seguridad. No hay sintoma: la suite esta verde, el contador sube, y el test lleva el nombre de la regla que cree estar defendiendo. Peor todavia, invita a cerrar la decision — \"esto ya tiene test\" es exactamente el argumento que BR-11 usa para dar una cuestion por zanjada. Un test que comprueba al actor equivocado es peor que no tener test, porque un hueco se ve y una mentira no.",
+        "realExample": "Salio al escribir las pruebas del bloqueo de auto-desvinculacion (BR-15): un segundo `withToken()` tras un `Sanctum::actingAs()` no cambiaba de usuario, de modo que la prueba de \"otro usuario no puede\" se estaba ejecutando como el usuario que SI podia. Del mismo dia: PlanningCodeCongruenceTest habria pasado en verde si el extractor de URLs del frontend dejaba de reconocer el patron de llamada — devolvia lista vacia y no comparaba nada; lleva una asercion de volumen minimo justo para eso. Tercer caso, del mismo dia: el extractor de URLs del frontend de PlanningCodeCongruenceTest solo reconoce `${api}/ruta`, y es ciego a tres formas que el codigo usa de verdad — fragmentos que concatena un helper (`payments/${id}/refund`), concatenacion con `+` (`this.api + '/admin/moderation'`) y mapas rol→ruta. Las tres veces informo de un hueco que no existia. No se arregla leyendo mejor: se arregla mirando el trafico real, que es para lo que existe WALK-7.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-14",
+        "key": "la-fuga-esta-en-el-par-no-en-la-respuesta",
+        "pattern": "Ninguna respuesta filtra, pero el PAR de respuestas si",
+        "howToFind": "No se caza leyendo una respuesta: hay que pedir DOS. Por cada superficie protegida, lanzar la misma peticion con un id que existe y con un id inventado, y comparar estado Y cuerpo. Si difieren, ahi esta el oraculo, por muy defendible que sea cada una de las dos por separado. Es una comprobacion que se hace con cURL en dos lineas, asi que entra bien como `probe` de un recorrido (BR-17).",
+        "whyItHides": "Porque cada mitad se defiende sola y con buenos argumentos. \"El 403 de rol no nombra ninguna fila, solo dice que este rol no entra aqui\" es verdad. \"El 404 lo pone el router al no resolver el binding, ni siquiera llega al controlador\" tambien es verdad. Una auditoria que revise sitio por sitio aprueba los dos y se va tranquila; el fallo no vive en ninguno de los dos sitios, vive en la resta. Es el patron que mejor sobrevive a una revision de codigo en seco, y por eso es el que mas justifica BR-16.",
+        "realExample": "El enlace de modelo de Laravel corre ANTES del middleware de rol, asi que un id inexistente moria en 404 en el router mientras un id REAL de otro rol llegaba al middleware y salia 403. Medido: cliente contra `/provider/spaces/{real}` daba 403 y contra `{fantasma}` 404; igual proveedor contra `/client/campaigns/{id}`. Restando las dos, un proveedor podia enumerar ids de campanas de clientes. Los 18 sitios convertidos a 404 en el barrido no lo tapaban: la fuga estaba en los 403 que el barrido habia declarado correctos, uno por uno, con razon. Se cerro devolviendo 404 cuando la ruta lleva parametros —ahi si nombra una fila— y dejando 403 en las rutas de coleccion, que no revelan nada de nadie. SEGUNDA VUELTA, y esta la encontro el log de BR-17 en su PRIMERA ejecucion: la fuga seguia viva en el middleware de rol y permisos, que el barrido habia dejado en paz con un argumento correcto —un control de rol no nombra ninguna fila—. Pero `SubstituteBindings` corre ANTES, asi que un id fantasma moria en 404 en el router y uno real llegaba al middleware y salia 403. Medido en un servidor levantado: `GET /api/provider/spaces/999999` como cliente daba 404 y `GET /api/provider/spaces/1` daba 403. Corregido en `App\\Http\\Middleware\\Concerns\\RefusesWithoutLeaking`: 404 cuando la ruta lleva parametros, 403 en rutas de coleccion. Y TERCERA vuelta: con los dos estados ya iguales, los CUERPOS seguian difiriendo (`Not found.` contra `NOT_FOUND / Resource not found.`), asi que el oraculo sobrevivio al arreglo, mas callado. Igualar el estado no era el requisito; el requisito es ser INDISTINGUIBLE.",
+        "status": "found+fixed"
       }
     ]
   },
@@ -654,7 +789,7 @@
     ]
   },
   "walkthroughs": {
-    "convention": "WALK-1 a WALK-10 son recorridos humanos por la interfaz real. Los hace una PERSONA, no una suite: existen porque un test verde demuestra que una funcion responde, no que una pantalla sea usable ni que un flujo se pueda completar de principio a fin. Regla dura: un Fxx no pasa a `done` mientras el WALK que lo cierra siga `pending`. Cada paso lleva una accion concreta y lo que debe observarse; si lo observado no coincide, el recorrido falla y el Fxx no se cierra.",
+    "convention": "WALK-n son recorridos humanos por la interfaz real. Los hace una PERSONA, no una suite: un test verde demuestra que una funcion responde, no que una pantalla sea usable ni que un flujo se pueda completar de principio a fin.\n\nLAS REFERENCIAS SON EL CRITERIO DE CIERRE (owner 2026-08-04). Cada recorrido apunta a lo que demuestra: `closes` (todos Fxx/otros), `specs`, `ucs`, `br` y `eh`. Leelo asi:\n  - `status: pending`  → el recorrido no se ha hecho. TODO lo que referencia sigue abierto, aunque el codigo este escrito y los tests pasen.\n  - `status: failed`   → se hizo y algo no cuadro. Lo referenciado sigue abierto y `result.notes` dice exactamente que se vio.\n  - `status: passed`   → resultado positivo. AHI y solo ahi se marcan como `done` las referencias; los todos que solo existian para este recorrido se pueden borrar.\n\nRegla dura, sin excepcion: un Fxx no pasa a `done` mientras el WALK que lo cierra siga `pending`. Un § no se da por terminado por revision de codigo en seco (ver BR-16): se da por terminado cuando su recorrido pasa.\n\nUn paso puede llevar `probe`: una comprobacion de consola, HTTP o cURL que se corre DURANTE el recorrido (BR-17). No sustituye a mirar la pantalla — sirve para lo que la pantalla no ensena, como el codigo de estado exacto de una negativa.\n\nSE CIERRA CON `design/walk.py`, no a mano:\n  python3 design/walk.py --status                       → que falta por recorrer y que bloquea\n  python3 design/walk.py WALK-1 --pass --by \"...\" --notes \"...\"\n  python3 design/walk.py WALK-1 --fail --by \"...\" --notes \"...\"   (--notes es obligatorio)\nAl pasar, el script pone en `done` los todos de `closes` y LISTA las referencias a §, UC, BR y EH sin tocarlas: cerrar un § es una decision de quien recorrio, no un efecto colateral. Al fallar no cierra nada y guarda lo observado, que es la mitad que de verdad hace falta despues.",
     "items": [
       {
         "id": "WALK-1",
@@ -671,6 +806,12 @@
         "ucs": [
           "UC-9",
           "UC-21"
+        ],
+        "br": [
+          "BR-9"
+        ],
+        "eh": [
+          "EH-5"
         ],
         "groups": [
           "mensajeria-soporte"
@@ -713,12 +854,13 @@
             "expected": "El chat de Soporte se abre con el PAGO de la factura ya colgado del hilo como objeto de chat, visible como contexto sin tener que buscarlo, y la contraparte es Soporte porque la fija el punto de entrada — no el dueño del objeto adjuntado."
           }
         ],
-        "notes": "Es lo unico que separa a F08 y F09 de `done`: no queda codigo pendiente en ninguno de los dos."
+        "notes": "Es lo unico que separa a F08 y F09 de `done`: no queda codigo pendiente en ninguno de los dos.",
+        "result": null
       },
       {
         "id": "WALK-2",
         "title": "Recorrido humano de campañas, adsets y anuncios",
-        "todoId": null,
+        "todoId": "WALK-2",
         "status": "pending",
         "closes": [
           "§21"
@@ -728,6 +870,14 @@
         ],
         "ucs": [
           "UC-43"
+        ],
+        "br": [
+          "BR-1",
+          "BR-3"
+        ],
+        "eh": [
+          "EH-6",
+          "EH-14"
         ],
         "groups": [],
         "steps": [
@@ -747,15 +897,17 @@
             "id": "W2-3",
             "role": "cliente",
             "action": "Pedir por URL un objeto que pertenece a otra cuenta.",
-            "expected": "Responde 404, nunca 403: un 403 confirmaria que ese objeto existe."
+            "expected": "Responde 404, nunca 403: un 403 confirmaria que ese objeto existe.",
+            "probe": "curl -si -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/client/campaigns/$ID_AJENO | head -1   # exige 404, no 403"
           }
         ],
-        "notes": "Mantiene a §21 en `wip`. Es la contraparte de WALK-1 del lado de campañas."
+        "notes": "Mantiene a §21 en `wip`. Es la contraparte de WALK-1 del lado de campañas.",
+        "result": null
       },
       {
         "id": "WALK-3",
         "title": "Recorrido humano de F11 (vista eagle-eye del admin)",
-        "todoId": null,
+        "todoId": "WALK-3",
         "status": "pending",
         "closes": [
           "F11"
@@ -766,25 +918,41 @@
         "ucs": [
           "UC-28"
         ],
+        "br": [
+          "BR-9"
+        ],
+        "eh": [
+          "EH-8"
+        ],
         "groups": [],
         "steps": [
           {
             "id": "W3-1",
             "role": "admin",
             "action": "Recorrer la vista de actividad de principio a fin (el guion original O1 a O7).",
-            "expected": "Todo lo que la vista promete se puede alcanzar desde la interfaz, sin construir URLs a mano."
+            "expected": "Todo lo que la vista promete se puede alcanzar desde la interfaz, sin construir URLs a mano.",
+            "probe": "En la consola del navegador: ninguna peticion de la vista debe responder 404. Una que lo haga es un control muerto (EH-10)."
           }
         ],
-        "notes": "F11 se cerro con evidencia de tests y su recorrido nunca se ejecuto; por eso baja a `review` hasta que este recorrido pase."
+        "notes": "F11 se cerro con evidencia de tests y su recorrido nunca se ejecuto; por eso baja a `review` hasta que este recorrido pase.",
+        "result": null
       },
       {
         "id": "WALK-4",
         "title": "Recorrido humano del dashboard de diseno (antes DASH-1)",
-        "todoId": null,
+        "todoId": "WALK-4",
         "status": "pending",
         "closes": [],
         "specs": [],
         "ucs": [],
+        "br": [
+          "BR-10",
+          "BR-12"
+        ],
+        "eh": [
+          "EH-7",
+          "EH-9"
+        ],
         "groups": [],
         "steps": [
           {
@@ -806,7 +974,8 @@
             "expected": "El puntero llega a una seccion que existe. Ningun `design:NNN` ni puntero al documento retirado sobrevive."
           }
         ],
-        "notes": "Nacio como el UC propuesto DASH-1. No cierra ningun Fxx: el dashboard es documentacion, no producto. Se ejecuta cuando la planeacion cambia de forma, no en cada sprint."
+        "notes": "Nacio como el UC propuesto DASH-1. No cierra ningun Fxx: el dashboard es documentacion, no producto. Se ejecuta cuando la planeacion cambia de forma, no en cada sprint.",
+        "result": null
       },
       {
         "id": "WALK-5",
@@ -824,6 +993,15 @@
           "UC-6",
           "UC-7",
           "UC-32"
+        ],
+        "br": [
+          "BR-4",
+          "BR-5",
+          "BR-6"
+        ],
+        "eh": [
+          "EH-4",
+          "EH-13"
         ],
         "groups": [],
         "steps": [
@@ -855,7 +1033,8 @@
             "id": "W5-5",
             "role": "payments",
             "action": "Sobre ese mismo pago ya liberado, intentar Reembolsar.",
-            "expected": "Se niega con 409 y dice por que: el dinero ya salio hacia el proveedor, y recuperarlo es un clawback, no un reembolso. ESTE es el paso que importa del recorrido: si aqui saliera 200, la plataforma estaria acreditando al cliente dinero que el proveedor ya cobro, y pagando la diferencia de su bolsillo sin que ningun asiento lo dijera."
+            "expected": "Se niega con 409 y dice por que: el dinero ya salio hacia el proveedor, y recuperarlo es un clawback, no un reembolso. ESTE es el paso que importa del recorrido: si aqui saliera 200, la plataforma estaria acreditando al cliente dinero que el proveedor ya cobro, y pagando la diferencia de su bolsillo sin que ningun asiento lo dijera.",
+            "probe": "curl -si -X POST -H \"Authorization: Bearer $TOKEN_PAYMENTS\" localhost:8000/api/payments/payments/$ID/refund | head -1   # exige 409"
           },
           {
             "id": "W5-6",
@@ -876,7 +1055,144 @@
             "expected": "Las dos filas se ven por separado con su fecha y su motivo, y el saldo es la suma. En ningun momento la plataforma le quito dinero sin que un humano lo decidiera y lo firmara."
           }
         ],
-        "notes": "BR-4 y BR-5 en una sola sentada. La regla que se esta comprobando es que a un proveedor no se le obliga a devolver dinero ya depositado: reembolso y clawback son actos distintos, sobre personas distintas, y el segundo siempre lo decide un humano dentro de una ventana, con motivo y auditado. El paso 5 es el que falla si alguien vuelve a juntar los dos caminos."
+        "notes": "BR-4 y BR-5 en una sola sentada. La regla que se esta comprobando es que a un proveedor no se le obliga a devolver dinero ya depositado: reembolso y clawback son actos distintos, sobre personas distintas, y el segundo siempre lo decide un humano dentro de una ventana, con motivo y auditado. El paso 5 es el que falla si alguien vuelve a juntar los dos caminos.",
+        "result": null
+      },
+      {
+        "id": "WALK-6",
+        "title": "Recorrido humano de entrada: login, menu y colaboradores",
+        "todoId": "WALK-6",
+        "status": "pending",
+        "closes": [
+          "AUTH-1",
+          "COLAB-1",
+          "UI-1",
+          "COLAB-2"
+        ],
+        "specs": [
+          "§3"
+        ],
+        "ucs": [
+          "UC-53"
+        ],
+        "br": [
+          "BR-8",
+          "BR-10",
+          "BR-15"
+        ],
+        "eh": [
+          "EH-8",
+          "EH-10",
+          "EH-11",
+          "EH-12",
+          "EH-14"
+        ],
+        "groups": [],
+        "result": null,
+        "steps": [
+          {
+            "id": "W6-1",
+            "role": "cliente",
+            "action": "Registrarse desde cero y quedarse en la pantalla a la que caiga, SIN recargar.",
+            "expected": "El menu ya trae la pestana de Colaboradores. Quien abre una cuenta es su dueno (BR-8) y la respuesta del registro ya lo dice — antes habia que recargar la pagina entera para que apareciera.",
+            "probe": "curl -si -X POST localhost:8000/api/register -H \"Content-Type: application/json\" -d '{...}' | grep is_owner   # debe venir true en la respuesta del registro, no solo en /me"
+          },
+          {
+            "id": "W6-2",
+            "role": "cliente",
+            "action": "Cerrar sesion y volver a entrar por login.",
+            "expected": "Mismo resultado y sin recargar: el menu esta completo desde el primer pintado."
+          },
+          {
+            "id": "W6-3",
+            "role": "cliente",
+            "action": "Invitar a un colaborador a la cuenta y aceptar la invitacion desde la otra sesion.",
+            "expected": "El colaborador entra a la cuenta ajena y ADEMAS conserva su propia pestana de Colaboradores, porque es dueno de su propia cuenta. Este es el caso mixto de EH-11: si la pestana propia desaparece al colaborar en otra cuenta, la puerta esta colgada de la senal equivocada.",
+            "probe": "curl -s -H \"Authorization: Bearer $TOKEN_COLABORADOR\" localhost:8000/api/me | grep collaborating_on   # tras aceptar debe traer la cuenta ajena, no []"
+          },
+          {
+            "id": "W6-4",
+            "role": "colaborador",
+            "action": "Intentar salirse de la cuenta ajena por la interfaz, y si no hay boton, por peticion directa.",
+            "expected": "No hay boton — y la peticion directa responde 409 diciendo que la desvinculacion pasa por Soporte. BR-15: el vinculo solo lo rompe el dueno, y que Soporte todavia no pueda hacerlo es deuda conocida, no un descuido.",
+            "probe": "curl -si -X DELETE -H \"Authorization: Bearer $TOKEN_COLABORADOR\" localhost:8000/api/client/collaborators/$MI_PROPIA_FILA | head -1   # exige 409"
+          },
+          {
+            "id": "W6-5",
+            "role": "admin",
+            "action": "Abrir la pantalla de usuarios con la consola de red abierta y pulsar todo lo que se pueda pulsar en una fila.",
+            "expected": "Ninguna peticion responde 404. No hay boton de borrar: hay desactivar y reactivar, que es la capacidad que el admin tiene de verdad. Un 404 aqui es EH-10 en vivo."
+          },
+          {
+            "id": "W6-6",
+            "role": "proveedor",
+            "action": "Intentar borrar un espacio que tenga reservas y leer lo que sale en pantalla.",
+            "expected": "Sale la LISTA de motivos que devuelve el 409, no un \"error\" generico: un no sin motivo deja al proveedor adivinando cual de sus clientes lo esta reteniendo."
+          }
+        ],
+        "notes": "Es el recorrido de esta ronda: cierra AUTH-1, COLAB-1 y UI-1 de una sentada. Los pasos 3 y 4 son los que de verdad importan — el 3 porque el caso mixto (dueno propio + colaborador ajeno) es el unico que distingue las dos senales, y el 4 porque un colaborador que se suelta solo rompe la cadena de responsabilidad que sostiene todo lo demas."
+      },
+      {
+        "id": "WALK-7",
+        "title": "Rastro en vivo: lo que la aplicacion hace de verdad, no lo que el codigo parece decir",
+        "todoId": "WALK-7",
+        "status": "pending",
+        "closes": [
+          "UI-1"
+        ],
+        "specs": [
+          "§21"
+        ],
+        "ucs": [
+          "UC-43"
+        ],
+        "br": [
+          "BR-3",
+          "BR-16",
+          "BR-17"
+        ],
+        "eh": [
+          "EH-10",
+          "EH-13",
+          "EH-14"
+        ],
+        "groups": [],
+        "result": null,
+        "steps": [
+          {
+            "id": "W7-1",
+            "role": "cualquiera",
+            "action": "Poner WALK_TRACE=true en backend/.env, `php artisan config:clear`, y dejar abierto `tail -f backend/storage/logs/walk.log` en una terminal al lado de la pantalla.",
+            "expected": "Cada peticion aparece como una linea con verbo, ruta, rol, usuario y si la ruta lleva parametros. Este es el unico sitio del proyecto donde se ve lo que PASO, no lo que alguien dedujo leyendo. El resto del recorrido se hace con esa terminal a la vista.",
+            "probe": "tail -f backend/storage/logs/walk.log"
+          },
+          {
+            "id": "W7-2",
+            "role": "cliente",
+            "action": "Pedir por URL un espacio de proveedor que NO existe y despues uno que SI existe.",
+            "expected": "Las dos lineas del log tienen que ser IDENTICAS en estado y la respuesta identica en cuerpo. Si una dice 404 y la otra 403, o si los cuerpos difieren, ahi esta EH-14 otra vez: restando las dos respuestas se enumeran ids ajenos. Este paso ya fallo dos veces seguidas —primero por el estado, luego por el cuerpo— asi que se comprueban los dos.",
+            "probe": "curl -si -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/provider/spaces/999999 | head -1; curl -si -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/provider/spaces/$ID_REAL | head -1"
+          },
+          {
+            "id": "W7-3",
+            "role": "cliente",
+            "action": "Pedir la COLECCION que no es suya: /api/provider/spaces, sin id.",
+            "expected": "403, no 404 — y eso es correcto, no una inconsistencia. Una ruta de coleccion no nombra ninguna fila, asi que no hay nada que enumerar, y el 403 le dice a quien pregunta de buena fe que se ha equivocado de sitio."
+          },
+          {
+            "id": "W7-4",
+            "role": "cualquiera",
+            "action": "Recorrer TODAS las pantallas del propio rol, una por una, sin saltarse ninguna, con el log delante.",
+            "expected": "Ni una sola linea `REFUSED 404` provocada por un boton. Un 404 que sale de pulsar algo es un control muerto en vivo (EH-10). Este paso existe porque el test estatico que deberia cazarlos es ciego a tres formas de construir URLs que el codigo usa de verdad (EH-13): mirar el trafico es lo unico que no se puede enganar."
+          },
+          {
+            "id": "W7-5",
+            "role": "cualquiera",
+            "action": "Al terminar, comparar las rutas que aparecieron en el log con la pestana Endpoints del dashboard.",
+            "expected": "Lo que la pestana marca como vivo y no aparecio en ninguna linea es una capacidad sin camino desde la interfaz: o le falta pantalla, o sobra la ruta. No es un fallo automatico — es la pregunta que hay que contestar antes de dar el § por cerrado."
+          }
+        ],
+        "notes": "Nace de un bucle concreto: tres veces di por buena una comprobacion estatica que resulto ser mas estrecha de lo que su nombre prometia, y las tres veces el codigo leido decia una cosa y el trafico otra. BR-16 dice que eso se corta mirando la ejecucion, no leyendo mas fuerte. Este recorrido ES esa mirada, y el paso 2 es el que ya fallo dos veces."
       }
     ]
   },
@@ -3086,11 +3402,508 @@
   ],
   "endpoints": [
     {
-      "group": "Public / auth",
+      "group": "Client",
+      "method": "DELETE",
+      "path": "/account",
+      "desc": "unpublish the account and program its deletion; 409 with blockers if there are live disputes (BR-2)",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/account",
+      "desc": "the account itself: owner, collaborators and any programmed deletion",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
       "method": "POST",
-      "path": "/register",
-      "desc": "register a new user/account",
+      "path": "/account/cancel-deletion",
+      "desc": "cancel a programmed account deletion",
+      "sectionId": "7"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/audit",
+      "desc": "immutable audit log query (?target_type, ?target_id)",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/chats/{chat}/reopen",
+      "desc": "reopen a closed thread (admin only, audited)",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/configurations",
+      "desc": "tunable System Configuration key/values",
       "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "PUT",
+      "path": "/admin/configurations",
+      "desc": "tunable System Configuration key/values",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/dashboard",
+      "desc": "eagle-eye operational dashboard",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/moderation",
+      "desc": "moderation queue: listings + frozen provider accounts",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/oversight/chats",
+      "desc": "eagle-eye chat oversight (read-only, incognito; filters nature/flag/object/status/participant)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/oversight/chats/{chat}",
+      "desc": "single chat oversight view",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/payments/{payment}/clawback",
+      "desc": "reverse a RELEASED payout: negative wallet entry, never nets against the release",
+      "sectionId": "8"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/payments/{payment}/payout/stop",
+      "desc": "stop a payout inside the window (reason required)",
+      "sectionId": "8"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/payouts",
+      "desc": "payouts inside the stop window (payout_stop_hours)",
+      "sectionId": "8"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/permissions",
+      "desc": "RBAC matrix (grouped)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/permissions/{role}",
+      "desc": "read / bulk-replace a role's permissions",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "PUT",
+      "path": "/admin/permissions/{role}",
+      "desc": "read / bulk-replace a role's permissions",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "PATCH",
+      "path": "/admin/permissions/{role}/{resource}",
+      "desc": "toggle one resource's permissions",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/providers/{user}/freeze",
+      "desc": "freeze a provider account (auto-cancel + refund upcoming)",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/providers/{user}/unfreeze",
+      "desc": "unfreeze a provider account",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/spaces/{space}/restore",
+      "desc": "restore a taken-down listing",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/spaces/{space}/takedown",
+      "desc": "forcibly hide a listing",
+      "sectionId": "12"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/users",
+      "desc": "user CRM",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "POST",
+      "path": "/admin/users",
+      "desc": "user CRM",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "GET",
+      "path": "/admin/users/{user}",
+      "desc": "user CRUD (DELETE no guardrail - divergence)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Admin",
+      "method": "PUT",
+      "path": "/admin/users/{user}",
+      "desc": "user CRUD (DELETE no guardrail - divergence)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "GET",
+      "path": "/chats",
+      "desc": "list caller's derived chat queue / open a chat (counterparty set by ENTRY POINT: support | provider | billing->support+payments)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "POST",
+      "path": "/chats",
+      "desc": "list caller's derived chat queue / open a chat (counterparty set by ENTRY POINT: support | provider | billing->support+payments)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "GET",
+      "path": "/chats/{chat}",
+      "desc": "chat + participants + objects + active flags + messages (PII-masked at render)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "POST",
+      "path": "/chats/{chat}/close",
+      "desc": "opener closes the chat",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "POST",
+      "path": "/chats/{chat}/flags",
+      "desc": "add / change a flag {type,reason} (Support flags; Payments executes money via §8)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "POST",
+      "path": "/chats/{chat}/join",
+      "desc": "Support joins a client<->provider chat (announced + PII relax; role:support)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "POST",
+      "path": "/chats/{chat}/messages",
+      "desc": "post a message (raw stored, masked at render)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "POST",
+      "path": "/chats/{chat}/objects",
+      "desc": "attach / detach an object (ownership-checked; system msg)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "DELETE",
+      "path": "/chats/{chat}/objects/{object}",
+      "desc": "unhook an object from a thread",
+      "sectionId": "17"
+    },
+    {
+      "group": "Shared - Chats",
+      "method": "POST",
+      "path": "/chats/{chat}/resolve",
+      "desc": "Support resolves the chat",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/bookings",
+      "desc": "book / list bookings (no one-checkout/pre-pay yet)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/bookings",
+      "desc": "book / list bookings (no one-checkout/pre-pay yet)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/bookings/{booking}",
+      "desc": "view / cancel a booking",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "PUT",
+      "path": "/client/bookings/{booking}",
+      "desc": "view / cancel a booking",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/campaigns",
+      "desc": "create / list campaigns",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/campaigns",
+      "desc": "create / list campaigns",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "DELETE",
+      "path": "/client/campaigns/{campaign}",
+      "desc": "campaign CRUD (DELETE lacks guardrail - divergence)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/campaigns/{campaign}",
+      "desc": "campaign CRUD (DELETE lacks guardrail - divergence)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "PUT",
+      "path": "/client/campaigns/{campaign}",
+      "desc": "campaign CRUD (DELETE lacks guardrail - divergence)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/campaigns/{campaign}/adsets",
+      "desc": "create / list adsets (grouping label)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/campaigns/{campaign}/adsets",
+      "desc": "create / list adsets (grouping label)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/campaigns/{campaign}/adsets/move",
+      "desc": "bulk-move orphans into an adset",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "DELETE",
+      "path": "/client/campaigns/{campaign}/adsets/{adset}",
+      "desc": "adset CRUD",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/campaigns/{campaign}/adsets/{adset}",
+      "desc": "adset CRUD",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "PUT",
+      "path": "/client/campaigns/{campaign}/adsets/{adset}",
+      "desc": "adset CRUD",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/campaigns/{campaign}/adsets/{adset}/ads",
+      "desc": "create / list ads (no media-spec gate yet - divergence)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/campaigns/{campaign}/adsets/{adset}/ads",
+      "desc": "create / list ads (no media-spec gate yet - divergence)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "DELETE",
+      "path": "/client/campaigns/{campaign}/adsets/{adset}/ads/{ad}",
+      "desc": "ad CRUD",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/campaigns/{campaign}/adsets/{adset}/ads/{ad}",
+      "desc": "ad CRUD",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "PUT",
+      "path": "/client/campaigns/{campaign}/adsets/{adset}/ads/{ad}",
+      "desc": "ad CRUD",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/campaigns/{campaign}/backlog",
+      "desc": "add selected spaces to backlog (orphan ads)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/campaigns/{campaign}/orphans",
+      "desc": "list orphan (unassigned) ads",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/collaborators",
+      "desc": "account-scoped client collaborators (publicist, manager)",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/collaborators",
+      "desc": "account-scoped client collaborators (publicist, manager)",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
+      "method": "DELETE",
+      "path": "/client/collaborators/{collaborator}",
+      "desc": "the OWNER removes a collaborator; a collaborator removing themselves gets 409 (BR-15)",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/invoices",
+      "desc": "list invoices",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/invoices/{invoice}",
+      "desc": "invoice detail",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/invoices/{invoice}/pdf",
+      "desc": "invoice PDF",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/proofs/{proof}/accept",
+      "desc": "client accepts proof -> payout releasable (B9)",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/proofs/{proof}/flag-mismatch",
+      "desc": "back-compat alias of reject: holds the payout and opens the three dispute threads",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/client/proofs/{proof}/reject",
+      "desc": "client rejects -> payout HELD + payment_held flag + 3 Support chats (B9)",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/spaces/search",
+      "desc": "geo + price + date catalog search",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/client/wallet",
+      "desc": "balance + entries (no withdraw yet)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Client",
+      "method": "GET",
+      "path": "/collaborations",
+      "desc": "las invitaciones dirigidas A MI; se acota por \"esta invitacion es para mi\", nunca por account_id (EH-5)",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/collaborations/{collaborator}/accept",
+      "desc": "aceptar la invitacion: enlaza user_id y pone status accepted. Es lo que llena `collaborating_on` en /me (EH-12)",
+      "sectionId": "7"
+    },
+    {
+      "group": "Client",
+      "method": "POST",
+      "path": "/collaborations/{collaborator}/decline",
+      "desc": "rechazar mientras siga pending. Tras aceptar responde 409: rechazar es no haber entrado nunca, salir ya no se puede (BR-15)",
+      "sectionId": "7"
     },
     {
       "group": "Public / auth",
@@ -3114,293 +3927,6 @@
       "sectionId": "17"
     },
     {
-      "group": "Client",
-      "method": "POST,GET",
-      "path": "/client/campaigns",
-      "desc": "create / list campaigns",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "GET,PUT,DELETE",
-      "path": "/client/campaigns/{c}",
-      "desc": "campaign CRUD (DELETE lacks guardrail - divergence)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "POST,GET",
-      "path": "/client/campaigns/{c}/adsets",
-      "desc": "create / list adsets (grouping label)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "GET,PUT,DELETE",
-      "path": "/client/campaigns/{c}/adsets/{a}",
-      "desc": "adset CRUD",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "POST,GET",
-      "path": "/client/campaigns/{c}/adsets/{a}/ads",
-      "desc": "create / list ads (no media-spec gate yet - divergence)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "GET,PUT,DELETE",
-      "path": "/client/campaigns/{c}/adsets/{a}/ads/{ad}",
-      "desc": "ad CRUD",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "POST,GET",
-      "path": "/client/bookings",
-      "desc": "book / list bookings (no one-checkout/pre-pay yet)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "GET,PUT",
-      "path": "/client/bookings/{b}",
-      "desc": "view / cancel a booking",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "GET",
-      "path": "/client/spaces/search",
-      "desc": "geo + price + date catalog search",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "POST,GET,DELETE",
-      "path": "/client/campaigns/{c}/collaborators",
-      "desc": "collaborators (campaign-scoped - must move to account, see Planned)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "GET",
-      "path": "/client/invoices",
-      "desc": "list invoices",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "GET",
-      "path": "/client/invoices/{i}",
-      "desc": "invoice detail",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "GET",
-      "path": "/client/invoices/{i}/pdf",
-      "desc": "invoice PDF",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "POST",
-      "path": "/client/campaigns/{c}/backlog",
-      "desc": "add selected spaces to backlog (orphan ads)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "GET",
-      "path": "/client/campaigns/{c}/orphans",
-      "desc": "list orphan (unassigned) ads",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "POST",
-      "path": "/client/campaigns/{c}/adsets/move",
-      "desc": "bulk-move orphans into an adset",
-      "sectionId": "17"
-    },
-    {
-      "group": "Client",
-      "method": "POST",
-      "path": "/client/proofs/{proof}/accept",
-      "desc": "client accepts proof -> payout releasable (B9)",
-      "sectionId": "7"
-    },
-    {
-      "group": "Client",
-      "method": "POST",
-      "path": "/client/proofs/{proof}/reject",
-      "desc": "client rejects -> payout HELD + payment_held flag + 3 Support chats (B9)",
-      "sectionId": "7"
-    },
-    {
-      "group": "Client",
-      "method": "GET",
-      "path": "/client/wallet",
-      "desc": "balance + entries (no withdraw yet)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "POST,GET",
-      "path": "/provider/spaces",
-      "desc": "create / list spaces (no spec columns yet)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "GET,PUT,DELETE",
-      "path": "/provider/spaces/{s}",
-      "desc": "space CRUD (DELETE no guard)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "POST,DELETE",
-      "path": "/provider/spaces/{s}/media",
-      "desc": "space media (live route named /photos; rename to /media)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "GET,POST",
-      "path": "/provider/spaces/{s}/availabilities",
-      "desc": "list / add availability windows",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "DELETE",
-      "path": "/provider/spaces/{s}/availabilities/{av}",
-      "desc": "remove an availability window",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "POST",
-      "path": "/provider/spaces/{s}/availabilities/sync-ical",
-      "desc": "sync from a calendar URL",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "POST",
-      "path": "/provider/spaces/{s}/availabilities/import-ical",
-      "desc": "import an iCal file",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "GET",
-      "path": "/provider/bookings",
-      "desc": "booking request queue",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "PUT",
-      "path": "/provider/bookings/{b}",
-      "desc": "Approve / Reject (reason optional, stored)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "GET",
-      "path": "/provider/dashboard",
-      "desc": "provider stats dashboard",
-      "sectionId": "17"
-    },
-    {
-      "group": "Provider",
-      "method": "GET,POST",
-      "path": "/provider/proofs",
-      "desc": "list / upload the primary proof",
-      "sectionId": "7"
-    },
-    {
-      "group": "Provider",
-      "method": "GET",
-      "path": "/provider/proofs/{proof}",
-      "desc": "proof detail",
-      "sectionId": "7"
-    },
-    {
-      "group": "Admin",
-      "method": "GET",
-      "path": "/admin/dashboard",
-      "desc": "eagle-eye operational dashboard",
-      "sectionId": "17"
-    },
-    {
-      "group": "Admin",
-      "method": "POST,GET",
-      "path": "/admin/users",
-      "desc": "user CRM",
-      "sectionId": "17"
-    },
-    {
-      "group": "Admin",
-      "method": "GET,PUT,DELETE",
-      "path": "/admin/users/{u}",
-      "desc": "user CRUD (DELETE no guardrail - divergence)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Admin",
-      "method": "GET",
-      "path": "/admin/permissions",
-      "desc": "RBAC matrix (grouped)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Admin",
-      "method": "GET,PUT",
-      "path": "/admin/permissions/{role}",
-      "desc": "read / bulk-replace a role's permissions",
-      "sectionId": "17"
-    },
-    {
-      "group": "Admin",
-      "method": "PATCH",
-      "path": "/admin/permissions/{role}/{resource}",
-      "desc": "toggle one resource's permissions",
-      "sectionId": "17"
-    },
-    {
-      "group": "Admin",
-      "method": "GET",
-      "path": "/admin/oversight/chats",
-      "desc": "eagle-eye chat oversight (read-only, incognito; filters nature/flag/object/status/participant)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Admin",
-      "method": "GET",
-      "path": "/admin/oversight/chats/{chat}",
-      "desc": "single chat oversight view",
-      "sectionId": "17"
-    },
-    {
-      "group": "Admin",
-      "method": "GET,PUT",
-      "path": "/admin/configurations",
-      "desc": "tunable System Configuration key/values",
-      "sectionId": "17"
-    },
-    {
-      "group": "Support",
-      "method": "GET",
-      "path": "/support/dashboard",
-      "desc": "Support acts on chats via the shared /chats map",
-      "sectionId": "17"
-    },
-    {
       "group": "Payments",
       "method": "GET",
       "path": "/payments/dashboard",
@@ -3417,289 +3943,142 @@
     {
       "group": "Payments",
       "method": "GET",
-      "path": "/payments/payments/{p}",
+      "path": "/payments/payments/{payment}",
       "desc": "payment detail",
       "sectionId": "17"
     },
     {
       "group": "Payments",
       "method": "POST",
-      "path": "/payments/payments/{p}/approve",
+      "path": "/payments/payments/{payment}/approve",
       "desc": "approve a payment",
       "sectionId": "17"
     },
     {
       "group": "Payments",
       "method": "POST",
-      "path": "/payments/payments/{p}/reject",
-      "desc": "reject a payment",
+      "path": "/payments/payments/{payment}/payout/hold",
+      "desc": "hold a payout (no-op if gateway-settled)",
       "sectionId": "17"
     },
     {
       "group": "Payments",
       "method": "POST",
-      "path": "/payments/payments/{p}/refund",
-      "desc": "execute a refund -> wallet (idempotent)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Payments",
-      "method": "POST",
-      "path": "/payments/payments/{p}/payout/release",
+      "path": "/payments/payments/{payment}/payout/release",
       "desc": "release a payout (enters processing queue)",
       "sectionId": "17"
     },
     {
       "group": "Payments",
       "method": "POST",
-      "path": "/payments/payments/{p}/payout/hold",
-      "desc": "hold a payout (no-op if gateway-settled)",
+      "path": "/payments/payments/{payment}/refund",
+      "desc": "execute a refund -> wallet (idempotent)",
       "sectionId": "17"
     },
     {
-      "group": "Shared - Chats",
-      "method": "GET,POST",
-      "path": "/chats",
-      "desc": "list caller's derived chat queue / open a chat (counterparty set by ENTRY POINT: support | provider | billing->support+payments)",
+      "group": "Payments",
+      "method": "POST",
+      "path": "/payments/payments/{payment}/reject",
+      "desc": "reject a payment",
       "sectionId": "17"
     },
     {
-      "group": "Shared - Chats",
+      "group": "Provider",
       "method": "GET",
-      "path": "/chats/{chat}",
-      "desc": "chat + participants + objects + active flags + messages (PII-masked at render)",
+      "path": "/provider/bookings",
+      "desc": "booking request queue",
       "sectionId": "17"
     },
     {
-      "group": "Shared - Chats",
-      "method": "POST",
-      "path": "/chats/{chat}/messages",
-      "desc": "post a message (raw stored, masked at render)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Shared - Chats",
-      "method": "POST,DELETE",
-      "path": "/chats/{chat}/objects",
-      "desc": "attach / detach an object (ownership-checked; system msg)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Shared - Chats",
-      "method": "POST",
-      "path": "/chats/{chat}/flags",
-      "desc": "add / change a flag {type,reason} (Support flags; Payments executes money via §8)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Shared - Chats",
-      "method": "POST",
-      "path": "/chats/{chat}/join",
-      "desc": "Support joins a client<->provider chat (announced + PII relax; role:support)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Shared - Chats",
-      "method": "POST",
-      "path": "/chats/{chat}/resolve",
-      "desc": "Support resolves the chat",
-      "sectionId": "17"
-    },
-    {
-      "group": "Shared - Chats",
-      "method": "POST",
-      "path": "/chats/{chat}/close",
-      "desc": "opener closes the chat",
-      "sectionId": "17"
-    },
-    {
-      "group": "Shared - Chats",
-      "method": "POST",
-      "path": "/chats/{chat}/reopen",
-      "desc": "Admin ONLY reopens a closed chat",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Collaborators",
-      "method": "GET,POST,DELETE",
-      "path": "/client/collaborators",
-      "desc": "account-scoped client collaborators (publicist, manager)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Collaborators",
-      "method": "GET,POST,DELETE",
-      "path": "/provider/collaborators",
-      "desc": "account-scoped provider collaborators (installator, sales, supervisor)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Media specs",
-      "method": "GET",
-      "path": "/client/spaces/{s}/media-specs",
-      "desc": "fetch a space's media-delivery specs; ad upload hard-fails on mismatch",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Checkout/escrow",
-      "method": "POST",
-      "path": "/client/campaigns/{c}/checkout",
-      "desc": "ONE payment + ONE invoice per campaign",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Checkout/escrow",
-      "method": "POST",
-      "path": "/client/bookings",
-      "desc": "book with {is_prepay} into escrow",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Checkout/escrow",
-      "method": "GET",
-      "path": "/provider/spaces/{s}/waiting-list",
-      "desc": "per-space pre-pay/FCFS waiting list",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Checkout/escrow",
-      "method": "POST",
-      "path": "/provider/waiting-list/{offer}/confirm",
-      "desc": "confirm one offer (atomically cancels+refunds siblings)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Ratings",
-      "method": "POST",
-      "path": "/client/campaigns/{c}/rating",
-      "desc": "rate a provider (eligibility-gated)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Ratings",
-      "method": "GET",
-      "path": "/spaces/{s}",
-      "desc": "space detail incl. rating avg+count",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Wallet",
-      "method": "POST",
-      "path": "/client/wallet/withdraw",
-      "desc": "withdraw (blocked while a dispute/hold is open)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Audit",
-      "method": "GET",
-      "path": "/admin/audit",
-      "desc": "immutable audit log query (?target_type, ?target_id)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Moderation",
-      "method": "POST",
-      "path": "/admin/spaces/{s}/takedown",
-      "desc": "forcibly hide a listing",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Moderation",
-      "method": "POST",
-      "path": "/admin/spaces/{s}/restore",
-      "desc": "restore a taken-down listing",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Moderation",
-      "method": "POST",
-      "path": "/admin/providers/{u}/freeze",
-      "desc": "freeze a provider account (auto-cancel + refund upcoming)",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Moderation",
-      "method": "POST",
-      "path": "/admin/providers/{u}/unfreeze",
-      "desc": "unfreeze a provider account",
-      "sectionId": "17"
-    },
-    {
-      "group": "Planned - Support powers",
+      "group": "Provider",
       "method": "PUT",
-      "path": "/support/{spaces|ads|users|bookings|collaborators}/{id}",
-      "desc": "edit-any-non-money object (audited)",
+      "path": "/provider/bookings/{booking}",
+      "desc": "Approve / Reject (reason optional, stored)",
       "sectionId": "17"
     },
     {
-      "group": "Planned - Notifications",
+      "group": "Provider",
       "method": "GET",
-      "path": "/notifications",
-      "desc": "list notifications",
+      "path": "/provider/dashboard",
+      "desc": "provider stats dashboard",
       "sectionId": "17"
     },
     {
-      "group": "Planned - Notifications",
+      "group": "Provider",
+      "method": "GET",
+      "path": "/provider/proofs",
+      "desc": "list / upload the primary proof",
+      "sectionId": "7"
+    },
+    {
+      "group": "Provider",
       "method": "POST",
-      "path": "/notifications/{n}/read",
-      "desc": "mark a notification read",
+      "path": "/provider/proofs",
+      "desc": "list / upload the primary proof",
+      "sectionId": "7"
+    },
+    {
+      "group": "Provider",
+      "method": "GET",
+      "path": "/provider/proofs/{proof}",
+      "desc": "proof detail",
+      "sectionId": "7"
+    },
+    {
+      "group": "Provider",
+      "method": "GET",
+      "path": "/provider/spaces",
+      "desc": "create / list spaces (no spec columns yet)",
       "sectionId": "17"
     },
     {
-      "group": "Admin",
+      "group": "Provider",
+      "method": "POST",
+      "path": "/provider/spaces",
+      "desc": "create / list spaces (no spec columns yet)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Provider",
+      "method": "DELETE",
+      "path": "/provider/spaces/{space}",
+      "desc": "space CRUD (DELETE no guard)",
+      "sectionId": "17"
+    },
+    {
+      "group": "Provider",
       "method": "GET",
-      "path": "/admin/moderation",
-      "desc": "moderation queue: listings + frozen provider accounts",
-      "sectionId": "12"
+      "path": "/provider/spaces/{space}",
+      "desc": "space CRUD (DELETE no guard)",
+      "sectionId": "17"
     },
     {
-      "group": "Admin",
-      "method": "POST",
-      "path": "/admin/spaces/{space}/takedown",
-      "desc": "admin takedown of a listing (reason required); the provider CANNOT self-reverse",
-      "sectionId": "12"
+      "group": "Provider",
+      "method": "PUT",
+      "path": "/provider/spaces/{space}",
+      "desc": "space CRUD (DELETE no guard)",
+      "sectionId": "17"
     },
     {
-      "group": "Admin",
-      "method": "POST",
-      "path": "/admin/spaces/{space}/restore",
-      "desc": "lift an admin takedown (does NOT undo the provider own pause)",
-      "sectionId": "12"
-    },
-    {
-      "group": "Admin",
-      "method": "POST",
-      "path": "/admin/providers/{user}/freeze",
-      "desc": "freeze a provider account: cancel+refund upcoming bookings, revoke tokens, block login",
-      "sectionId": "12"
-    },
-    {
-      "group": "Admin",
-      "method": "POST",
-      "path": "/admin/providers/{user}/unfreeze",
-      "desc": "unfreeze a provider account",
-      "sectionId": "12"
-    },
-    {
-      "group": "Admin",
+      "group": "Provider",
       "method": "GET",
-      "path": "/admin/payouts",
-      "desc": "payouts inside the stop window (payout_stop_hours)",
-      "sectionId": "8"
+      "path": "/provider/spaces/{space}/availabilities",
+      "desc": "list / add availability windows",
+      "sectionId": "17"
     },
     {
-      "group": "Admin",
+      "group": "Provider",
       "method": "POST",
-      "path": "/admin/payments/{payment}/payout/stop",
-      "desc": "stop a payout inside the window (reason required)",
-      "sectionId": "8"
+      "path": "/provider/spaces/{space}/availabilities",
+      "desc": "list / add availability windows",
+      "sectionId": "17"
     },
     {
-      "group": "Admin",
-      "method": "POST",
-      "path": "/admin/payments/{payment}/clawback",
-      "desc": "reverse a RELEASED payout: negative wallet entry, never nets against the release",
-      "sectionId": "8"
+      "group": "Provider",
+      "method": "DELETE",
+      "path": "/provider/spaces/{space}/availabilities/{availability}",
+      "desc": "remove an availability window",
+      "sectionId": "17"
     },
     {
       "group": "Provider",
@@ -3707,6 +4086,171 @@
       "path": "/provider/spaces/{space}/cancel-deletion",
       "desc": "cancela el borrado programado; devuelve la palanca del proveedor",
       "sectionId": "12"
+    },
+    {
+      "group": "Provider",
+      "method": "POST",
+      "path": "/provider/spaces/{space}/import-ical",
+      "desc": "import availability from an external iCal URL",
+      "sectionId": "8"
+    },
+    {
+      "group": "Provider",
+      "method": "POST",
+      "path": "/provider/spaces/{space}/photos",
+      "desc": "attach a photo to a listing",
+      "sectionId": "8"
+    },
+    {
+      "group": "Provider",
+      "method": "DELETE",
+      "path": "/provider/spaces/{space}/photos/{photo}",
+      "desc": "remove a photo from a listing",
+      "sectionId": "8"
+    },
+    {
+      "group": "Provider",
+      "method": "POST",
+      "path": "/provider/spaces/{space}/sync-ical",
+      "desc": "re-sync availability against the iCal URL already stored",
+      "sectionId": "8"
+    },
+    {
+      "group": "Public / auth",
+      "method": "POST",
+      "path": "/register",
+      "desc": "register a new user/account",
+      "sectionId": "17"
+    },
+    {
+      "group": "Support",
+      "method": "PUT",
+      "path": "/support/ads/{ad}",
+      "desc": "Support edits an ad on the owner behalf; audited (§2 ✏)",
+      "sectionId": "12"
+    },
+    {
+      "group": "Support",
+      "method": "PUT",
+      "path": "/support/bookings/{booking}",
+      "desc": "Support edits a booking; audited (§2 ✏)",
+      "sectionId": "12"
+    },
+    {
+      "group": "Support",
+      "method": "PUT",
+      "path": "/support/collaborators/{collaborator}",
+      "desc": "Support edits a collaborator grant; audited (§2 ✏)",
+      "sectionId": "12"
+    },
+    {
+      "group": "Support",
+      "method": "GET",
+      "path": "/support/dashboard",
+      "desc": "Support acts on chats via the shared /chats map",
+      "sectionId": "17"
+    },
+    {
+      "group": "Support",
+      "method": "PUT",
+      "path": "/support/spaces/{space}",
+      "desc": "Support edits a listing on the owner behalf; audited (§2 ✏)",
+      "sectionId": "12"
+    },
+    {
+      "group": "Support",
+      "method": "PUT",
+      "path": "/support/users/{user}",
+      "desc": "Support edits a user profile; audited (§2 ✏)",
+      "sectionId": "12"
+    },
+    {
+      "group": "Planned - Checkout/escrow",
+      "method": "POST",
+      "path": "/client/campaigns/{c}/checkout",
+      "desc": "ONE payment + ONE invoice per campaign",
+      "sectionId": "17",
+      "todo": "F15"
+    },
+    {
+      "group": "Planned - Checkout/escrow",
+      "method": "GET",
+      "path": "/provider/spaces/{s}/waiting-list",
+      "desc": "per-space pre-pay/FCFS waiting list",
+      "sectionId": "17",
+      "todo": "F15"
+    },
+    {
+      "group": "Planned - Checkout/escrow",
+      "method": "POST",
+      "path": "/provider/waiting-list/{offer}/confirm",
+      "desc": "confirm one offer (atomically cancels+refunds siblings)",
+      "sectionId": "17",
+      "todo": "F15"
+    },
+    {
+      "group": "Planned - Collaborators",
+      "method": "DELETE",
+      "path": "/client/collaborators",
+      "desc": "account-scoped client collaborators (publicist, manager)",
+      "sectionId": "17",
+      "todo": "F02"
+    },
+    {
+      "group": "Planned - Media specs",
+      "method": "GET",
+      "path": "/client/spaces/{s}/media-specs",
+      "desc": "fetch a space's media-delivery specs; ad upload hard-fails on mismatch",
+      "sectionId": "17",
+      "todo": "F05"
+    },
+    {
+      "group": "Planned - Notifications",
+      "method": "GET",
+      "path": "/notifications",
+      "desc": "list notifications",
+      "sectionId": "17",
+      "todo": "F13"
+    },
+    {
+      "group": "Planned - Notifications",
+      "method": "POST",
+      "path": "/notifications/{n}/read",
+      "desc": "mark a notification read",
+      "sectionId": "17",
+      "todo": "F13"
+    },
+    {
+      "group": "Planned - Ratings",
+      "method": "POST",
+      "path": "/client/campaigns/{c}/rating",
+      "desc": "rate a provider (eligibility-gated)",
+      "sectionId": "17",
+      "todo": "F17"
+    },
+    {
+      "group": "Planned - Ratings",
+      "method": "GET",
+      "path": "/spaces/{s}",
+      "desc": "space detail incl. rating avg+count",
+      "sectionId": "17",
+      "todo": "F17"
+    },
+    {
+      "group": "Planned - Support powers",
+      "method": "PUT",
+      "path": "/support/{spaces|ads|users|bookings|collaborators}/{id}",
+      "desc": "edit-any-non-money object (audited)",
+      "sectionId": "17",
+      "todo": "F09"
+    },
+    {
+      "group": "Planned - Wallet",
+      "method": "POST",
+      "path": "/client/wallet/withdraw",
+      "desc": "withdraw (blocked while a dispute/hold is open)",
+      "sectionId": "17",
+      "todo": "F15"
     }
   ],
   "schema": {
@@ -4688,7 +5232,7 @@
       },
       {
         "name": "collaborators",
-        "note": "ACCOUNT-SCOPED; unique(account_id, email) — una persona, una invitacion por cuenta",
+        "note": "ACCOUNT-SCOPED; unique(account_id, email) — una persona, una invitacion por cuenta. Un `declined` no es un veto perpetuo: como unique(account_id,email) hace que la fila SEA la persona, invitar de nuevo REVIVE la fila (nuevo subrol, vuelta a `pending`); `pending` y `accepted` siguen respondiendo 409 ALREADY_EXISTS.",
         "columns": [
           {
             "name": "id",
@@ -4716,7 +5260,8 @@
           },
           {
             "name": "status",
-            "type": "enum pending|accepted|revoked"
+            "type": "enum pending|accepted|declined|revoked",
+            "note": "`declined` y `revoked` significan lo mismo para el acceso y NADA parecido para quien cerro la puerta: declined lo pone el invitado antes de entrar, revoked el dueno. Esa distincion es toda la justificacion de BR-15 — se puede rechazar, no se puede salir."
           },
           {
             "name": "unique",
@@ -6466,7 +7011,7 @@
     {
       "id": "F10",
       "title": "Dinero (approve/reject/refund/release/hold; wallet idempotente)",
-      "status": "done",
+      "status": "review",
       "tags": [
         "F10"
       ],
@@ -6496,7 +7041,8 @@
       ],
       "mvpSprintId": "mvp-sprint:F10",
       "mvpSprintStatus": "resolved",
-      "mvpSprintNote": "Core money done: approve/reject/refund(+wallet credit, idempotent)/release(gated on client_accepted)/hold; payments list+buttons. CLOSED the F09->F10 loop: a Payment reaches the chat side as a polymorphic chat_object, and the reason the money is parked lives in chat_flags (`payment_held` / `refund` / `payout_hold`). Payments index/show load those flags and the payment-list shows a flag-note per attached Support flag, so Payments sees WHY money is held and what Support requested. DEFERRED/AFTER-MVP: escrow, Admin 24h payout-stop window, per-provider payout scheduling, gateway webhooks/FX/clawback."
+      "mvpSprintNote": "Core money done: approve/reject/refund(+wallet credit, idempotent)/release(gated on client_accepted)/hold; payments list+buttons. CLOSED the F09->F10 loop: a Payment reaches the chat side as a polymorphic chat_object, and the reason the money is parked lives in chat_flags (`payment_held` / `refund` / `payout_hold`). Payments index/show load those flags and the payment-list shows a flag-note per attached Support flag, so Payments sees WHY money is held and what Support requested. DEFERRED/AFTER-MVP: escrow, Admin 24h payout-stop window, per-provider payout scheduling, gateway webhooks/FX/clawback.",
+      "note": "Baja de `done` a `review` (BR-16): se cerro con evidencia de tests y WALK-5 —el recorrido humano del dinero— nunca se ejecuto. El paso W5-5, intentar reembolsar un pago ya liberado y exigir 409, es el que decide si \"hecho\" era cierto. Mismo caso que F11 con WALK-3."
     },
     {
       "id": "F11",
@@ -6853,6 +7399,207 @@
       "classes": [
         "CL06"
       ]
+    },
+    {
+      "id": "WALK-2",
+      "title": "Recorrido humano de campanas, adsets y anuncios (mantiene §21 en wip)",
+      "status": "pending",
+      "tags": [
+        "§21"
+      ],
+      "groups": [],
+      "specs": [
+        "§21"
+      ],
+      "ucs": [
+        "UC-43"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Existe como todo porque walkthroughs.items[WALK-2].todoId apuntaba a una fila que no estaba en el tablero: el recorrido se veia en su pestana y era invisible en Todos."
+    },
+    {
+      "id": "WALK-3",
+      "title": "Recorrido humano de F11 (vista eagle-eye del admin)",
+      "status": "pending",
+      "tags": [
+        "F11"
+      ],
+      "groups": [],
+      "specs": [
+        "§12"
+      ],
+      "ucs": [
+        "UC-28"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "F11 se cerro con evidencia de tests y su recorrido nunca se ejecuto; por eso F11 esta en review."
+    },
+    {
+      "id": "WALK-4",
+      "title": "Recorrido humano del dashboard de diseno",
+      "status": "pending",
+      "tags": [],
+      "groups": [],
+      "specs": [],
+      "ucs": [],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "No cierra ningun Fxx: el dashboard es documentacion, no producto. Se corre cuando la planeacion cambia de forma — y acaba de cambiar (claves BR/EH, referencias en los walks)."
+    },
+    {
+      "id": "WALK-5",
+      "title": "Recorrido humano del dinero: retener, liberar, reembolsar y recuperar",
+      "status": "pending",
+      "tags": [
+        "F10"
+      ],
+      "groups": [],
+      "specs": [
+        "§8",
+        "§12"
+      ],
+      "ucs": [
+        "UC-6",
+        "UC-7",
+        "UC-32"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "F10 figura done por evidencia de tests. El paso W5-5 es el que decide si eso es cierto."
+    },
+    {
+      "id": "WALK-6",
+      "title": "Recorrido humano de entrada: login, menu y colaboradores",
+      "status": "pending",
+      "tags": [
+        "AUTH-1",
+        "COLAB-1",
+        "UI-1"
+      ],
+      "groups": [],
+      "specs": [
+        "§3"
+      ],
+      "ucs": [
+        "UC-53"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Cierra los tres todos de esta ronda. Hasta que pase, los tres siguen abiertos aunque su codigo este escrito y sus tests pasen (BR-16)."
+    },
+    {
+      "id": "WALK-7",
+      "title": "Rastro en vivo con storage/logs/walk.log (EH-13 · EH-14 · EH-10)",
+      "status": "pending",
+      "tags": [
+        "UI-1"
+      ],
+      "groups": [],
+      "specs": [
+        "§21"
+      ],
+      "ucs": [
+        "UC-43"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "El log lo escribe App\\Http\\Middleware\\WalkTrace y esta inerte salvo WALK_TRACE=true. Vive en terminate() y no en handle() a proposito: una negativa se LANZA, no se devuelve, asi que escrito de la forma obvia el log habria registrado todos los exitos y ni una sola de las negativas, que son justo las lineas por las que existe."
+    },
+    {
+      "id": "AUTH-1",
+      "title": "login y register devuelven el contexto de cuenta que devuelve /me",
+      "status": "review",
+      "tags": [
+        "F01",
+        "F02"
+      ],
+      "groups": [],
+      "specs": [
+        "§3"
+      ],
+      "ucs": [
+        "UC-53"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Un recien logueado perdia el menu hasta recargar la pagina entera, porque el contexto de cuenta (account_id, is_owner, collaborating_on) solo llegaba por GET /api/me. Las tres respuestas leen ahora del MISMO calculo: tres copias serian EH-4 esperando a ocurrir. Lo cierra WALK-6."
+    },
+    {
+      "id": "COLAB-1",
+      "title": "Un colaborador no puede desvincularse de la cuenta que lo anadio",
+      "status": "review",
+      "tags": [
+        "F02"
+      ],
+      "groups": [],
+      "specs": [
+        "§3"
+      ],
+      "ucs": [
+        "UC-53"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "BR-15. 409 y no 404: el colaborador sabe legitimamente que su propia fila existe. La via real es Soporte y esa capacidad todavia no esta construida — deuda conocida, no olvido. Lo cierra WALK-6."
+    },
+    {
+      "id": "COLAB-2",
+      "title": "La invitacion de colaborador se puede aceptar (y rechazar antes de aceptarla)",
+      "status": "review",
+      "tags": [
+        "F02"
+      ],
+      "groups": [],
+      "specs": [
+        "§3"
+      ],
+      "ucs": [
+        "UC-53"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "EH-12. Faltaba el escalon: habia invitar y habia quitar, no habia aceptar, asi que `collaborating_on` salia vacio en cualquier base no sembrada. Rechazar SI se permite mientras la invitacion siga `pending` y eso no contradice BR-15: rechazar es no haber entrado nunca, y BR-15 prohibe salir de una cuenta en la que ya actuaste. Lo cierra WALK-6."
+    },
+    {
+      "id": "UI-1",
+      "title": "Ningun control de la UI llama a una ruta que ya no existe",
+      "status": "review",
+      "tags": [
+        "F11",
+        "F14"
+      ],
+      "groups": [],
+      "specs": [
+        "§12"
+      ],
+      "ucs": [
+        "UC-28"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "EH-10. El caso que lo abrio: borrar usuarios en el admin daba 404 en cada clic. Se comprueba de verdad con la consola de red abierta durante WALK-6 y WALK-3."
     }
   ],
   "lineage": {
@@ -7689,7 +8436,7 @@
       "UC-37 · la purga es MANUAL a proposito (owner 2026-08-03: \"Manual por el momento en la fase mvp, anotalo para un futuro\"). `php artisan spaces:purge --confirm`. Cuando haya scheduler, el comando ya revalida bloqueos en el momento de purgar, asi que automatizarlo es registrarlo en el kernel y nada mas.",
       "UC-32 · §8 dice que una ventana de retencion vencida libera sola. No hay scheduler en el MVP, asi que hoy simplemente espera a Payments. Mismo enganche que la purga.",
       "§2 promete un auto-aprobado (toggle + umbral, por defecto OFF). NO existe clave de config y ningun codigo lo lee; deliberadamente no se sembro una clave muerta. Es una funcion, no un ajuste.",
-      "BR-10 no tiene verificacion automatica: que UI, endpoints y planeacion viajen juntos es hoy una convencion. Lo mas cerca esta backend/tests/test_all_endpoints.py. Un test que compare las rutas de routes/api.php contra .endpoints[] y contra las URLs que el frontend llama cerraria EH-2/EH-7 de raiz."
+      "BR-15 · desvincular a un colaborador ACEPTADO no lo puede hacer nadie hoy: ni el, ni el dueno por otra via que quitarlo, ni Soporte. El ruling (owner 2026-08-04) dice \"excepto que hablen con soporte (no hay aun esa capacidad en la plataforma, eso es un tema para despues)\". Queda anotado para que no aparezca por sorpresa como un boton del colaborador, que es justo lo que la regla impide."
     ]
   }
 }

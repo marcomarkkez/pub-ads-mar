@@ -11,10 +11,28 @@ use Illuminate\Http\Request;
 
 class SpaceAvailabilityController extends Controller
 {
-    public function index(Request $request, Space $space): JsonResponse
+    /**
+     * 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+     * enough to enumerate another account's ids. "Not yours" and "does not exist"
+     * must be indistinguishable to a stranger.
+     *
+     * Resolved in ONE place for all five actions: this controller used to repeat the
+     * check five times, which is exactly how a surface ends up answering 404 on one
+     * verb and 403 on the next and leaking through whichever door was forgotten.
+     */
+    private function refuseForeignSpace(Request $request, Space $space): ?JsonResponse
     {
         if ($space->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        return null;
+    }
+
+    public function index(Request $request, Space $space): JsonResponse
+    {
+        if ($refusal = $this->refuseForeignSpace($request, $space)) {
+            return $refusal;
         }
 
         return response()->json($space->availabilities()->orderBy('start_date')->get());
@@ -22,8 +40,8 @@ class SpaceAvailabilityController extends Controller
 
     public function store(Request $request, Space $space): JsonResponse
     {
-        if ($space->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        if ($refusal = $this->refuseForeignSpace($request, $space)) {
+            return $refusal;
         }
 
         $validated = $request->validate([
@@ -39,8 +57,15 @@ class SpaceAvailabilityController extends Controller
 
     public function destroy(Request $request, Space $space, SpaceAvailability $availability): JsonResponse
     {
-        if ($space->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        // The availability link is checked too, and for the same reason as the owner
+        // check: this route is not ->scopeBindings(), so `{availability}` was resolved
+        // independently of `{space}` and a provider could delete a FOREIGN provider's
+        // availability row by pairing it with a listing of their own (§21 rule 1).
+        if ($refusal = $this->refuseForeignSpace($request, $space)) {
+            return $refusal;
+        }
+        if ($availability->space_id !== $space->id) {
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         $availability->delete();
@@ -53,8 +78,8 @@ class SpaceAvailabilityController extends Controller
      */
     public function syncIcal(Request $request, Space $space, IcalSyncService $service): JsonResponse
     {
-        if ($space->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        if ($refusal = $this->refuseForeignSpace($request, $space)) {
+            return $refusal;
         }
 
         if (empty($space->ical_url)) {
@@ -83,8 +108,8 @@ class SpaceAvailabilityController extends Controller
      */
     public function importIcal(Request $request, Space $space, IcalSyncService $service): JsonResponse
     {
-        if ($space->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        if ($refusal = $this->refuseForeignSpace($request, $space)) {
+            return $refusal;
         }
 
         $request->validate([

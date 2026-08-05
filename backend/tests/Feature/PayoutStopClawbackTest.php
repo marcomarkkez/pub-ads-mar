@@ -309,8 +309,9 @@ class PayoutStopClawbackTest extends TestCase
             };
 
             Sanctum::actingAs($user);
-            $this->postJson("/api/admin/payments/{$s['payment']->id}/payout/stop", ['reason' => 'x'])->assertStatus(403);
-            $this->postJson("/api/admin/payments/{$s['payment']->id}/clawback", ['reason' => 'x'])->assertStatus(403);
+            // EH-14: parameterised → 404, indistinguishable from a payment that is not there.
+            $this->postJson("/api/admin/payments/{$s['payment']->id}/payout/stop", ['reason' => 'x'])->assertStatus(404);
+            $this->postJson("/api/admin/payments/{$s['payment']->id}/clawback", ['reason' => 'x'])->assertStatus(404);
         }
 
         $this->assertSame(Payment::STATUS_RELEASED, $s['payment']->fresh()->status);
@@ -327,7 +328,7 @@ class PayoutStopClawbackTest extends TestCase
         Sanctum::actingAs($this->admin);
         $this->patchJson('/api/admin/permissions/admin/moderation', ['actions' => ['read', 'update']])->assertOk();
 
-        $this->postJson("/api/admin/payments/{$s['payment']->id}/clawback", ['reason' => 'nope'])->assertStatus(403);
+        $this->postJson("/api/admin/payments/{$s['payment']->id}/clawback", ['reason' => 'nope'])->assertStatus(404);
         $this->postJson("/api/admin/payments/{$s['payment']->id}/payout/stop", ['reason' => 'still allowed'])
             ->assertStatus(409); // refused by STATE (already released), not by permission
     }

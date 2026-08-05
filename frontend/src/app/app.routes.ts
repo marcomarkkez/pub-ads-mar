@@ -25,6 +25,28 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent) },
 
+      // design.json §3 · UC-37 — the owner's OWN account (GET/DELETE /account,
+      // POST /account/cancel-deletion). Not under /client or /provider because the API
+      // is not either: the routes are gated `role:client,provider` and act on the
+      // caller, with no {id} to point at anybody else. Staff have no account at all.
+      {
+        path: 'account',
+        canActivate: [roleGuard('client', 'provider')],
+        loadComponent: () => import('./features/account/account.component').then(m => m.AccountComponent),
+      },
+
+      // design.json §3 · UC-19/UC-20 (WALK-6 step 3) — invitations addressed to ME.
+      // Top-level and role:client,provider for the same reason /collaborations is not
+      // under the /client prefix: answering an invitation is an act on somebody ELSE's
+      // account, so it cannot be scoped by the caller's own. NOT under /client also
+      // because provider-side subroles exist and a provider must be able to answer.
+      {
+        path: 'collaborations',
+        canActivate: [roleGuard('client', 'provider')],
+        loadComponent: () => import('./features/collaborations/collaboration-list.component')
+          .then(m => m.CollaborationListComponent),
+      },
+
       // Client routes
       {
         path: 'client',

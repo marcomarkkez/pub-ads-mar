@@ -115,7 +115,11 @@ class BookingController extends Controller
     public function show(Request $request, Booking $booking): JsonResponse
     {
         if ($booking->client_user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            // 404, never 403 — §21 rule 2 (BR-3): a 403 confirms the row exists, which is
+            // enough to enumerate another account's ids. "Not yours" and "does not exist"
+            // must be indistinguishable to a stranger. The provider side of the same
+            // booking (Provider\BookingController::update) already answers 404.
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         return response()->json($booking->load(['space.user', 'ad', 'adset', 'payment', 'proofs']));
@@ -124,7 +128,8 @@ class BookingController extends Controller
     public function update(Request $request, Booking $booking): JsonResponse
     {
         if ($booking->client_user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            // 404, never 403 — §21 rule 2 (BR-3): see show().
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         $validated = $request->validate([
