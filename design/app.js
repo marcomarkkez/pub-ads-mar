@@ -371,7 +371,8 @@
     var doms = sb.domains || {};
     Object.keys(doms).forEach(function (dom) {
       var lines = doms[dom] || [];
-      html += '<h3>' + esc(dom.replace(/_/g, " ")) + ' <span class="badge">' + lines.length + '</span></h3><ul class="sprint-list">';
+      html += '<h3 data-pin-sb="' + esc(dom) + '">' + esc(dom.replace(/_/g, " ")) +
+        ' <span class="badge">' + lines.length + '</span></h3><ul class="sprint-list">';
       lines.forEach(function (l) {
         var m = /\[(built|partial|missing)\s/.exec(l);
         var cls = m ? " is-" + m[1] : "";
@@ -381,13 +382,26 @@
     });
 
     if (ms.remaining && ms.remaining.length) {
-      html += '<h3>Remaining <span class="badge">' + ms.remaining.length + '</span></h3><ul class="sprint-list">';
+      html += '<h3 data-pin-sb="__remaining">Remaining <span class="badge">' + ms.remaining.length + '</span></h3><ul class="sprint-list">';
       ms.remaining.forEach(function (r) { html += '<li class="sprint-item">' + esc(r) + '</li>'; });
       html += '</ul>';
     }
 
     box.innerHTML = html;
     els.content.appendChild(box);
+
+    Object.keys(doms).forEach(function (dom) {
+      attachPin(box, '[data-pin-sb="' + cssq(dom) + '"]', "sprintBlock", {
+        title: dom.replace(/_/g, " "), count: (doms[dom] || []).length,
+        jq: '.mvpSprint.specBacklog.domains["' + dom + '"]', id: "sprint/" + dom,
+      });
+    });
+    if (ms.remaining && ms.remaining.length) {
+      attachPin(box, '[data-pin-sb="__remaining"]', "sprintBlock", {
+        title: "Remaining", count: ms.remaining.length,
+        jq: '.mvpSprint.remaining', id: "sprint/remaining",
+      });
+    }
   }
 
   /* ---------------- Glosario ----------------
@@ -574,7 +588,7 @@
           '<span class="tag q-state open">abierta</span></div>' +
           '<div class="q-question">' + esc(i.question) + '</div>' +
           '<p class="prose">' + esc(i.oneLiner) + '</p>' +
-          '<div class="row-tags">' + (i.impacts || []).map(function (x) {
+          '<div class="row-tags" data-pin-q="' + esc(i.id) + '">' + (i.impacts || []).map(function (x) {
             return '<span class="tag">' + esc(x) + '</span>';
           }).join('') + '</div></div>';
       });
@@ -584,10 +598,14 @@
         html += '<div class="q-row"><div class="q-head"><span class="q-id">' + esc(i.id) + '</span>' +
           '<span class="tag q-state done">resuelta ' + esc(i.answeredOn || "") + '</span></div>' +
           '<p class="prose" style="color:var(--muted)">' + esc(i.oneLiner) + '</p>' +
-          '<p class="prose"><strong>→ ' + esc(i.resolution) + '</strong></p></div>';
+          '<p class="prose"><strong>→ ' + esc(i.resolution) + '</strong></p>' +
+          '<div class="row-tags" data-pin-q="' + esc(i.id) + '"></div></div>';
       });
       html += '</div>';
       box.innerHTML = html;
+      open.concat(res).forEach(function (i) {
+        attachPin(box, '[data-pin-q="' + cssq(i.id) + '"]', "question", i);
+      });
     }
   }
 
@@ -1354,6 +1372,23 @@
         "jq: '.glossary." + (isTerm ? "terms[] | select(.term==\"" + item.term + "\")"
                                     : "idPrefixes[] | select(.code==\"" + item.code + "\")") + "'"
       ];
+    } else if (type === "question") {
+      // Las resueltas viven en otro array que las abiertas, asi que el jq tiene que apuntar
+      // al correcto o la cita no encuentra nada.
+      lines = [
+        item.id + " · " + (item.question || item.oneLiner || ""),
+        item.resolution ? "resuelta " + (item.answeredOn || "") + ": " + item.resolution : "abierta",
+        "jq: '.openQuestions." + (item.resolution ? "resolved" : "items") +
+          "[] | select(.id==\"" + item.id + "\")'"
+      ];
+    } else if (type === "sprintBlock") {
+      // El sprint se pinta como prosa, no como objetos: lo citable es el BLOQUE. Un pin por
+      // linea seria un boton que produce una cita sin ruta detras, que es EH-8 en miniatura.
+      lines = [
+        "Sprint · " + item.title,
+        item.count + " linea(s)",
+        "jq: '" + item.jq + "'"
+      ];
     } else if (type === "node") {
       // Flow, ER y Classes comparten forma: un id, un nombre y sus referencias cruzadas.
       var kind = item.id.indexOf("FL") === 0 ? "flow" : (item.id.indexOf("ER") === 0 ? "er" : "classes");
@@ -1365,11 +1400,17 @@
         "jq: '.diagrams." + kind + ".index[] | select(.id==\"" + item.id + "\")'"
       ];
     } else {
+      // Dos ruidos que el owner detecto leyendo lo copiado (2026-08-08). Un Fxx se etiqueta
+      // a si mismo —`F01` lleva `tags:["F01"]`, porque el todo ES la feature— y repetirlo en
+      // la cita no aporta nada; y `mvpSprintId` ya viene con el prefijo dentro del valor, asi
+      // que la etiqueta producia "mvp-sprint: mvp-sprint:F01". La cita tiene que leerse de un
+      // vistazo: cada palabra repetida es una que hay que descartar al leer.
+      var tags = (item.tags || []).filter(function (t) { return t !== item.id; });
       lines = [
         (item.id ? item.id + " · " : "") + (item.title || "Todo"),
         "status: " + (item.status || "—") +
-          ((item.tags || []).length ? " · tags: " + item.tags.join(", ") : "") +
-          (item.mvpSprintId ? " · mvp-sprint: " + item.mvpSprintId : ""),
+          (tags.length ? " · tags: " + tags.join(", ") : "") +
+          (item.mvpSprintId ? " · mvp-sprint: " + String(item.mvpSprintId).replace(/^mvp-sprint:/, "") : ""),
         item.id ? "jq: '.todos[] | select(.id==\"" + item.id + "\")'" : "jq: '.todos[] | select(.title==\"" + (item.title || "") + "\")'"
       ];
     }
