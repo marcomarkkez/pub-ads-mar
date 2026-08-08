@@ -421,20 +421,23 @@
       var html = '<p class="prose" style="color:var(--muted)">' + esc(g.convention || "") + '</p>';
       html += '<h3>Prefijos de identificador <span class="badge">' + pre.length + '</span></h3><div class="gloss-list">';
       pre.forEach(function (p) {
-        html += '<div class="gloss-row"><div class="gloss-code">' + esc(p.code) + '</div><div>' +
+        html += '<div class="gloss-row" data-pin-pre="' + esc(p.code) + '"><div class="gloss-code">' + esc(p.code) + '</div><div>' +
           '<div class="gloss-name">' + esc(p.name) + '</div>' +
-          '<p class="prose">' + esc(p.meaning) + '</p>' +
-          '<div class="gloss-meta">' + (p.example ? 'ej. ' + esc(p.example) : "") +
+          '<p class="prose">' + linkRefs(p.meaning) + '</p>' +
+          '<div class="gloss-meta">' + (p.example ? 'ej. ' + linkRefs(p.example) : "") +
           (p.where ? ' · vive en <code>' + esc(p.where) + '</code>' : "") + '</div></div></div>';
       });
       html += '</div><h3>Terminos <span class="badge">' + ter.length + '</span></h3><div class="gloss-list">';
       ter.forEach(function (t) {
         var dead = /RETIRAD/.test(t.meaning);
-        html += '<div class="gloss-row' + (dead ? " is-retired" : "") + '"><div class="gloss-code">' + esc(t.term) + '</div>' +
-          '<div><p class="prose">' + esc(t.meaning) + '</p></div></div>';
+        html += '<div class="gloss-row' + (dead ? " is-retired" : "") + '" data-pin-term="' + esc(t.term) + '">' +
+          '<div class="gloss-code">' + esc(t.term) + '</div>' +
+          '<div><p class="prose">' + linkRefs(t.meaning) + '</p></div></div>';
       });
       html += '</div>';
       box.innerHTML = html;
+      pre.forEach(function (p) { attachPin(box, '[data-pin-pre="' + cssq(p.code) + '"]', "prefix", p); });
+      ter.forEach(function (t) { attachPin(box, '[data-pin-term="' + cssq(t.term) + '"]', "term", t); });
     }
   }
 
@@ -478,12 +481,13 @@
           '<p class="prose rule-rule">' + esc(r.rule) + '</p>' +
           '<p class="prose rule-why"><span class="lbl">por que</span> ' + esc(r.why) + '</p>' +
           '<p class="prose rule-by"><span class="lbl">lo sostiene</span> ' + esc(r.enforcedBy) + '</p>' +
-          '<div class="row-tags">' + (r.appliesTo || []).map(function (a) {
+          '<div class="row-tags" data-pin-rule="' + esc(r.id) + '">' + (r.appliesTo || []).map(function (a) {
             return '<span class="tag">' + esc(a) + '</span>';
           }).join('') + '</div></div>';
       });
       if (!items.length) html += '<div class="empty">Ninguna regla coincide.</div>';
       box.innerHTML = html;
+      items.forEach(function (r) { attachPin(box, '[data-pin-rule="' + cssq(r.id) + '"]', "rule", r); });
     }
   }
 
@@ -527,10 +531,12 @@
           '<p class="prose hunt-find"><span class="lbl">como buscarlo</span> ' + esc(e.howToFind) + '</p>' +
           '<p class="prose hunt-hide"><span class="lbl">por que se esconde</span> ' + esc(e.whyItHides) + '</p>' +
           '<p class="prose hunt-real"><span class="lbl">caso real</span> ' + esc(e.realExample) + '</p>' +
+          '<div class="row-tags" data-pin-hunt="' + esc(e.id) + '"></div>' +
           '</div>';
       });
       if (!items.length) html += '<div class="empty">Ningun patron coincide.</div>';
       box.innerHTML = html;
+      items.forEach(function (e) { attachPin(box, '[data-pin-hunt="' + cssq(e.id) + '"]', "hunt", e); });
     }
   }
 
@@ -648,6 +654,7 @@
             '<span class="ep-desc">' + esc(e.desc) + '</span>' +
             (planned ? '<span class="tag feat">falta ' + esc(e.todo || "?") + '</span>' : "") +
             (e.sectionId ? '<span class="tag">§' + esc(e.sectionId) + '</span>' : "") +
+            '<span class="ep-pin" data-pin-ep="' + esc(e.method + " " + e.path) + '"></span>' +
             '</div>';
         });
         html += '</div></div>';
@@ -655,6 +662,9 @@
 
       if (!items.length) html += '<div class="empty">Ninguna ruta coincide.</div>';
       box.innerHTML = html;
+      items.forEach(function (e) {
+        attachPin(box, '[data-pin-ep="' + cssq(e.method + " " + e.path) + '"]', "endpoint", e);
+      });
     }
 
     function isPlanned(e) { return (e.group || "").indexOf("Planned") === 0; }
@@ -707,6 +717,7 @@
           (it.ucs || []).map(function (u) { return refChip(u, done); }).join('') +
           (it.br || []).map(function (b) { return refChip(b, done, "br"); }).join('') +
           (it.eh || []).map(function (e) { return refChip(e, done, "eh"); }).join('') +
+          '<span data-pin-walk="' + esc(it.id) + '"></span>' +
           '</div><ol class="walk-steps">';
         (it.steps || []).forEach(function (s) {
           html += '<li class="walk-step"><span class="walk-role">' + esc(s.role) + '</span>' +
@@ -728,6 +739,7 @@
       });
       if (!items.length) html += '<div class="empty">Ningun recorrido coincide.</div>';
       box.innerHTML = html;
+      items.forEach(function (it) { attachPin(box, '[data-pin-walk="' + cssq(it.id) + '"]', "walk", it); });
     }
   }
 
@@ -1064,6 +1076,30 @@
     wrap.appendChild(host);
     els.content.appendChild(wrap);
 
+    /* El indice bajo el diagrama. El SVG de mermaid no ofrece un sitio estable donde colgar
+       un boton —sus nodos se regeneran en cada repintado y sus ids los inventa la libreria—,
+       asi que lo citable es esta lista: mismos nodos, con sus referencias cruzadas y su boton
+       de bandeja. Ademas hace buscable un diagrama, que un SVG no es. */
+    var idx = dg.index || [];
+    if (idx.length) {
+      var list = document.createElement("div");
+      list.className = "diagram-index";
+      list.innerHTML = '<h3>Indice <span class="badge">' + idx.length + '</span></h3>' +
+        '<div class="ep-rows">' + idx.map(function (n) {
+          return '<div class="ep-row" data-pin-node="' + esc(n.id) + '">' +
+            '<span class="ep-method">' + esc(n.id) + '</span>' +
+            '<code class="ep-path">' + esc(n.label || n.name || "") + '</code>' +
+            '<span class="ep-desc">' + (n.spec || []).concat(n.uc || []).concat(n.todo || [])
+              .map(function (r) { return '<a href="#" class="ref-link" data-ref-jump="' + esc(r) + '">' + esc(r) + '</a>'; })
+              .join(' · ') + '</span>' +
+            '<span class="ep-pin"></span></div>';
+        }).join('') + '</div>';
+      els.content.appendChild(list);
+      idx.forEach(function (n) {
+        attachPin(list, '[data-pin-node="' + cssq(n.id) + '"] .ep-pin', "node", n);
+      });
+    }
+
     if (!window.mermaid) { host.innerHTML = '<div class="empty">Mermaid library failed to load (needs network / CDN).</div>'; return; }
     var id = "mmd-" + key + "-" + Date.now();
     try {
@@ -1286,6 +1322,48 @@
           "secciones: " + ((item.sections || []).join(", ") || "—"),
         "jq: '.userStories[] | select(.id==\"" + item.id + "\")'"
       ];
+    } else if (type === "rule" || type === "hunt") {
+      var block = type === "rule" ? "businessRules" : "errorHunt";
+      lines = [
+        item.id + (item.key ? " (" + item.key + ")" : "") + " · " + (item.title || item.pattern || ""),
+        "status: " + (item.status || "—"),
+        "jq: '." + block + ".items[] | select(.id==\"" + item.id + "\")'"
+      ];
+    } else if (type === "walk") {
+      lines = [
+        item.id + " · " + (item.title || ""),
+        "status: " + (item.status || "—") +
+          ((item.closes || []).length ? " · cierra: " + item.closes.join(", ") : ""),
+        "jq: '.walkthroughs.items[] | select(.id==\"" + item.id + "\")'"
+      ];
+    } else if (type === "endpoint") {
+      // Un endpoint no tiene id: lo identifica el par metodo+ruta, asi que el jq filtra por
+      // los dos. Filtrar solo por `.path` devolveria varias filas en cuanto una ruta sirva
+      // dos verbos, que es justo el caso normal.
+      lines = [
+        item.method + " " + item.path,
+        (item.group || "") + (item.todo ? " · falta " + item.todo : " · servido hoy"),
+        "jq: '.endpoints[] | select(.path==\"" + item.path + "\" and .method==\"" + item.method + "\")'"
+      ];
+    } else if (type === "term" || type === "prefix") {
+      var isTerm = type === "term";
+      lines = [
+        (isTerm ? item.term : item.code + " · " + (item.name || "")),
+        (isTerm ? "glosario · termino" : "glosario · prefijo de identificador") +
+          (item.where ? " · vive en " + item.where : ""),
+        "jq: '.glossary." + (isTerm ? "terms[] | select(.term==\"" + item.term + "\")"
+                                    : "idPrefixes[] | select(.code==\"" + item.code + "\")") + "'"
+      ];
+    } else if (type === "node") {
+      // Flow, ER y Classes comparten forma: un id, un nombre y sus referencias cruzadas.
+      var kind = item.id.indexOf("FL") === 0 ? "flow" : (item.id.indexOf("ER") === 0 ? "er" : "classes");
+      lines = [
+        item.id + " · " + (item.label || item.name || ""),
+        "diagrama: " + kind +
+          ((item.spec || []).length ? " · " + item.spec.join(", ") : "") +
+          ((item.todo || []).length ? " · " + item.todo.join(", ") : ""),
+        "jq: '.diagrams." + kind + ".index[] | select(.id==\"" + item.id + "\")'"
+      ];
     } else {
       lines = [
         (item.id ? item.id + " · " : "") + (item.title || "Todo"),
@@ -1298,7 +1376,12 @@
     // The group goes in just above the jq path: it tells the prompt WHICH work front this belongs
     // to, which is what makes a bare "§10" or "F09" unambiguous when several fronts touch the same spec.
     if ((item.groups || []).length) lines.splice(lines.length - 1, 0, "grupo: " + item.groups.join(", "));
-    return { key: type + "/" + (item.id || item.title || ""), type: type, label: lines[0], lines: lines };
+    // La clave identifica la ficha en la bandeja. Un endpoint no tiene id y un termino del
+    // glosario tampoco, asi que se construye con lo que SI los distingue; si no, dos rutas
+    // distintas compartirian clave `endpoint/` y la segunda expulsaria a la primera.
+    var key = item.id || (item.method ? item.method + " " + item.path : "") ||
+      item.term || item.code || item.title || "";
+    return { key: type + "/" + key, type: type, label: lines[0], lines: lines };
   }
 
   function refText(r) {
@@ -1354,6 +1437,54 @@
       b.addEventListener("click", function () { trayToggle(r); });
       els.trayChips.appendChild(b);
     });
+  }
+
+  /* Un puntero citado en prosa (§10, UC-21, F09, BR-4, EH-8, WALK-1) se convierte en algo
+     PULSABLE que lleva a lo citado. Nacio de WALK-4: el paso W4-3 pedia "seguir el puntero del
+     glosario hasta la seccion citada" y en el glosario no habia nada que pulsar — el puntero
+     estaba pintado como texto. Un recorrido no puede comprobar una navegacion que no existe. */
+  function linkRefs(text) {
+    return esc(text || "").replace(
+      /(§\d+|UC-\d+|F\d{2}|BR-\d+|EH-\d+|WALK-\d+|CHAT-\d+)/g,
+      function (m) { return '<a href="#" class="ref-link" data-ref-jump="' + m + '">' + m + '</a>'; }
+    );
+  }
+
+  /* Delegado una sola vez: los renderers repintan innerHTML constantemente y un listener por
+     enlace se perderia en cada repintado. */
+  document.addEventListener("click", function (ev) {
+    var a = ev.target.closest ? ev.target.closest("[data-ref-jump]") : null;
+    if (!a) return;
+    ev.preventDefault();
+    jumpToRef(a.getAttribute("data-ref-jump"));
+  });
+
+  function jumpToRef(ref) {
+    var view = ref.charAt(0) === "§" ? "specs"
+      : ref.indexOf("UC-") === 0 ? "stories"
+      : ref.indexOf("BR-") === 0 ? "rules"
+      : ref.indexOf("EH-") === 0 ? "errors"
+      : ref.indexOf("WALK-") === 0 ? "walks"
+      : "todos";
+    setView(view);
+    // El buscador de cada vista ya filtra por id, asi que reutilizarlo es mas honesto que
+    // inventar un resaltado paralelo que habria que mantener en las doce vistas.
+    setTimeout(function () {
+      var box = els.tools.querySelector('input[type="search"]');
+      if (!box) return;
+      box.value = ref.charAt(0) === "§" ? ref.slice(1) : ref;
+      box.dispatchEvent(new Event("input"));
+      box.scrollIntoView({ block: "nearest" });
+    }, 0);
+  }
+
+  /* Escapa un valor para meterlo dentro de un selector de atributo. */
+  function cssq(v) { return String(v).replace(/["\\]/g, "\\$&"); }
+
+  /* Cuelga un boton de bandeja de la fila que casa con el selector, si esta ahi. */
+  function attachPin(root, selector, type, item) {
+    var host = root.querySelector(selector);
+    if (host) host.appendChild(pinBtn(type, item));
   }
 
   function pinBtn(type, item) {

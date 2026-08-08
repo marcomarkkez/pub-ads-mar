@@ -1,0 +1,7 @@
+# Artefactos de compilacion: se regeneran con `npm ci && npx ng build`, y meterlos en
+# el repositorio ensucia cada diff con miles de lineas que nadie lee.
+/node_modules
+/dist
+/.angular
+/out-tsc
+*.tsbuildinfo

@@ -100,6 +100,12 @@
         "label": "Mensajeria y soporte",
         "added": "2026-08-02",
         "description": "Frente de trabajo activo: el chat unificado (un solo primitivo chats/objetos/flags/participantes), el enmascarado de PII, y Soporte-como-chat tras retirar el sistema de tickets. Cruza §10 (+§11, fusionada en §10) con F08, F09, CHAT-1..4 y WALK-1."
+      },
+      {
+        "slug": "landing-page",
+        "label": "Landing publica",
+        "added": "2026-08-05",
+        "description": "La pagina publica de captacion, en `landing/`: aplicacion Angular SEPARADA de `frontend/`. Una pagina con secciones ancladas, mas terminos, privacidad y acuse. El formulario da de alta contra `POST /api/register`, que ya existe. Cruza §22 con LAND-1..LAND-3 y UC-57."
       }
     ]
   },
@@ -941,7 +947,7 @@
         "id": "WALK-4",
         "title": "Recorrido humano del dashboard de diseno (antes DASH-1)",
         "todoId": "WALK-4",
-        "status": "pending",
+        "status": "failed",
         "closes": [],
         "specs": [],
         "ucs": [],
@@ -975,7 +981,11 @@
           }
         ],
         "notes": "Nacio como el UC propuesto DASH-1. No cierra ningun Fxx: el dashboard es documentacion, no producto. Se ejecuta cuando la planeacion cambia de forma, no en cada sprint.",
-        "result": null
+        "result": {
+          "date": "2026-08-07",
+          "by": "Marco",
+          "notes": "W4-3 falla: el paso pide seguir el puntero (§N o UC-N) de una entrada del glosario hasta la seccion citada, y en el glosario no hay nada pulsable. El puntero se pinta como texto. W4-1 y W4-2 pasaron. Ademas: Endpoints, Cacería, Glosario, Classes, ER y Flow no tienen icono para añadir a la bandeja."
+        }
       },
       {
         "id": "WALK-5",
@@ -1193,6 +1203,72 @@
           }
         ],
         "notes": "Nace de un bucle concreto: tres veces di por buena una comprobacion estatica que resulto ser mas estrecha de lo que su nombre prometia, y las tres veces el codigo leido decia una cosa y el trafico otra. BR-16 dice que eso se corta mirando la ejecucion, no leyendo mas fuerte. Este recorrido ES esa mirada, y el paso 2 es el que ya fallo dos veces."
+      },
+      {
+        "id": "WALK-8",
+        "title": "Recorrido humano de la landing: leerla como un desconocido y darse de alta",
+        "todoId": "WALK-8",
+        "status": "pending",
+        "closes": [
+          "LAND-1"
+        ],
+        "specs": [
+          "§22"
+        ],
+        "ucs": [
+          "UC-57"
+        ],
+        "br": [
+          "BR-10"
+        ],
+        "eh": [
+          "EH-8",
+          "EH-10"
+        ],
+        "groups": [
+          "landing-page"
+        ],
+        "result": null,
+        "steps": [
+          {
+            "id": "W8-1",
+            "role": "visitante",
+            "action": "Abrir la landing en un movil y leerla entera sin tocar nada mas.",
+            "expected": "Se entiende que es sin scroll: titular, subtitulo y formulario caben. Ninguna seccion se sale de ancho ni obliga a desplazamiento horizontal."
+          },
+          {
+            "id": "W8-2",
+            "role": "visitante",
+            "action": "Pulsar los enlaces de la barra y del pie: como funciona, espacios, confianza, terminos, privacidad.",
+            "expected": "Los tres primeros bajan a su seccion; los dos ultimos abren su pagina y desde ahi se vuelve al inicio. Ningun enlace muere."
+          },
+          {
+            "id": "W8-3",
+            "role": "visitante",
+            "action": "Enviar el formulario vacio, luego con un email mal escrito, luego con una contraseña de cuatro caracteres.",
+            "expected": "Cada error se marca en su campo y no se envia nada. Ningun 422 llega del servidor: la validacion de forma se resuelve antes de salir."
+          },
+          {
+            "id": "W8-4",
+            "role": "visitante",
+            "action": "Darse de alta de verdad con un email nuevo, eligiendo \"Tengo espacios\".",
+            "expected": "Cae en el acuse. Entrando despues por el login del producto, el menu es el de PROVEEDOR — si sale el de cliente, el rol elegido en la landing no viajo.",
+            "probe": "curl -si -X POST localhost:8000/api/register -H \"Content-Type: application/json\" -d '{\"name\":\"X\",\"email\":\"nuevo@x.com\",\"password\":\"12345678\",\"password_confirmation\":\"12345678\",\"role\":\"provider\"}' | head -1   # exige 201"
+          },
+          {
+            "id": "W8-5",
+            "role": "visitante",
+            "action": "Repetir el alta con EL MISMO email.",
+            "expected": "El formulario dice que ese email ya tiene cuenta, con esas palabras. Un \"error inesperado\" aqui es el unico fallo que hace abandonar en el ultimo paso."
+          },
+          {
+            "id": "W8-6",
+            "role": "visitante",
+            "action": "Leer los textos de terminos y privacidad de principio a fin.",
+            "expected": "Describen lo que la plataforma HACE hoy: retencion del pago hasta la prueba, disputas, colaboradores que no se desvinculan solos, nada en uso se destruye. Cualquier frase que prometa algo que el codigo no hace es deuda legal, no de maquetado."
+          }
+        ],
+        "notes": "El paso 4 es el que decide si la landing es un embudo o un adorno: comprueba que el rol elegido en una pagina publica llega intacto hasta el menu del producto. Ojo con el paso 6 — los textos NO tienen revision legal y eso sigue pendiente en LAND-1; este recorrido no la sustituye."
       }
     ]
   },
@@ -2113,6 +2189,36 @@
       ],
       "classes": [],
       "bodyFormat": "markdown"
+    },
+    {
+      "id": "22",
+      "title": "Landing publica y alta desde fuera",
+      "features": [
+        "LAND-1"
+      ],
+      "kanban": {
+        "status": "review",
+        "weight": "S",
+        "impacts": [
+          "F01"
+        ],
+        "deps": [
+          "F01"
+        ],
+        "ids": [
+          "LAND-01"
+        ]
+      },
+      "summary": "Una pagina publica que explica el marketplace y da de alta. Vive en `landing/`, es una aplicacion Angular aparte, y su formulario entra por el mismo `POST /api/register` que usa el producto.",
+      "body": "ALCANCE (owner 2026-08-05). Cuatro rutas y ni una mas: la pagina, `/terminos`, `/privacidad` y `/gracias`. Todo lo demas es una seccion anclada dentro de la misma pagina, no una ruta.\n\nPOR QUE UNA APLICACION APARTE Y NO UNA RUTA DE `frontend/`. La landing la carga gente que no ha iniciado sesion y que decide en segundos: no debe arrastrar el bundle del producto, ni su router protegido, ni sus interceptores de token. Sale en 74 kB comprimidos frente a los cientos del panel. Ademas se despliega en sitios distintos —la landing a un CDN, el producto detras del login— y mezclarlas obliga a desplegar las dos cada vez que cambia una coma del titular.\n\nDONDE VAN LOS DATOS DEL FORMULARIO (decidido 2026-08-05, owner). A `POST /api/register`, el endpoint publico que ya existe. Se descartaron las otras dos opciones y conviene que conste por que: un endpoint nuevo de leads habria anadido tabla, migracion y entrada en `endpoints[]` para algo que quiza se sustituya por un formulario externo; y un formulario sin destino habria sido EH-8 literal, un control que solo existe para aparentar. Al ir contra el alta real, la landing hereda tambien el spam que reciba — es el coste asumido de que el embudo funcione desde el primer dia.\n\nUN SOLO PUNTO DE INTEGRACION. Todo lo que sabe DONDE se mandan los datos vive en `landing/src/app/shared/signup.service.ts`. El owner avisa de que probablemente cambie el formulario mas adelante, asi que cambiarlo tiene que ser reescribir un fichero y no perseguir llamadas por las secciones.\n\nLA LANDING NO GUARDA SESION. El alta devuelve un token y la landing lo ignora a proposito: es captacion, no producto. Quien se registra pasa por el acuse y entra por la puerta normal. Guardarlo obligaria a la landing a tener politica de tokens, y esa es superficie de autenticacion en una pagina publica y cacheada.\n\nTEXTOS LEGALES. Terminos y privacidad estan escritos y describen lo que la plataforma hace HOY (retencion del pago, disputas, colaboradores que no se desvinculan, nada en uso se destruye). NO los ha revisado nadie con formacion legal, y eso esta escrito en la propia pagina y en LAND-1. Es requisito de apertura al publico, no de cierre de la spec.\n\nESTILO. Familia Be Agency / Bridge / Impreza: secciones a sangre completa alternando fondo, titular muy grande con una palabra en cursiva y acento, filas de iconos, cifras, testimonio y cierre. Los tres temas de referencia estaban inaccesibles desde el entorno de trabajo (HTTP 000 en los tres), asi que se reprodujo la familia sin copiar HTML ajeno.",
+      "ucs": [
+        "UC-57"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "bodyFormat": "text"
     }
   ],
   "userStories": [
@@ -3398,6 +3504,26 @@
       "er": [],
       "classes": [],
       "satisfiedBy": "Provider\\SpaceController::destroy/cancelDeletion + Space::deletionBlockers() + App\\Console\\Commands\\PurgeScheduledSpaces + SpaceDeletionGuardTest (11 tests)"
+    },
+    {
+      "id": "UC-57",
+      "title": "Alguien que no conoce la plataforma llega, entiende que es y se da de alta",
+      "actor": "VISITOR",
+      "sections": [
+        "§22",
+        "§1"
+      ],
+      "story": "Como persona que llega por primera vez, quiero entender en una pantalla que es este sitio y de que lado estoy —busco espacio o lo tengo—, para poder crear una cuenta sin hablar con nadie ni pedir un presupuesto por correo.",
+      "acceptance": [
+        "La pagina explica el marketplace sin pedir registro para leerla.",
+        "El formulario pregunta de que lado viene, porque `users.role` decide el menu entero desde el primer login y equivocarse ahi obliga a rehacer el alta.",
+        "Al enviarlo se crea la cuenta de verdad contra `POST /api/register` y se navega al acuse.",
+        "Un email ya registrado responde con un mensaje que lo dice por su nombre, no con un error generico.",
+        "Terminos y privacidad son alcanzables desde el propio formulario antes de aceptarlos."
+      ],
+      "groups": [
+        "landing-page"
+      ]
     }
   ],
   "endpoints": [
@@ -7500,6 +7626,72 @@
       "note": "Cierra los tres todos de esta ronda. Hasta que pase, los tres siguen abiertos aunque su codigo este escrito y sus tests pasen (BR-16)."
     },
     {
+      "id": "LAND-1",
+      "title": "Landing publica en landing/: una pagina, legales y acuse",
+      "status": "review",
+      "tags": [
+        "F01"
+      ],
+      "groups": [
+        "landing-page"
+      ],
+      "specs": [
+        "§22"
+      ],
+      "ucs": [
+        "UC-57"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Construida y compilando (74 kB iniciales comprimidos). Queda pendiente y es REQUISITO DE APERTURA, no de cierre: los textos de terminos y privacidad no los ha revisado nadie con formacion legal. Estan escritos, describen lo que la plataforma hace hoy, y lo dicen en la propia pagina. Lo cierra WALK-8."
+    },
+    {
+      "id": "LAND-2",
+      "title": "Las cifras del heroe son de relleno y hay que sustituirlas o quitarlas",
+      "status": "pending",
+      "tags": [
+        "F01"
+      ],
+      "groups": [
+        "landing-page"
+      ],
+      "specs": [
+        "§22"
+      ],
+      "ucs": [
+        "UC-57"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "\"1.400+ espacios, 32 ciudades, 48h\" y el testimonio de Monterrey son marcador de posicion. Una cifra inventada en una pagina publica es una afirmacion falsa sobre el negocio, no un detalle de maquetado: o se sustituyen por el conteo real cuando lo haya, o se quita la fila entera. Anotado aqui para que nadie lo publique creyendo que son datos."
+    },
+    {
+      "id": "LAND-3",
+      "title": "Decidir el despliegue de la landing y a que host apunta /api",
+      "status": "pending",
+      "tags": [
+        "F01"
+      ],
+      "groups": [
+        "landing-page"
+      ],
+      "specs": [
+        "§22"
+      ],
+      "ucs": [
+        "UC-57"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Hoy `signup.service.ts` llama a `/api` relativo, que funciona si landing y backend comparten origen. Si la landing va a un CDN aparte hace falta el host absoluto Y CORS en el backend para ese origen. Es una decision de despliegue, no de codigo, y sin tomarla el formulario fallara en produccion aunque funcione en local."
+    },
+    {
       "id": "WALK-7",
       "title": "Rastro en vivo con storage/logs/walk.log (EH-13 · EH-14 · EH-10)",
       "status": "pending",
@@ -7518,6 +7710,28 @@
       "er": [],
       "classes": [],
       "note": "El log lo escribe App\\Http\\Middleware\\WalkTrace y esta inerte salvo WALK_TRACE=true. Vive en terminate() y no en handle() a proposito: una negativa se LANZA, no se devuelve, asi que escrito de la forma obvia el log habria registrado todos los exitos y ni una sola de las negativas, que son justo las lineas por las que existe."
+    },
+    {
+      "id": "WALK-8",
+      "title": "Recorrido humano de la landing publica",
+      "status": "pending",
+      "tags": [
+        "LAND-1"
+      ],
+      "groups": [
+        "landing-page"
+      ],
+      "specs": [
+        "§22"
+      ],
+      "ucs": [
+        "UC-57"
+      ],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Cierra LAND-1. Hasta que pase, §22 sigue en `review` por mucho que compile."
     },
     {
       "id": "AUTH-1",

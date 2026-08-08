@@ -1,0 +1,27 @@
+{
+  "name": "pub-ads-landing",
+  "version": "0.1.0",
+  "description": "Public one-page landing for the ad-space marketplace. Separate app from frontend/ on purpose: it is marketing, it ships to a CDN, and it must load fast for people who are not logged in.",
+  "scripts": {
+    "start": "ng serve --port 4300",
+    "build": "ng build"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/common": "^18.2.0",
+    "@angular/compiler": "^18.2.0",
+    "@angular/core": "^18.2.0",
+    "@angular/forms": "^18.2.0",
+    "@angular/platform-browser": "^18.2.0",
+    "@angular/router": "^18.2.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.14.10"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^18.2.0",
+    "@angular/cli": "^18.2.0",
+    "@angular/compiler-cli": "^18.2.0",
+    "typescript": "~5.5.0"
+  }
+}

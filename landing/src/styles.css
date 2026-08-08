@@ -1,0 +1,173 @@
+/* Adspot — landing.
+   Lenguaje de Be Agency / Bridge / Impreza: secciones a sangre completa que alternan
+   fondo, titular muy grande con una palabra en cursiva, mucho aire, y un acento unico
+   que solo aparece donde hay que pulsar. Sin librerias: son cinco pantallas y un
+   framework de CSS pesaria mas que todo lo que hay aqui. */
+
+:root {
+  --ink: #12161f;
+  --ink-soft: #5a6479;
+  --line: #e4e7ee;
+  --bg: #ffffff;
+  --bg-alt: #f6f7fa;
+  --bg-dark: #12161f;
+  --accent: #ff5a3c;
+  --accent-ink: #ffffff;
+  --radius: 14px;
+  --wrap: 1180px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 17px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { line-height: 1.08; letter-spacing: -0.022em; margin: 0 0 18px; font-weight: 800; }
+h1 { font-size: clamp(38px, 5.4vw, 68px); }
+h2 { font-size: clamp(28px, 3.4vw, 44px); }
+h3 { font-size: 21px; letter-spacing: -0.01em; }
+h1 em { font-style: italic; color: var(--accent); }
+p { margin: 0 0 16px; }
+a { color: inherit; }
+
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 26px; }
+.wrap.narrow { max-width: 760px; }
+.narrow { max-width: 760px; margin-left: auto; margin-right: auto; }
+.center { text-align: center; }
+.muted { color: var(--ink-soft); }
+.small { font-size: 14px; }
+
+.eyebrow {
+  text-transform: uppercase; letter-spacing: .16em; font-size: 12px;
+  font-weight: 700; color: var(--accent); margin: 0 0 14px;
+}
+.lead { font-size: clamp(17px, 1.5vw, 20px); color: var(--ink-soft); }
+
+/* ── nav ─────────────────────────────────────────────────────────── */
+.nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; max-width: var(--wrap); margin: 0 auto; padding: 22px 26px;
+}
+.brand { font-weight: 800; font-size: 22px; letter-spacing: -0.03em; text-decoration: none; }
+.nav nav { display: flex; align-items: center; gap: 26px; }
+.nav nav a { text-decoration: none; font-size: 15px; font-weight: 600; color: var(--ink-soft); }
+.nav nav a:hover { color: var(--ink); }
+
+/* ── botones ─────────────────────────────────────────────────────── */
+.btn {
+  display: inline-block; background: var(--accent); color: var(--accent-ink);
+  border: 0; border-radius: 999px; padding: 14px 28px; font: inherit;
+  font-weight: 700; cursor: pointer; text-decoration: none; text-align: center;
+  transition: transform .12s ease, filter .12s ease;
+}
+.btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.btn:disabled { opacity: .6; cursor: progress; transform: none; }
+.btn-lg { width: 100%; padding: 16px 28px; font-size: 17px; }
+.btn-ghost {
+  background: transparent; color: var(--ink);
+  border: 1.5px solid var(--line); padding: 10px 20px;
+}
+
+/* ── heroe ───────────────────────────────────────────────────────── */
+.hero {
+  max-width: var(--wrap); margin: 0 auto; padding: 40px 26px 90px;
+  display: grid; grid-template-columns: 1.15fr .85fr; gap: 60px; align-items: start;
+}
+.hero-copy .lead { max-width: 30em; }
+.hero-stats { display: flex; gap: 40px; margin-top: 40px; flex-wrap: wrap; }
+.hero-stats strong { display: block; font-size: 32px; font-weight: 800; letter-spacing: -0.03em; }
+.hero-stats span { font-size: 14px; color: var(--ink-soft); }
+
+.hero-form {
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 30px; box-shadow: 0 24px 60px -34px rgba(18, 22, 31, .35);
+}
+.hero-form h2 { font-size: 26px; margin-bottom: 6px; }
+.hero-form .muted { font-size: 14px; margin-bottom: 22px; }
+
+/* ── formulario ──────────────────────────────────────────────────── */
+.roles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.role {
+  display: block; padding: 13px 14px; border: 1.5px solid var(--line);
+  border-radius: 10px; cursor: pointer; transition: border-color .12s ease, background .12s ease;
+}
+.role:hover { border-color: #c9cedb; }
+.role.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.role input { position: absolute; opacity: 0; pointer-events: none; }
+.role-t { display: block; font-weight: 700; font-size: 14.5px; }
+.role-d { display: block; font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 13.5px; font-weight: 700; margin-bottom: 6px; }
+.field .opt { font-weight: 400; color: var(--ink-soft); }
+.field input {
+  width: 100%; padding: 13px 14px; font: inherit; font-size: 15.5px;
+  border: 1.5px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink);
+}
+.field input:focus { outline: 0; border-color: var(--accent); }
+.field input::placeholder { color: #a8b0c0; }
+
+.err { color: #d92d20; font-size: 13px; margin: 6px 0 0; }
+.form-err { margin-top: 14px; text-align: center; }
+.legal { font-size: 12.5px; color: var(--ink-soft); margin: 16px 0 0; text-align: center; }
+.legal a { color: var(--ink); }
+
+/* ── bandas ──────────────────────────────────────────────────────── */
+.band { background: var(--bg-alt); padding: 96px 0; }
+.band.dark { background: var(--bg-dark); color: #fff; }
+.band.dark .lead, .band.dark .muted { color: #a7b0c2; }
+.split { padding: 96px 0; }
+.close { padding: 96px 0; background: var(--bg-alt); }
+
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px; margin-top: 52px; }
+.steps article { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 30px; }
+.steps .num {
+  display: inline-block; font-size: 13px; font-weight: 800; letter-spacing: .1em;
+  color: var(--accent); margin-bottom: 14px;
+}
+.steps p { color: var(--ink-soft); font-size: 15.5px; margin: 0; }
+
+.ticks { list-style: none; padding: 0; margin: 24px 0 0; }
+.ticks li { position: relative; padding-left: 30px; margin-bottom: 12px; color: var(--ink-soft); }
+.ticks li::before {
+  content: ""; position: absolute; left: 4px; top: 8px; width: 9px; height: 9px;
+  border-radius: 50%; background: var(--accent);
+}
+
+.quote { margin: 56px auto 0; max-width: 760px; text-align: center; }
+.quote blockquote {
+  margin: 0 0 14px; font-size: clamp(20px, 2.2vw, 27px); line-height: 1.4;
+  font-weight: 600; letter-spacing: -0.015em;
+}
+.quote figcaption { font-size: 14px; color: #a7b0c2; }
+
+/* ── paginas interiores ──────────────────────────────────────────── */
+.page { padding: 60px 0 100px; }
+.center-page { min-height: 74vh; display: flex; align-items: center; text-align: center; }
+.center-page .btn { max-width: 280px; margin: 10px auto 26px; }
+.legal-doc h2 { font-size: 22px; margin-top: 40px; }
+.legal-doc p { color: var(--ink-soft); }
+
+/* ── pie ─────────────────────────────────────────────────────────── */
+.foot { border-top: 1px solid var(--line); padding: 44px 0; }
+.foot .two { align-items: center; }
+.foot-links { display: flex; gap: 26px; justify-content: flex-end; flex-wrap: wrap; }
+.foot-links a { font-size: 14.5px; color: var(--ink-soft); text-decoration: none; }
+.foot-links a:hover { color: var(--ink); }
+
+/* ── responsive ──────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .hero, .two, .steps { grid-template-columns: 1fr; gap: 40px; }
+  .band, .split, .close { padding: 66px 0; }
+  .nav nav a:not(.btn) { display: none; }
+  .foot-links { justify-content: flex-start; }
+}
