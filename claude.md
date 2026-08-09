@@ -95,6 +95,29 @@ alongside its id, so a rule can be named in conversation without restating it: `
 `dinero-depositado-no-se-devuelve` reach the same place. The dashboard renders the key as a
 click-to-copy chip.
 
+## Learning — a written rule that does not fire is not a rule (2026-08-09)
+
+The seed learning below (search "The provided credentials are incorrect") is correct, complete,
+and was already in this file. The owner asked, in as many words, **"¿otra vez el error de
+seed?"** — the exact trigger it names — and the answer given was "no, it is the credentials",
+followed by guessing passwords. Their database had zero users. It was the seed, from the first
+message.
+
+**Nothing was missing from the knowledge. What failed was retrieving it.** The rule sits at line
+~352 of a very long file, inside a twenty-line paragraph, and `mvp-init.py` — which exists at the
+repo root precisely for this, is idempotent, and fixes it in one command — went unmentioned for
+an entire session.
+
+That is BR-16 applied to this file: a rule with no enforcement is a convention, and conventions
+fail. So the check moved to where it cannot be forgotten — **step W0 of every walkthrough that
+touches the app** is now `python3 mvp-init.py`. The human running the walk carries it; no model
+has to remember.
+
+**Generalisation worth keeping:** when the owner proposes a cause ("is it the seed again?"), that
+is a hypothesis from someone with more context about their own machine than this file has. Test
+it before contradicting it. Answering "no, it is X" and being wrong costs more than checking
+would have.
+
 ## Learning — npm supply chain (2026-08-09, after the keyv compromise)
 
 **The lesson: installing a dependency runs its code.** On 2026-08-04 the maintainer account

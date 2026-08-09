@@ -820,7 +820,7 @@
     ]
   },
   "walkthroughs": {
-    "convention": "WALK-n son recorridos humanos por la interfaz real. Los hace una PERSONA, no una suite: un test verde demuestra que una funcion responde, no que una pantalla sea usable ni que un flujo se pueda completar de principio a fin.\n\nLAS REFERENCIAS SON EL CRITERIO DE CIERRE (owner 2026-08-04). Cada recorrido apunta a lo que demuestra: `closes` (todos Fxx/otros), `specs`, `ucs`, `br` y `eh`. Leelo asi:\n  - `status: pending`  → el recorrido no se ha hecho. TODO lo que referencia sigue abierto, aunque el codigo este escrito y los tests pasen.\n  - `status: failed`   → se hizo y algo no cuadro. Lo referenciado sigue abierto y `result.notes` dice exactamente que se vio.\n  - `status: passed`   → resultado positivo. AHI y solo ahi se marcan como `done` las referencias; los todos que solo existian para este recorrido se pueden borrar.\n\nRegla dura, sin excepcion: un Fxx no pasa a `done` mientras el WALK que lo cierra siga `pending`. Un § no se da por terminado por revision de codigo en seco (ver BR-16): se da por terminado cuando su recorrido pasa.\n\nUn paso puede llevar `probe`: una comprobacion de consola, HTTP o cURL que se corre DURANTE el recorrido (BR-17). No sustituye a mirar la pantalla — sirve para lo que la pantalla no ensena, como el codigo de estado exacto de una negativa.\n\nSE CIERRA CON `design/walk.py`, no a mano:\n  python3 design/walk.py --status                       → que falta por recorrer y que bloquea\n  python3 design/walk.py WALK-1 --pass --by \"...\" --notes \"...\"\n  python3 design/walk.py WALK-1 --fail --by \"...\" --notes \"...\"   (--notes es obligatorio)\nAl pasar, el script pone en `done` los todos de `closes` y LISTA las referencias a §, UC, BR y EH sin tocarlas: cerrar un § es una decision de quien recorrio, no un efecto colateral. Al fallar no cierra nada y guarda lo observado, que es la mitad que de verdad hace falta despues.",
+    "convention": "WALK-n son recorridos humanos por la interfaz real. Los hace una PERSONA, no una suite: un test verde demuestra que una funcion responde, no que una pantalla sea usable ni que un flujo se pueda completar de principio a fin.\n\nLAS REFERENCIAS SON EL CRITERIO DE CIERRE (owner 2026-08-04). Cada recorrido apunta a lo que demuestra: `closes` (todos Fxx/otros), `specs`, `ucs`, `br` y `eh`. Leelo asi:\n  - `status: pending`  → el recorrido no se ha hecho. TODO lo que referencia sigue abierto, aunque el codigo este escrito y los tests pasen.\n  - `status: failed`   → se hizo y algo no cuadro. Lo referenciado sigue abierto y `result.notes` dice exactamente que se vio.\n  - `status: passed`   → resultado positivo. AHI y solo ahi se marcan como `done` las referencias; los todos que solo existian para este recorrido se pueden borrar.\n\nRegla dura, sin excepcion: un Fxx no pasa a `done` mientras el WALK que lo cierra siga `pending`. Un § no se da por terminado por revision de codigo en seco (ver BR-16): se da por terminado cuando su recorrido pasa.\n\nUn paso puede llevar `probe`: una comprobacion de consola, HTTP o cURL que se corre DURANTE el recorrido (BR-17). No sustituye a mirar la pantalla — sirve para lo que la pantalla no ensena, como el codigo de estado exacto de una negativa.\n\nSE CIERRA CON `design/walk.py`, no a mano:\n  python3 design/walk.py --status                       → que falta por recorrer y que bloquea\n  python3 design/walk.py WALK-1 --pass --by \"...\" --notes \"...\"\n  python3 design/walk.py WALK-1 --fail --by \"...\" --notes \"...\"   (--notes es obligatorio)\nAl pasar, el script pone en `done` los todos de `closes` y LISTA las referencias a §, UC, BR y EH sin tocarlas: cerrar un § es una decision de quien recorrio, no un efecto colateral. Al fallar no cierra nada y guarda lo observado, que es la mitad que de verdad hace falta despues.\n\nPASO CERO, en todos los recorridos que tocan la aplicacion: `python3 mvp-init.py`. La base del contenedor se vacia en CADA reinicio, y eso no se manifiesta como un error de base de datos sino como \"credenciales incorrectas\" en el login — sintoma que se parece tanto a una contrasena mal escrita que ya nos costo una sesion entera adivinando contrasenas con la base a cero. El aprendizaje estaba escrito en claude.md y no se recupero a tiempo; por eso vive ahora en el propio guion del recorrido, donde no depende de que alguien lo recuerde.",
     "items": [
       {
         "id": "WALK-1",
@@ -848,6 +848,13 @@
           "mensajeria-soporte"
         ],
         "steps": [
+          {
+            "id": "W0",
+            "role": "quien recorra",
+            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
+            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+          },
           {
             "id": "W1-1",
             "role": "cliente",
@@ -913,6 +920,13 @@
         "groups": [],
         "steps": [
           {
+            "id": "W0",
+            "role": "quien recorra",
+            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
+            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+          },
+          {
             "id": "W2-1",
             "role": "cliente",
             "action": "Crear una campaña, un adset y un anuncio, y despues mover el anuncio a otro adset.",
@@ -957,6 +971,13 @@
         ],
         "groups": [],
         "steps": [
+          {
+            "id": "W0",
+            "role": "quien recorra",
+            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
+            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+          },
           {
             "id": "W3-1",
             "role": "admin",
@@ -1040,6 +1061,13 @@
         ],
         "groups": [],
         "steps": [
+          {
+            "id": "W0",
+            "role": "quien recorra",
+            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
+            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+          },
           {
             "id": "W5-1",
             "role": "cliente",
@@ -1126,6 +1154,13 @@
         "result": null,
         "steps": [
           {
+            "id": "W0",
+            "role": "quien recorra",
+            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
+            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+          },
+          {
             "id": "W6-1",
             "role": "cliente",
             "action": "Registrarse desde cero y quedarse en la pantalla a la que caiga, SIN recargar.",
@@ -1197,6 +1232,13 @@
         "result": null,
         "steps": [
           {
+            "id": "W0",
+            "role": "quien recorra",
+            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
+            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+          },
+          {
             "id": "W7-1",
             "role": "cualquiera",
             "action": "Poner WALK_TRACE=true en backend/.env, `php artisan config:clear`, y dejar abierto `tail -f backend/storage/logs/walk.log` en una terminal al lado de la pantalla.",
@@ -1264,6 +1306,13 @@
         ],
         "result": null,
         "steps": [
+          {
+            "id": "W0",
+            "role": "quien recorra",
+            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
+            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+          },
           {
             "id": "W8-1",
             "role": "visitante",
