@@ -95,6 +95,56 @@ alongside its id, so a rule can be named in conversation without restating it: `
 `dinero-depositado-no-se-devuelve` reach the same place. The dashboard renders the key as a
 click-to-copy chip.
 
+## Rule — before and after EVERY `git apply` / docker action (2026-08-09)
+
+**The prevention used to sit at the wrong moment.** It said: *"the moment the owner says
+credentials incorrect, tell them to run `mvp-init.py`."* That fires when the damage is already
+done and the symptom has already cost half an hour of guessing passwords. The patch itself
+announces what it will break — its file paths say so — so the check belongs **before** it lands.
+
+**Before applying any patch:**
+
+```bash
+python3 patch-preflight.py pNN.patch     # reads the patch, prints what it will require
+```
+
+It reports migrations, seeder changes, permission edits, dependency changes, and — the
+expensive one — whether the patch **narrows the schema** (`dropColumn`, `->change()`, `CHECK`,
+`NOT NULL`, `unique`). A narrowing migration against rows that are already seeded fails
+half-way and leaves the database between two states. Data is disposable in this MVP (owner
+2026-08-03), so the cheap answer is the right one there: `python3 mvp-init.py --fresh`.
+
+**After applying, always, unconditionally — doc-only patches included:**
+
+```bash
+python3 mvp-init.py
+```
+
+**Why `mvp-init.py` alone is not enough any more.** It used to check exactly ONE thing: is the
+user count zero. That check has an expiry date — once the database has been seeded even once
+the count is never zero again, so it reports "already has 8 users" and does nothing, while the
+two failures that actually happen after a patch walk straight past it:
+
+- **Pending migrations.** The schema stays old and the app fails at runtime on a column that
+  does not exist — which reads like a code bug, not like a migration nobody ran.
+- **Stale seed.** A seeder changed and the rows did not. This is the "permissions are correct in
+  the tests and the app still says Forbidden" case, and it has already cost a session once.
+
+It now detects all three (empty / pending migrations / seeder hash changed) and says which one
+fired. The seeder hash is stamped **in the database**, not on disk, so a wipe takes the stamp
+with it — a fresh database can never look already-seeded.
+
+**When the stack is restarted** (`docker compose up`, container restart, Codespace resume) the
+database may be empty regardless of what any patch touched. Same command, same place: run
+`mvp-init.py` before doing anything else, which is why it is step **W0** of every walkthrough
+that touches the app.
+
+**And the meta-rule, which is the one that actually failed here:** when the owner proposes a
+cause — *"¿otra vez el error de seed?"* — that is a hypothesis from someone with more context
+about their own machine than this file has. **Test it before contradicting it.** The seed rule
+below was already written, correct and complete; what failed was retrieving it in the moment.
+Answering "no, it is X" and being wrong costs more than checking would have.
+
 ## Learning — a written rule that does not fire is not a rule (2026-08-09)
 
 The seed learning below (search "The provided credentials are incorrect") is correct, complete,

@@ -545,6 +545,22 @@
         ],
         "enforcedBy": "`frontend/.npmrc` y `landing/.npmrc` con `ignore-scripts=true`. Verificado el 2026-08-09: `npm ci --ignore-scripts` seguido de `ng build` funciona en los dos proyectos. La parte de revisar el diff del lockfile es convencion humana y no tiene comprobacion automatica.",
         "status": "built"
+      },
+      {
+        "id": "BR-19",
+        "key": "el-parche-dice-lo-que-va-a-romper",
+        "title": "Antes de aplicar se pregunta que va a tumbar; despues se deja la pila lista",
+        "rule": "ANTES de cualquier `git apply`: `python3 patch-preflight.py pNN.patch`. Lee las rutas del parche y dice que va a exigir — migraciones, sembradores, permisos, dependencias — y avisa si ESTRECHA el esquema (dropColumn, ->change(), CHECK, NOT NULL, unique), que es el caso en que `migrate` se cae a la mitad sobre datos ya sembrados.\n\nDESPUES de aplicar, y despues de cualquier `docker compose up` o reinicio: `python3 mvp-init.py`, SIEMPRE, incluso en parches de solo documentacion. Un reinicio vacia la base independientemente de lo que tocara el parche.\n\n`mvp-init.py` detecta tres estados y dice cual disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra (huella sellada EN LA BASE, para que un borrado se lleve el sello por delante).",
+        "why": "La prevencion estaba escrita en el momento equivocado: \"cuando el login falle, corre mvp-init.py\". Eso actua cuando el destrozo ya ocurrio, y el sintoma —\"credenciales incorrectas\"— se parece tanto a una contrasena mal escrita que ya costo una sesion entera adivinando contrasenas con la base a cero.\n\nY `mvp-init.py` tenia fecha de caducidad de fabrica: comprobaba SOLO si el conteo de usuarios era cero. En cuanto la base se siembra una vez, ese conteo no vuelve a ser cero nunca, asi que el guion informaba \"ya hay 8 usuarios\" y no hacia nada mientras los dos fallos que de verdad ocurren tras un parche pasaban de largo: una migracion sin correr (que revienta en runtime y se lee como un bug de codigo) y un sembrador cambiado (que es el caso de \"los permisos estan bien en los tests y la aplicacion sigue diciendo Forbidden\").",
+        "appliesTo": [
+          "proceso",
+          "backend",
+          "docker",
+          "parches",
+          "todo el proyecto"
+        ],
+        "enforcedBy": "`patch-preflight.py` y `mvp-init.py` en la raiz del repositorio, y el paso W0 de los siete recorridos que tocan la aplicacion. La parte de \"acordarse de correrlo antes\" sigue siendo humana — por eso vive en el guion del recorrido y no solo en claude.md.",
+        "status": "built"
       }
     ]
   },
@@ -684,6 +700,15 @@
         "howToFind": "Antes de instalar nada nuevo: `npm ci --dry-run --foreground-scripts` y mirar que hooks aparecen. Sobre lo ya instalado: `grep -l '\"preinstall\"\\|\"postinstall\"\\|\"prepare\"' node_modules/*/package.json node_modules/@*/*/package.json`. Y buscar los rastros del payload por su forma, no por su nombre: ficheros `setup.mjs` en la raiz de un paquete, o un runtime autonomo (bun, deno) aparecido en $HOME. Si encuentras uno, FECHALO antes de concluir: `stat` distingue lo que vino en la imagen base de lo que llego con un install.",
         "whyItHides": "Porque toda nuestra intuicion sobre \"codigo que no uso no me afecta\" es sobre el momento de IMPORTAR. Una dependencia transitiva a cuatro niveles de profundidad, que ningun fichero nuestro menciona, que ni siquiera aparece en `package.json`, ejecuta codigo arbitrario como tu usuario en el instante en que corres el instalador. Y lo hace en el peor entorno posible: la terminal de un desarrollador o un runner de CI, que es exactamente donde viven los tokens de npm, GitHub y la nube. No hay revision de codigo que lo pare, porque el codigo no esta en tu repositorio.",
         "realExample": "El compromiso de `keyv`/`cacheable` del 2026-08-04: hook `preinstall` → descarga de un Bun autonomo → segunda etapa ofuscada → robo de credenciales de npm/GitHub/AWS/Vault → republicacion troyanizada de mas paquetes con los tokens robados. Unos 444 paquetes y ~2.236 versiones en horas. A nosotros no nos toco —ninguno estaba en nuestros lockfiles— pero yo habia corrido `npm install` y `npm ci` varias veces en `landing/` DESPUES de esa fecha peleandome con el lockfile, sin mirar una sola vez que scripts se ejecutaban. Cerrado con BR-18.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-16",
+        "key": "la-guarda-que-caduca-con-el-primer-exito",
+        "pattern": "Una guarda cuya condicion deja de poder cumplirse",
+        "howToFind": "Por cada comprobacion de estado que decide si se hace algo, preguntar: ¿esta condicion puede seguir siendo cierta dentro de un mes? Sospechosos inmediatos: comparaciones contra CERO (`count == 0`, `empty`, `is None`) en codigo de arranque o de reparacion. Un contador que solo sube describe el PRIMER dia del sistema, no su estado. La pregunta correcta casi nunca es \"¿hay algo?\" sino \"¿lo que hay corresponde a lo que el codigo espera ahora?\" — y eso pide una huella o una version, no un conteo.",
+        "whyItHides": "Porque funciona perfectamente al principio, que es cuando se prueba. La guarda se escribe el dia que la base esta vacia, se verifica ese mismo dia, y a partir de la primera siembra queda permanentemente inerte sin emitir un solo error. Peor: sigue IMPRIMIENDO que ha comprobado algo —\"ya hay 8 usuarios, todo en orden\"— asi que da confianza activa mientras deja pasar exactamente lo que existia para detener.",
+        "realExample": "`mvp-init.py` decidia si resembrar con `if not user_count()`. Correcto el primer dia; a partir de la primera siembra el conteo nunca vuelve a cero, asi que dejaba pasar migraciones sin correr y sembradores cambiados, imprimiendo \"DB already has 8 users\" con total tranquilidad. Se cerro anadiendo las dos preguntas que no caducan: ¿hay migraciones pendientes? ¿la huella de los sembradores coincide con la sellada?",
         "status": "found+fixed"
       }
     ]
@@ -839,7 +864,8 @@
           "UC-21"
         ],
         "br": [
-          "BR-9"
+          "BR-9",
+          "BR-19"
         ],
         "eh": [
           "EH-5"
@@ -852,7 +878,7 @@
             "id": "W0",
             "role": "quien recorra",
             "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
             "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
           },
           {
@@ -911,7 +937,8 @@
         ],
         "br": [
           "BR-1",
-          "BR-3"
+          "BR-3",
+          "BR-19"
         ],
         "eh": [
           "EH-6",
@@ -923,7 +950,7 @@
             "id": "W0",
             "role": "quien recorra",
             "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
             "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
           },
           {
@@ -964,7 +991,8 @@
           "UC-28"
         ],
         "br": [
-          "BR-9"
+          "BR-9",
+          "BR-19"
         ],
         "eh": [
           "EH-8"
@@ -975,7 +1003,7 @@
             "id": "W0",
             "role": "quien recorra",
             "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
             "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
           },
           {
@@ -1053,7 +1081,8 @@
         "br": [
           "BR-4",
           "BR-5",
-          "BR-6"
+          "BR-6",
+          "BR-19"
         ],
         "eh": [
           "EH-4",
@@ -1065,7 +1094,7 @@
             "id": "W0",
             "role": "quien recorra",
             "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
             "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
           },
           {
@@ -1141,7 +1170,8 @@
         "br": [
           "BR-8",
           "BR-10",
-          "BR-15"
+          "BR-15",
+          "BR-19"
         ],
         "eh": [
           "EH-8",
@@ -1157,7 +1187,7 @@
             "id": "W0",
             "role": "quien recorra",
             "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
             "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
           },
           {
@@ -1220,7 +1250,8 @@
           "BR-3",
           "BR-16",
           "BR-17",
-          "BR-18"
+          "BR-18",
+          "BR-19"
         ],
         "eh": [
           "EH-10",
@@ -1235,7 +1266,7 @@
             "id": "W0",
             "role": "quien recorra",
             "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
             "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
           },
           {
@@ -1295,7 +1326,8 @@
           "UC-57"
         ],
         "br": [
-          "BR-10"
+          "BR-10",
+          "BR-19"
         ],
         "eh": [
           "EH-8",
@@ -1310,7 +1342,7 @@
             "id": "W0",
             "role": "quien recorra",
             "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar. Es idempotente: siembra SOLO si la base esta vacia, limpia la cache de permisos y carga el demo de disputa. Todos los usuarios usan la contrasena `password`.",
+            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
             "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
           },
           {
