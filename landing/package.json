@@ -22,6 +22,7 @@
     "@angular-devkit/build-angular": "^18.2.0",
     "@angular/cli": "^18.2.0",
     "@angular/compiler-cli": "^18.2.0",
+    "chokidar": "^3.6.0",
     "typescript": "~5.5.0"
   }
 }
