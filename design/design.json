@@ -529,6 +529,22 @@
         ],
         "enforcedBy": "Campo `probe` en walkthroughs[].steps[], renderizado en la pestana Recorridos, y App\\Http\\Middleware\\WalkTrace + config/walk.php + canal de log `walk`: una linea por peticion en storage/logs/walk.log, inerte salvo WALK_TRACE=true. WALK-7 es el recorrido que lo usa.",
         "status": "built"
+      },
+      {
+        "id": "BR-18",
+        "key": "npm-sin-scripts-de-instalacion",
+        "title": "Instalar una dependencia no ejecuta su codigo",
+        "rule": "En `frontend/` y `landing/`, `.npmrc` lleva `ignore-scripts=true`: instalar NO corre hooks `preinstall`/`postinstall`. Comprobado que los dos proyectos compilan sin ellos. Si alguna dependencia llega a necesitarlos de verdad, se ejecuta `npm rebuild <paquete>` NOMBRANDO cual — la excepcion se toma en voz alta, nunca por defecto.\n\nAdemas: `npm ci` siempre, `npm install` nunca de forma rutinaria. `ci` instala exactamente lo escrito en el lockfile y falla si no cuadra; `install` resuelve versiones nuevas sin pedir permiso, y ahi es donde entra una version recien publicada.\n\nY el diff del lockfile SE REVISA. Un `package-lock.json` que cambia paquetes que nadie pidio es un hallazgo, no ruido de formato.",
+        "why": "El 2026-08-04 se comprometio la cuenta del mantenedor de `keyv` y `cacheable` y se publicaron versiones maliciosas de nueve paquetes —keyv, cacheable-request, cache-manager, @cacheable/utils, flat-cache, file-entry-cache, cacheable, @cacheable/memory y @cacheable/node-cache— que se propagaron a unos 444 paquetes en ~2.236 versiones, con mas de dos mil millones de descargas mensuales entre todos.\n\nLo que hace a este ataque distinto de \"una libreria con un bug\" es CUANDO corre: el payload iba en un hook `preinstall` (`setup.mjs`) que descargaba un runtime Bun autonomo, ejecutaba una segunda etapa ofuscada, y robaba credenciales de npm, GitHub, AWS y HashiCorp Vault. Despues usaba los tokens de publicacion robados para troyanizar mas paquetes: un gusano. Nadie tuvo que importar nada. Bastaba con instalar.\n\nNuestra revision del 2026-08-09: ninguno de los nueve paquetes esta en `frontend/package-lock.json` ni en `landing/package-lock.json`, no hay un solo hook `preinstall` en lo instalado, y no existe ningun `setup.mjs`. Aparecio un binario Bun en `/root/.bun/bin/bun` —que es el indicador exacto de este ataque— y se descarto por fecha: es del 2026-03-18, instalado el 2026-03-31 y declarado en el `.bashrc` de la imagen, meses antes del compromiso. Estabamos limpios por suerte, no por diseno; esta regla es lo que convierte la suerte en diseno.",
+        "appliesTo": [
+          "frontend",
+          "landing",
+          "npm",
+          "CI",
+          "todo el proyecto"
+        ],
+        "enforcedBy": "`frontend/.npmrc` y `landing/.npmrc` con `ignore-scripts=true`. Verificado el 2026-08-09: `npm ci --ignore-scripts` seguido de `ng build` funciona en los dos proyectos. La parte de revisar el diff del lockfile es convencion humana y no tiene comprobacion automatica.",
+        "status": "built"
       }
     ]
   },
@@ -659,6 +675,15 @@
         "howToFind": "No se caza leyendo una respuesta: hay que pedir DOS. Por cada superficie protegida, lanzar la misma peticion con un id que existe y con un id inventado, y comparar estado Y cuerpo. Si difieren, ahi esta el oraculo, por muy defendible que sea cada una de las dos por separado. Es una comprobacion que se hace con cURL en dos lineas, asi que entra bien como `probe` de un recorrido (BR-17).",
         "whyItHides": "Porque cada mitad se defiende sola y con buenos argumentos. \"El 403 de rol no nombra ninguna fila, solo dice que este rol no entra aqui\" es verdad. \"El 404 lo pone el router al no resolver el binding, ni siquiera llega al controlador\" tambien es verdad. Una auditoria que revise sitio por sitio aprueba los dos y se va tranquila; el fallo no vive en ninguno de los dos sitios, vive en la resta. Es el patron que mejor sobrevive a una revision de codigo en seco, y por eso es el que mas justifica BR-16.",
         "realExample": "El enlace de modelo de Laravel corre ANTES del middleware de rol, asi que un id inexistente moria en 404 en el router mientras un id REAL de otro rol llegaba al middleware y salia 403. Medido: cliente contra `/provider/spaces/{real}` daba 403 y contra `{fantasma}` 404; igual proveedor contra `/client/campaigns/{id}`. Restando las dos, un proveedor podia enumerar ids de campanas de clientes. Los 18 sitios convertidos a 404 en el barrido no lo tapaban: la fuga estaba en los 403 que el barrido habia declarado correctos, uno por uno, con razon. Se cerro devolviendo 404 cuando la ruta lleva parametros —ahi si nombra una fila— y dejando 403 en las rutas de coleccion, que no revelan nada de nadie. SEGUNDA VUELTA, y esta la encontro el log de BR-17 en su PRIMERA ejecucion: la fuga seguia viva en el middleware de rol y permisos, que el barrido habia dejado en paz con un argumento correcto —un control de rol no nombra ninguna fila—. Pero `SubstituteBindings` corre ANTES, asi que un id fantasma moria en 404 en el router y uno real llegaba al middleware y salia 403. Medido en un servidor levantado: `GET /api/provider/spaces/999999` como cliente daba 404 y `GET /api/provider/spaces/1` daba 403. Corregido en `App\\Http\\Middleware\\Concerns\\RefusesWithoutLeaking`: 404 cuando la ruta lleva parametros, 403 en rutas de coleccion. Y TERCERA vuelta: con los dos estados ya iguales, los CUERPOS seguian difiriendo (`Not found.` contra `NOT_FOUND / Resource not found.`), asi que el oraculo sobrevivio al arreglo, mas callado. Igualar el estado no era el requisito; el requisito es ser INDISTINGUIBLE.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-15",
+        "key": "el-codigo-que-corre-antes-de-ser-importado",
+        "pattern": "Codigo de terceros que se ejecuta al INSTALAR, no al importar",
+        "howToFind": "Antes de instalar nada nuevo: `npm ci --dry-run --foreground-scripts` y mirar que hooks aparecen. Sobre lo ya instalado: `grep -l '\"preinstall\"\\|\"postinstall\"\\|\"prepare\"' node_modules/*/package.json node_modules/@*/*/package.json`. Y buscar los rastros del payload por su forma, no por su nombre: ficheros `setup.mjs` en la raiz de un paquete, o un runtime autonomo (bun, deno) aparecido en $HOME. Si encuentras uno, FECHALO antes de concluir: `stat` distingue lo que vino en la imagen base de lo que llego con un install.",
+        "whyItHides": "Porque toda nuestra intuicion sobre \"codigo que no uso no me afecta\" es sobre el momento de IMPORTAR. Una dependencia transitiva a cuatro niveles de profundidad, que ningun fichero nuestro menciona, que ni siquiera aparece en `package.json`, ejecuta codigo arbitrario como tu usuario en el instante en que corres el instalador. Y lo hace en el peor entorno posible: la terminal de un desarrollador o un runner de CI, que es exactamente donde viven los tokens de npm, GitHub y la nube. No hay revision de codigo que lo pare, porque el codigo no esta en tu repositorio.",
+        "realExample": "El compromiso de `keyv`/`cacheable` del 2026-08-04: hook `preinstall` → descarga de un Bun autonomo → segunda etapa ofuscada → robo de credenciales de npm/GitHub/AWS/Vault → republicacion troyanizada de mas paquetes con los tokens robados. Unos 444 paquetes y ~2.236 versiones en horas. A nosotros no nos toco —ninguno estaba en nuestros lockfiles— pero yo habia corrido `npm install` y `npm ci` varias veces en `landing/` DESPUES de esa fecha peleandome con el lockfile, sin mirar una sola vez que scripts se ejecutaban. Cerrado con BR-18.",
         "status": "found+fixed"
       }
     ]
@@ -1159,12 +1184,14 @@
         "br": [
           "BR-3",
           "BR-16",
-          "BR-17"
+          "BR-17",
+          "BR-18"
         ],
         "eh": [
           "EH-10",
           "EH-13",
-          "EH-14"
+          "EH-14",
+          "EH-15"
         ],
         "groups": [],
         "result": null,
@@ -1200,6 +1227,13 @@
             "role": "cualquiera",
             "action": "Al terminar, comparar las rutas que aparecieron en el log con la pestana Endpoints del dashboard.",
             "expected": "Lo que la pestana marca como vivo y no aparecio en ninguna linea es una capacidad sin camino desde la interfaz: o le falta pantalla, o sobra la ruta. No es un fallo automatico — es la pregunta que hay que contestar antes de dar el § por cerrado."
+          },
+          {
+            "id": "W7-6",
+            "role": "cualquiera",
+            "action": "Borrar `node_modules` en `frontend/` y en `landing/`, reinstalar con `npm ci` y mirar la salida completa.",
+            "expected": "Ni una linea de un script de ciclo de vida, porque `.npmrc` los apaga (BR-18). Y el build sigue pasando despues. Si algun dia aparece un hook, para y averigua de que paquete sale ANTES de dejarlo correr: en el ataque a keyv ese hook robaba los tokens de la maquina.",
+            "probe": "cd landing && rm -rf node_modules && npm ci --foreground-scripts 2>&1 | grep -i \"preinstall\\|postinstall\\|setup.mjs\" ; echo \"sin hooks = correcto\""
           }
         ],
         "notes": "Nace de un bucle concreto: tres veces di por buena una comprobacion estatica que resulto ser mas estrecha de lo que su nombre prometia, y las tres veces el codigo leido decia una cosa y el trafico otra. BR-16 dice que eso se corta mirando la ejecucion, no leyendo mas fuerte. Este recorrido ES esa mirada, y el paso 2 es el que ya fallo dos veces."

@@ -95,6 +95,44 @@ alongside its id, so a rule can be named in conversation without restating it: `
 `dinero-depositado-no-se-devuelve` reach the same place. The dashboard renders the key as a
 click-to-copy chip.
 
+## Learning — npm supply chain (2026-08-09, after the keyv compromise)
+
+**The lesson: installing a dependency runs its code.** On 2026-08-04 the maintainer account
+behind `keyv` and `cacheable` was taken over and malicious versions of nine packages were
+published — `keyv`, `cacheable-request`, `cache-manager`, `@cacheable/utils`, `flat-cache`,
+`file-entry-cache`, `cacheable`, `@cacheable/memory`, `@cacheable/node-cache` — spreading to
+roughly 444 packages across ~2,236 versions, together over two billion monthly downloads.
+
+What makes it different from "a library with a bug" is **when it runs**. The payload lived in a
+`preinstall` hook (`setup.mjs`) that fetched a standalone Bun runtime, ran an obfuscated second
+stage, and harvested npm, GitHub, AWS and HashiCorp Vault credentials — then used the stolen
+publish tokens to trojanize more packages. A worm. **Nobody had to import anything. Installing
+was enough.** Every instinct we have about "code I don't call can't hurt me" is about import
+time, and this runs before that, as your user, in the one place where the tokens live.
+
+**Our audit (2026-08-09): clean.** None of the nine appears in `frontend/package-lock.json` or
+`landing/package-lock.json`; no `preinstall` hook in anything installed; no `setup.mjs`. A Bun
+binary at `/root/.bun/bin/bun` — the exact IoC — was ruled out **by date**: built 2026-03-18,
+installed 2026-03-31, declared in the image's `.bashrc`, months before the compromise. Date a
+suspicious artefact before concluding anything about it; `stat` separates the base image from
+what an install dropped.
+
+**What changed, so this is design and not luck** → `BR-18` (`npm-sin-scripts-de-instalacion`)
+and `EH-15` (`el-codigo-que-corre-antes-de-ser-importado`):
+
+- `frontend/.npmrc` and `landing/.npmrc` carry `ignore-scripts=true`. Verified: `npm ci
+  --ignore-scripts` followed by `ng build` works in both. If a dependency ever genuinely needs
+  a build step, run `npm rebuild <package>` **naming it** — the exception gets said out loud.
+- **`npm ci`, never a routine `npm install`.** `ci` installs exactly what the lockfile says and
+  fails if it disagrees; `install` resolves new versions without asking, and that is the door a
+  freshly published malicious version walks through.
+- **The lockfile diff is reviewed.** A `package-lock.json` that changes packages nobody asked
+  for is a finding, not formatting noise.
+
+Honest note on how this was found: I had run `npm install` and `npm ci` in `landing/` several
+times *after* 2026-08-04 while fighting the lockfile, without once looking at which scripts were
+executing. The exposure was real even though the outcome was clean.
+
 ## Key Files
 
 | File | Purpose |
