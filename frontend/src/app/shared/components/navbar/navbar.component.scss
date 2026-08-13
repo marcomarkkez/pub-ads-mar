@@ -1,3 +1,21 @@
+// The bar has to stay reachable while the page scrolls — the avatar is the only way to
+// sign out. `position: sticky` used to live on `.navbar` and never stuck: a sticky box
+// cannot escape its containing block, and `.navbar`'s containing block is the 56px-tall
+// <app-navbar> host, so the whole bar scrolled away with the page (measured on
+// /client/spaces: scrollY 93 -> navbar top -93, avatar off screen). The HOST is the flex
+// item that spans the layout, so the HOST is what must stick.
+//
+// This also makes the HOST the one stacking context that has to win page-wide: at 1100
+// it clears the Leaflet map (panes/controls ~500–1000) and the toast column (1050). That
+// is why the three rules below only need ordinal values — they order the component
+// against ITSELF (backdrop 0 < bar 1 < dropdown 2), not against the rest of the app.
+:host {
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+}
+
 .navbar {
   display: flex;
   align-items: center;
@@ -6,11 +24,10 @@
   height: 56px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  // Above Leaflet map panes/controls (~500–1000) so the user menu isn't hidden
-  // behind the map on the Explore Spaces page.
-  z-index: 1100;
+  // Must outrank .backdrop, which comes LATER in the DOM: otherwise the backdrop would
+  // paint over the avatar and the first click after opening the menu would hit nothing.
+  position: relative;
+  z-index: 1;
 }
 
 .logo {
@@ -88,7 +105,8 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 1101;
+  // No z-index needed: it is positioned, so it already paints above the bar's in-flow
+  // content, and it rides inside .navbar's layer, which is above .backdrop.
   overflow: hidden;
 }
 
@@ -120,8 +138,10 @@
   &:hover { background: var(--hover); }
 }
 
+// No z-index on purpose: positioned + auto keeps it in the DOM-order layer, which is
+// below .navbar's positive z-index 1 and above everything the page paints. It covers
+// the viewport only to catch the next click and shut the menu.
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1099;
 }

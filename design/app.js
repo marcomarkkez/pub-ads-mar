@@ -491,11 +491,13 @@
           keyChip(r.key) +
           '<span class="rule-title">' + esc(r.title) + '</span>' +
           '<span class="tag rule-state is-' + esc(r.status) + '">' + esc(r.status) + '</span>' +
+          /* Mismo sitio que en Recorridos: extremo derecho de la cabecera (ver renderWalks). */
+          '<span class="head-pin" data-pin-rule="' + esc(r.id) + '"></span>' +
           '</div>' +
           '<p class="prose rule-rule">' + esc(r.rule) + '</p>' +
           '<p class="prose rule-why"><span class="lbl">por que</span> ' + esc(r.why) + '</p>' +
           '<p class="prose rule-by"><span class="lbl">lo sostiene</span> ' + esc(r.enforcedBy) + '</p>' +
-          '<div class="row-tags" data-pin-rule="' + esc(r.id) + '">' + (r.appliesTo || []).map(function (a) {
+          '<div class="row-tags">' + (r.appliesTo || []).map(function (a) {
             return '<span class="tag">' + esc(a) + '</span>';
           }).join('') + '</div></div>';
       });
@@ -541,11 +543,13 @@
           keyChip(e.key) +
           '<span class="rule-title">' + esc(e.pattern) + '</span>' +
           '<span class="tag q-state ' + (open ? "open" : "done") + '">' + esc(e.status) + '</span>' +
+          /* Antes colgaba de un .row-tags VACIO al final de la ficha, invisible por partida doble.
+             Ahora en la cabecera, como en el resto de vistas. */
+          '<span class="head-pin" data-pin-hunt="' + esc(e.id) + '"></span>' +
           '</div>' +
           '<p class="prose hunt-find"><span class="lbl">como buscarlo</span> ' + esc(e.howToFind) + '</p>' +
           '<p class="prose hunt-hide"><span class="lbl">por que se esconde</span> ' + esc(e.whyItHides) + '</p>' +
           '<p class="prose hunt-real"><span class="lbl">caso real</span> ' + esc(e.realExample) + '</p>' +
-          '<div class="row-tags" data-pin-hunt="' + esc(e.id) + '"></div>' +
           '</div>';
       });
       if (!items.length) html += '<div class="empty">Ningun patron coincide.</div>';
@@ -585,10 +589,11 @@
       html += '<h3>Abiertas <span class="badge">' + open.length + '</span></h3><div class="q-list">';
       open.forEach(function (i) {
         html += '<div class="q-row is-open"><div class="q-head"><span class="q-id">' + esc(i.id) + '</span>' +
-          '<span class="tag q-state open">abierta</span></div>' +
+          '<span class="tag q-state open">abierta</span>' +
+          '<span class="head-pin" data-pin-q="' + esc(i.id) + '"></span></div>' +
           '<div class="q-question">' + esc(i.question) + '</div>' +
           '<p class="prose">' + esc(i.oneLiner) + '</p>' +
-          '<div class="row-tags" data-pin-q="' + esc(i.id) + '">' + (i.impacts || []).map(function (x) {
+          '<div class="row-tags">' + (i.impacts || []).map(function (x) {
             return '<span class="tag">' + esc(x) + '</span>';
           }).join('') + '</div></div>';
       });
@@ -596,10 +601,10 @@
       html += '</div><h3>Resueltas <span class="badge">' + res.length + '</span></h3><div class="q-list">';
       res.forEach(function (i) {
         html += '<div class="q-row"><div class="q-head"><span class="q-id">' + esc(i.id) + '</span>' +
-          '<span class="tag q-state done">resuelta ' + esc(i.answeredOn || "") + '</span></div>' +
+          '<span class="tag q-state done">resuelta ' + esc(i.answeredOn || "") + '</span>' +
+          '<span class="head-pin" data-pin-q="' + esc(i.id) + '"></span></div>' +
           '<p class="prose" style="color:var(--muted)">' + esc(i.oneLiner) + '</p>' +
-          '<p class="prose"><strong>→ ' + esc(i.resolution) + '</strong></p>' +
-          '<div class="row-tags" data-pin-q="' + esc(i.id) + '"></div></div>';
+          '<p class="prose"><strong>→ ' + esc(i.resolution) + '</strong></p></div>';
       });
       html += '</div>';
       box.innerHTML = html;
@@ -724,18 +729,23 @@
            que ESE § o ESE Fxx se cerro por un recorrido y no por revision en seco. */
         var done = it.status === "passed";
         var meta = walkStatusMeta(it.status);
+        /* El boton de bandeja va en la CABECERA, no al final de .row-tags. Ahi era el chip numero
+           quince de una fila de quince chips grises (WALK-6) y el dueno, literalmente, "no veia el
+           +". En la cabecera el numero de elementos es fijo y pequeno, es por donde se entra a la
+           tarjeta, y .row-tags vuelve a ser lo que dice ser: referencias, sin un control de accion
+           mezclado entre los datos. */
         html += '<div class="walk is-' + esc(it.status) + '"><div class="walk-head">' +
           '<span class="q-id">' + esc(it.id) + '</span>' +
           '<span class="walk-title">' + esc(it.title) + '</span>' +
           '<span class="tag q-state ' + (done ? "done" : "open") + '" style="border-color:' + esc(meta.color) + '">' +
           esc(meta.label) + '</span>' +
+          '<span class="head-pin" data-pin-walk="' + esc(it.id) + '"></span>' +
           '</div><div class="row-tags">' +
           (it.closes || []).map(function (c) { return refChip("cierra " + c, done); }).join('') +
           (it.specs || []).map(function (s) { return refChip(s, done); }).join('') +
           (it.ucs || []).map(function (u) { return refChip(u, done); }).join('') +
           (it.br || []).map(function (b) { return refChip(b, done, "br"); }).join('') +
           (it.eh || []).map(function (e) { return refChip(e, done, "eh"); }).join('') +
-          '<span data-pin-walk="' + esc(it.id) + '"></span>' +
           '</div><ol class="walk-steps">';
         (it.steps || []).forEach(function (s) {
           html += '<li class="walk-step"><span class="walk-role">' + esc(s.role) + '</span>' +
@@ -1534,6 +1544,8 @@
     b.type = "button";
     b.className = "pin-btn" + (trayHas(ref.key) ? " on" : "");
     b.setAttribute("data-ref", ref.key);
+    // El glifo (＋ / ✓) no dice nada a un lector de pantalla; el nombre accesible lo pone aqui.
+    b.setAttribute("aria-label", "Añadir " + ref.label + " a la bandeja");
     b.title = "Añadir a la bandeja para citarlo en el prompt";
     b.textContent = trayHas(ref.key) ? "✓" : "＋";
     b.addEventListener("click", function (e) { e.stopPropagation(); trayToggle(ref); });

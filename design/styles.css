@@ -258,18 +258,44 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .ghost-btn.on { background: var(--accent-weak); color: var(--accent); border-color: var(--accent); }
 .ghost-btn.ok { background: #22c55e; border-color: #22c55e; color: #fff; }
 
-/* the per-row "add to tray" affordance; stays out of the way until the row is hovered */
+/* El boton "a la bandeja" de cada ficha.
+   ANTES: opacity 0 en reposo, y la regla que lo devolvia a 1 solo nombraba .spec-row, .todo-row y
+   .card. En las vistas que llegaron despues (Recorridos, Reglas, Caceria, Preguntas, Endpoints,
+   Sprint, Glosario, Flow/ER/Classes) NINGUN ancestro casaba, asi que el boton estaba en el DOM,
+   medido 22x22, clicable... y con opacity 0 PARA SIEMPRE: ni pasando el raton por encima del propio
+   boton subia (`.pin-btn:hover` cambiaba color y borde, nunca la opacidad). De ahi el reporte "los
+   recorridos no tienen boton para copiar a la bandeja": estaba, pero era invisible, que para el que
+   mira es exactamente lo mismo que no estar.
+   AHORA: se dibuja SIEMPRE y con peso de boton — relleno de acento, borde de acento — porque es lo
+   unico pulsable de esa cabecera y tenia que distinguirse de las etiquetas grises que lo rodean.
+   Una afordancia que solo aparece al pasar el raton no se puede descubrir; pasar el raton por una
+   ficha ya es haberla encontrado. El hover solo REFUERZA (borde nitido + halo), no revela. */
 .pin-btn {
   flex: none; width: 22px; height: 22px; line-height: 1; border-radius: 6px; cursor: pointer;
-  background: transparent; border: 1px solid var(--border); color: var(--muted);
-  font: inherit; font-size: 12px; opacity: 0; transition: opacity .12s;
+  background: var(--accent-weak); color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  font: inherit; font-size: 12px; font-weight: 700;
+  transition: background .12s, border-color .12s, box-shadow .12s;
 }
-.spec-row:hover .pin-btn, .todo-row:hover .pin-btn, .card:hover .pin-btn,
-.spec-row:focus-within .pin-btn, .todo-row:focus-within .pin-btn, .card:focus-within .pin-btn,
-.pin-btn:focus-visible, .pin-btn.on { opacity: 1; }
-.pin-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* :is() mantiene legible la lista de contenedores de ficha. Si un navegador no la entendiera e
+   ignorase la regla, el boton sigue visible y usable: aqui solo se refuerza. */
+:is(.spec-row, .todo-row, .card, .walk, .rule, .hunt, .q-row, .ep-row, .gloss-row, .sprint h3):is(:hover, :focus-within) .pin-btn {
+  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak);
+}
+.pin-btn:hover, .pin-btn:focus-visible {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface)); border-color: var(--accent);
+}
+/* Ya en la bandeja: relleno solido. Distinto del hover a proposito — "esta dentro" no es "vas a meterlo". */
 .pin-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-.card-head .pin-btn { margin-left: auto; }
+/* Un unico sitio en TODAS las vistas: el extremo derecho de la cabecera de la ficha. Se eligio ese
+   y no "pegado al titulo" porque es donde ya estaba en Todos, User Stories, Endpoints y las tarjetas
+   de Specs — las vistas donde el dueno si lo encontraba — y porque su x no depende de lo largo que
+   sea el titulo: se aprende una vez y vale para las trece pestanas. */
+.card-head .pin-btn, .head-pin { margin-left: auto; }
+.head-pin { display: inline-flex; align-items: center; }
+/* Excepcion razonada: en un <h3> el extremo derecho son 900px de blanco, asi que ahi el boton va
+   pegado al titulo, que es donde esta el ojo. */
+.sprint h3 .pin-btn { margin-left: 8px; vertical-align: middle; }
 
 /* Above the drawer (z-index 50): pinning several items means opening one, pinning it, opening
    the next — the tray has to stay clickable while a drawer is on top of it. */
@@ -305,7 +331,9 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
    .openQuestions and .walkthroughs. They reuse the .sprint container so they
    inherit its prose width and heading rhythm; only the row shapes are new. */
 .gloss-list, .q-list { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 18px; }
-.gloss-row { display: grid; grid-template-columns: minmax(120px, 200px) 1fr; gap: 14px;
+/* Tercera columna `auto`: es donde vive el boton de bandeja. Sin ella el boton caia como tercer
+   hijo del grid, es decir a la fila de abajo bajo la columna del codigo, lejos de todo. */
+.gloss-row { display: grid; grid-template-columns: minmax(120px, 200px) 1fr auto; gap: 14px;
   padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
 .gloss-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
   font-weight: 600; color: var(--accent); word-break: break-word; }
@@ -415,7 +443,7 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 /* Un puntero citado en prosa que de verdad lleva a lo citado (WALK-4 · W4-3). */
 .ref-link { color: var(--accent); text-decoration: none; border-bottom: 1px dotted currentColor; }
 .ref-link:hover { border-bottom-style: solid; }
-.gloss-row .pin-btn { margin-left: 8px; }
+.gloss-row .pin-btn { align-self: start; margin-left: 8px; }
 .ep-pin { margin-left: auto; }
 
 /* Indice bajo cada diagrama: lo que de verdad se puede citar de un SVG. */

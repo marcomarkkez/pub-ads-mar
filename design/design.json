@@ -1188,46 +1188,49 @@
             "role": "quien recorra",
             "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
             "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
-            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count().PHP_EOL;\"; curl -s -o /dev/null -w \"login client1 -> %{http_code}\\n\" -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"client1@pubads.test\",\"password\":\"password\"}'   # exige 8 usuarios o mas y \"login client1 -> 200\". 0 usuarios = sin sembrar, y entonces el login dira \"credenciales incorrectas\" por mucho que la contrasena sea la buena."
           },
           {
             "id": "W6-1",
             "role": "cliente",
             "action": "Registrarse desde cero y quedarse en la pantalla a la que caiga, SIN recargar.",
             "expected": "El menu ya trae la pestana de Colaboradores. Quien abre una cuenta es su dueno (BR-8) y la respuesta del registro ya lo dice — antes habia que recargar la pagina entera para que apareciera.",
-            "probe": "curl -si -X POST localhost:8000/api/register -H \"Content-Type: application/json\" -d '{...}' | grep is_owner   # debe venir true en la respuesta del registro, no solo en /me"
+            "probe": "EMAIL=\"walk6-$(date +%s)@pubads.test\"; curl -si -X POST localhost:8000/api/register -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"name\\\":\\\"Walk Seis\\\",\\\"email\\\":\\\"$EMAIL\\\",\\\"password\\\":\\\"password\\\",\\\"password_confirmation\\\":\\\"password\\\",\\\"role\\\":\\\"client\\\"}\" | tr ',' '\\n' | grep -E \"^HTTP/|is_owner|collaborating_on\"   # exige 201 y \"is_owner\":true EN LA RESPUESTA DEL REGISTRO, no solo en /me. El correo lleva la hora para poder repetir la sonda: repetir uno ya usado es 422."
           },
           {
             "id": "W6-2",
             "role": "cliente",
             "action": "Cerrar sesion y volver a entrar por login.",
-            "expected": "Mismo resultado y sin recargar: el menu esta completo desde el primer pintado."
+            "expected": "Mismo resultado y sin recargar: el menu esta completo desde el primer pintado.",
+            "probe": "LOGIN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"client1@pubads.test\",\"password\":\"password\"}'); TOKEN=$(echo \"$LOGIN\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); ME=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/me); python3 -c \"import json,sys;k=['account_id','is_owner','collaborating_on'];a=json.loads(sys.argv[1]);b=json.loads(sys.argv[2]);ca={x:a.get(x) for x in k};cb={x:b.get(x) for x in k};print('login:',ca);print('me   :',cb);print('IGUALES' if ca==cb else 'DISTINTOS')\" \"$LOGIN\" \"$ME\"   # exige IGUALES: el login ya trae el mismo contexto de cuenta que /me, que es lo que permite pintar el menu completo sin recargar. Cambia el correo por el que registraste en W6-1 si quieres."
           },
           {
             "id": "W6-3",
             "role": "cliente",
             "action": "Invitar a un colaborador a la cuenta y aceptar la invitacion desde la otra sesion.",
             "expected": "El colaborador entra a la cuenta ajena y ADEMAS conserva su propia pestana de Colaboradores, porque es dueno de su propia cuenta. Este es el caso mixto de EH-11: si la pestana propia desaparece al colaborar en otra cuenta, la puerta esta colgada de la senal equivocada.",
-            "probe": "curl -s -H \"Authorization: Bearer $TOKEN_COLABORADOR\" localhost:8000/api/me | grep collaborating_on   # tras aceptar debe traer la cuenta ajena, no []"
+            "probe": "COLAB=colab1@pubads.test; TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"email\\\":\\\"$COLAB\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/me | python3 -c \"import sys,json;d=json.load(sys.stdin);print('is_owner=',d['is_owner'],' collaborating_on=',d['collaborating_on'])\"   # pon en COLAB el correo que acabas de aceptar; colab1@pubads.test ya viene aceptado en la cuenta 3 del sembrador. Exige LAS DOS senales a la vez: is_owner= True Y collaborating_on= [3] no vacio. Ese es el caso mixto de EH-11: si una de las dos falta, la pestana esta colgada de la senal equivocada."
           },
           {
             "id": "W6-4",
             "role": "colaborador",
             "action": "Intentar salirse de la cuenta ajena por la interfaz, y si no hay boton, por peticion directa.",
             "expected": "No hay boton — y la peticion directa responde 409 diciendo que la desvinculacion pasa por Soporte. BR-15: el vinculo solo lo rompe el dueno, y que Soporte todavia no pueda hacerlo es deuda conocida, no un descuido.",
-            "probe": "curl -si -X DELETE -H \"Authorization: Bearer $TOKEN_COLABORADOR\" localhost:8000/api/client/collaborators/$MI_PROPIA_FILA | head -1   # exige 409"
+            "probe": "COLAB=colab1@pubads.test; TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"email\\\":\\\"$COLAB\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); ROW=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/collaborations | python3 -c \"import sys,json;print([r['id'] for r in json.load(sys.stdin) if r['status']=='accepted'][0])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/client/collaborators/$ROW | grep -E \"^HTTP/|CONFLICTING_STATE\"   # exige 409 con error_code CONFLICTING_STATE y un mensaje que mande a Soporte. Ni 200 (se solto solo) ni 404 (mentir sobre una fila que el colaborador ve en su propia sesion)."
           },
           {
             "id": "W6-5",
             "role": "admin",
             "action": "Abrir la pantalla de usuarios con la consola de red abierta y pulsar todo lo que se pueda pulsar en una fila.",
-            "expected": "Ninguna peticion responde 404. No hay boton de borrar: hay desactivar y reactivar, que es la capacidad que el admin tiene de verdad. Un 404 aqui es EH-10 en vivo."
+            "expected": "Ninguna peticion responde 404. No hay boton de borrar: hay desactivar y reactivar, que es la capacidad que el admin tiene de verdad. Un 404 aqui es EH-10 en vivo.",
+            "probe": "TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"admin@pubads.test\",\"password\":\"password\"}' | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); TARGET=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/admin/users | python3 -c \"import sys,json;print([u['id'] for u in json.load(sys.stdin)['data'] if u['email']=='client2@pubads.test'][0])\"); for BODY in '{\"is_active\":false}' '{\"is_active\":true}'; do curl -s -o /dev/null -w \"PUT $BODY -> %{http_code}\\n\" -X PUT -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"$BODY\" localhost:8000/api/admin/users/$TARGET; done; curl -s -o /dev/null -w \"DELETE -> %{http_code}\\n\" -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/admin/users/$TARGET   # exige 200, 200 y 405: desactivar y reactivar responden, y el borrado NO EXISTE como ruta. Un 404 en cualquiera de las tres es EH-10 en vivo (boton que apunta a algo que no esta)."
           },
           {
             "id": "W6-6",
             "role": "proveedor",
             "action": "Intentar borrar un espacio que tenga reservas y leer lo que sale en pantalla.",
-            "expected": "Sale la LISTA de motivos que devuelve el 409, no un \"error\" generico: un no sin motivo deja al proveedor adivinando cual de sus clientes lo esta reteniendo."
+            "expected": "Sale la LISTA de motivos que devuelve el 409, no un \"error\" generico: un no sin motivo deja al proveedor adivinando cual de sus clientes lo esta reteniendo.",
+            "probe": "TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"provider1@pubads.test\",\"password\":\"password\"}' | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); SPACE=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/provider/bookings | python3 -c \"import sys,json;print(json.load(sys.stdin)[0]['space_id'])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/provider/spaces/$SPACE | grep -E \"^HTTP/|blockers\"   # el espacio se saca de una reserva viva a proposito: probar con uno libre no da 409, PROGRAMA su borrado. Exige 409 y blockers[] con kind live_bookings / unsettled_payments, o sea la LISTA de motivos y no un \"error\" generico."
           }
         ],
         "notes": "Es el recorrido de esta ronda: cierra AUTH-1, COLAB-1 y UI-1 de una sentada. Los pasos 3 y 4 son los que de verdad importan — el 3 porque el caso mixto (dueno propio + colaborador ajeno) es el unico que distingue las dos senales, y el 4 porque un colaborador que se suelta solo rompe la cadena de responsabilidad que sostiene todo lo demas."

@@ -1,0 +1,186 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+/**
+ * design.json WALK-6 — "recorrido humano de entrada: login, menu y colaboradores".
+ *
+ * A walkthrough is a PERSON driving the real screens, and it stays that. This file is the
+ * second net under it: the two claims WALK-6 makes that nothing in the suite pinned, so a
+ * regression between one walk and the next lands on a red test instead of on the next
+ * person to walk it.
+ *
+ * WHAT IS ALREADY COVERED ELSEWHERE — do not restate it here:
+ *   - register/login/me all answer the account context, and agree ....... AuthAccountContextTest
+ *   - `is_owner` is true from the register response (W6-1) ............... AuthAccountContextTest
+ *   - accepting an invitation fills `collaborating_on` (W6-3) ............ CollaborationInviteFlowTest
+ *   - a collaborator cannot unlink themselves, 409 not 404 (W6-4) ........ AccountScopeTest
+ *   - there is no DELETE /admin/users/{id}, 405 (W6-5) ................... AuditWritersTest,
+ *                                                                         AccountDeletionGuardrailsTest
+ *   - deleting a booked listing is 409 with a blockers[] list (W6-6) ..... SpaceDeletionGuardTest
+ *
+ * WHAT WAS MISSING, and is here:
+ *   1. W6-3's MIXED signal — owner of my own account AND collaborator on yours, both true
+ *      in the same response, after a real accept through the endpoint. The pieces were
+ *      each tested apart; the combination is the only case that tells the two signals
+ *      apart, which is exactly why EH-11 is written about it.
+ *   2. W6-5's actual admin capability — deactivate and reactivate. The suite pinned the
+ *      absence of the delete route twice over and the presence of its replacement zero
+ *      times, so "the admin can still take somebody off the platform" rested on nothing.
+ */
+class Walk6EntryFlowTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(RolePermissionSeeder::class);
+    }
+
+    // ── W6-3 · EH-11: the mixed case ──────────────────────────────────────────
+
+    /**
+     * The person who registered their own account and then accepted an invitation into
+     * somebody else's is BOTH things at once, and the menu needs both facts:
+     * `is_owner` keeps their own Collaborators tab, `collaborating_on` opens the other
+     * account. A UI that hangs the tab on the wrong one of the two looks correct for
+     * every user except this one — and this one is the normal case the day two clients
+     * help each other out.
+     */
+    public function test_a_collaborator_keeps_being_the_owner_of_their_own_account(): void
+    {
+        $owner = User::factory()->create(['role' => 'client']);
+
+        // Registered through the front door, so their own account is real, not a fixture.
+        $helper = $this->postJson('/api/register', [
+            'name' => 'Ana Ayuda',
+            'email' => 'ana.ayuda@x.test',
+            'password' => 'secret-pass',
+            'password_confirmation' => 'secret-pass',
+            'role' => 'client',
+        ])->assertStatus(201);
+
+        $ownAccount = $helper->json('account_id');
+        $this->assertNotSame($owner->account_id, $ownAccount);
+
+        Sanctum::actingAs($owner);
+        $invitation = $this->postJson('/api/client/collaborators', [
+            'email' => 'ana.ayuda@x.test',
+            'role' => 'manager',
+        ])->assertStatus(201)->json('id');
+
+        $helperUser = User::where('email', 'ana.ayuda@x.test')->firstOrFail();
+        Sanctum::actingAs($helperUser);
+        $this->postJson("/api/collaborations/{$invitation}/accept")->assertStatus(200);
+
+        // BOTH signals, in the same payload. Note `account_id` still points at their OWN
+        // account: collaborating somewhere else does not move you there.
+        $me = $this->getJson('/api/me')->assertStatus(200);
+        $me->assertJsonPath('is_owner', true);
+        $me->assertJsonPath('account_id', $ownAccount);
+        $me->assertJsonPath('collaborating_on', [$owner->account_id]);
+
+        // …and the same on the response that opens the session, or the tab would only
+        // appear after a full reload — which is the bug WALK-6 exists to catch.
+        $login = $this->postJson('/api/login', [
+            'email' => 'ana.ayuda@x.test',
+            'password' => 'secret-pass',
+        ])->assertStatus(200);
+
+        $login->assertJsonPath('is_owner', true);
+        $login->assertJsonPath('account_id', $ownAccount);
+        $login->assertJsonPath('collaborating_on', [$owner->account_id]);
+    }
+
+    /**
+     * The owner's own view of the same fact: their Collaborators list shows the person,
+     * `accepted`, and the owner is not suddenly "collaborating on" their own account.
+     * (An owner appearing in their own `collaborating_on` would put a second copy of
+     * their account in their own menu.)
+     */
+    public function test_the_owner_is_not_a_collaborator_on_their_own_account(): void
+    {
+        $owner = User::factory()->create(['role' => 'client']);
+        $helper = User::factory()->create(['role' => 'client']);
+
+        Sanctum::actingAs($owner);
+        $invitation = $this->postJson('/api/client/collaborators', [
+            'email' => $helper->email,
+            'role' => 'manager',
+        ])->assertStatus(201)->json('id');
+
+        Sanctum::actingAs($helper);
+        $this->postJson("/api/collaborations/{$invitation}/accept")->assertStatus(200);
+
+        Sanctum::actingAs($owner);
+        $this->getJson('/api/me')
+            ->assertStatus(200)
+            ->assertJsonPath('is_owner', true)
+            ->assertJsonPath('collaborating_on', []);
+
+        $this->getJson('/api/client/collaborators')
+            ->assertStatus(200)
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.status', 'accepted');
+    }
+
+    // ── W6-5 · the capability the admin actually has ──────────────────────────
+
+    /**
+     * §2/§12 (owner 2026-08-03) — "el admin sólo puede quitar usuarios de sus roles, no
+     * eliminar". The suite already pins the DELETE route's absence (405, twice). This
+     * pins the half that replaces it, because a screen whose only button is a deactivate
+     * that silently no-ops is worse than the delete it replaced: the admin believes the
+     * person is out.
+     *
+     * The two requests are exactly the ones the Users screen fires per row — the paginated
+     * index and PUT `{is_active}` — so a 404 here is EH-10 (a button pointing at nothing),
+     * which is the thing W6-5 asks the walker to watch the network console for.
+     */
+    public function test_the_admin_deactivates_and_reactivates_instead_of_deleting(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $client = User::factory()->create([
+            'role' => 'client',
+            'email' => 'fuera@x.test',
+            'password' => Hash::make('secret-pass'),
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/users?page=1')->assertStatus(200)->assertJsonStructure(['data']);
+        $this->getJson("/api/admin/users/{$client->id}")->assertStatus(200);
+
+        $this->putJson("/api/admin/users/{$client->id}", ['is_active' => false])
+            ->assertStatus(200)
+            ->assertJsonPath('is_active', false);
+
+        $this->assertFalse((bool) $client->fresh()->is_active);
+
+        // The switch has to reach the door, or it is decoration.
+        $this->postJson('/api/login', ['email' => 'fuera@x.test', 'password' => 'secret-pass'])
+            ->assertStatus(403)
+            ->assertJsonPath('error_code', 'AUTH_ACCOUNT_DEACTIVATED');
+
+        // Reversible, which is the whole reason it is not a delete: nothing was destroyed,
+        // so the person comes back with their campaigns, bookings and money intact.
+        Sanctum::actingAs($admin);
+        $this->putJson("/api/admin/users/{$client->id}", ['is_active' => true])
+            ->assertStatus(200)
+            ->assertJsonPath('is_active', true);
+
+        $this->postJson('/api/login', ['email' => 'fuera@x.test', 'password' => 'secret-pass'])
+            ->assertStatus(200)
+            ->assertJsonPath('is_owner', true);
+
+        $this->assertDatabaseHas('users', ['id' => $client->id, 'is_active' => true]);
+    }
+}
