@@ -55,7 +55,10 @@ RULES = [
 
     (r"^(frontend|landing)/src/",
      "FRONTEND",
-     "Hay que reconstruir para ver el cambio.",
+     "Hay que reconstruir para ver el cambio — pero NO igual en los dos proyectos, y la "
+     "diferencia importa: `frontend/` corre en docker con `ng serve` sobre el codigo montado y "
+     "recompila SOLO, asi que basta recargar; `landing/` no esta en docker-compose y si se "
+     "compila a mano.",
      None),
 
     (r"^design/(app\.js|styles\.css|design\.html)$",
@@ -70,6 +73,27 @@ RULES = [
 NARROWING = re.compile(
     r"\b(dropColumn|dropTable|->change\(\)|CHECK\s*\(|NOT NULL|unique\(|foreign\(|"
     r"renameColumn|dropForeign)\b", re.I)
+
+
+def command_for(label, project):
+    """El comando REAL de este proyecto, no el generico.
+
+    `frontend/` vive en docker-compose con `npm ci` hecho DENTRO de la imagen y su
+    `node_modules` en un volumen: en el host ese directorio no existe, asi que un
+    `npx ng build` alli falla con "could not determine executable to run". Y ademas no
+    hace falta — el contenedor monta el codigo y sirve con `ng serve --poll`, o sea que
+    recompila solo. `landing/` no esta en compose y si se construye a mano.
+
+    Los comandos van entre parentesis a proposito: un `cd x && …` que falla deja la
+    terminal dentro de `x`, y el siguiente comando de la receta se ejecuta desde el sitio
+    equivocado. Ya paso: el `python3 mvp-init.py` de la linea siguiente se buscó en
+    `frontend/`. Un subshell no puede mover al que lo llama.
+    """
+    if label == "DEPENDENCIAS NPM":
+        return "( cd %s && npm ci )" % project
+    if project == "frontend":
+        return "# frontend: el contenedor recompila solo — solo recarga el navegador (Ctrl+Shift+R)"
+    return "( cd %s && npx ng build )" % project
 
 
 def paths_in(patch_text):
@@ -105,8 +129,7 @@ def main():
         hits.append((label, why, matched))
         if cmds is None:
             projects = sorted({f.split("/")[0] for f in matched})
-            verb = "npm ci" if label == "DEPENDENCIAS NPM" else "npx ng build"
-            cmds = ["cd %s && %s" % (proj, verb) for proj in projects]
+            cmds = [command_for(label, proj) for proj in projects]
         steps.extend(cmds)
 
     if not hits:

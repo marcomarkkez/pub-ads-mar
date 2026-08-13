@@ -95,6 +95,36 @@ alongside its id, so a rule can be named in conversation without restating it: `
 `dinero-depositado-no-se-devuelve` reach the same place. The dashboard renders the key as a
 click-to-copy chip.
 
+## Rule — a command you write down is a command you already ran (2026-08-13)
+
+Three failures in one day, all the same shape: **instructions that had never been executed**.
+
+**1. Zero placeholders. Ever.** WALK-6 step 1 shipped as
+`curl -si -X POST localhost:8000/api/register -d '{...}'`. `'{...}'` was a placeholder I meant
+to fill in and never did. The owner copied it, got nothing back, and lost the run. A probe that
+cannot be pasted and executed is **worse than no probe**: it costs the walker time and it
+discredits every other line in the script. Every probe now carries complete JSON, resolves its
+own token inline, and states the status code it demands — and each was **run verbatim, with its
+real output pasted into the report**, before being written into design.json.
+
+**2. Do not prescribe host tooling that lives in a container.** I told the owner
+`cd frontend && npx ng build`. It failed with `could not determine executable to run`, because
+`frontend/node_modules` is a **Docker named volume**: `npm ci` runs inside the image, and on the
+host that directory does not exist. It is also unnecessary — compose mounts the source and the
+container runs `ng serve --poll`, so **`frontend/` rebuilds itself and only needs a browser
+reload**. `landing/` is NOT in compose, so it does build on the host. Same-looking projects,
+opposite commands; `patch-preflight.py` now emits the right one per project.
+
+**3. Never chain `cd x && …` in a recipe.** When that build failed, the `&& cd ..` never ran,
+so the next line — `python3 mvp-init.py` — executed from inside `frontend/` and failed too. One
+wrong command became two. Recipes now wrap every directory change in a subshell: `( cd landing
+&& npm ci )` cannot move the caller's shell, whether it succeeds or fails.
+
+**The rule behind all three:** an instruction handed to someone else is a claim that it works.
+Run it verbatim first, from the directory you are telling them to be in, on the stack they
+actually have. This is `BR-17` (a walk may use cURL) taken seriously: a probe is only worth
+having if it is falsifiable, and one that errors on its own syntax falsifies nothing.
+
 ## Rule — before and after EVERY `git apply` / docker action (2026-08-09)
 
 **The prevention used to sit at the wrong moment.** It said: *"the moment the owner says
