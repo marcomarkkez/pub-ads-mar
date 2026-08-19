@@ -34,9 +34,27 @@ class DisputeDemoSeeder extends Seeder
         $this->user('support@pubads.test', 'Demo Support', 'support');
         $this->user('payments@pubads.test', 'Demo Payments', 'payments');
 
-        $space = Space::firstOrCreate(
+        // `type` and `price_per_day` are spelled out ON PURPOSE — this is not decoration.
+        // This row used to be seeded without them, and the NULL type took down the WHOLE
+        // provider "My Spaces" screen on 2026-08-15: formatType(null) threw from a template
+        // expression, Angular aborted the update pass, and the rest of the view stopped
+        // rendering (View/Edit anchors with no href, no delete button, avatar menu dead).
+        // The space is is_active, so it is also public in the client search — an untyped,
+        // priceless listing there reads as "Unspecified / Not set" garbage. Values match
+        // what DatabaseSeeder gives the other billboards (see 'type' => 'billboard').
+        // updateOrCreate, not firstOrCreate: databases seeded before that date must heal
+        // on the next `php artisan db:seed`, not keep the NULLs forever.
+        $space = Space::updateOrCreate(
             ['user_id' => $provider->id, 'name' => 'Demo Dispute Billboard'],
-            ['latitude' => 25.6597, 'longitude' => -100.4023, 'location_text' => '123 Main St', 'is_active' => true]
+            [
+                'type' => 'billboard',
+                'price_per_day' => 1500.00,
+                'pricing_unit' => 'day',
+                'latitude' => 25.6597,
+                'longitude' => -100.4023,
+                'location_text' => '123 Main St',
+                'is_active' => true,
+            ]
         );
 
         $ad = Ad::firstOrCreate(

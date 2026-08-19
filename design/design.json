@@ -717,7 +717,16 @@
         "pattern": "Una instruccion escrita que nadie llego a ejecutar",
         "howToFind": "Por cada comando que este proyecto entrega a una persona —sondas de recorrido, recetas de aplicacion de parche, el README— hacer tres preguntas: (1) ¿tiene algun marcador sin rellenar? Buscar literalmente `{...}`, `<tu-`, `$ID_`, `TODO`, `xxx`. (2) ¿asume una herramienta que en ESA maquina vive en otro sitio? Contrastar con `docker-compose.yml`: lo que corre en un contenedor con volumen propio no se ejecuta igual en el host. (3) ¿cambia de directorio con `cd x && …`? Si falla, deja la terminal en `x` y el comando siguiente se ejecuta desde el sitio equivocado. La comprobacion definitiva es una sola: copiarlo, pegarlo y correrlo tal cual.",
         "whyItHides": "Porque quien la escribe ya sabe lo que queria decir, y al releerla la entiende — rellena el marcador con la cabeza sin darse cuenta. El fallo solo existe para el que la recibe. Y ninguna herramienta lo detecta: el JSON es valido, el markdown renderiza, los tests pasan. Peor aun, no falla sola: una instruccion mala arrastra a la siguiente cuando deja la terminal donde no debe, asi que el sintoma aparece en el comando EQUIVOCADO y se diagnostica alli.",
-        "realExample": "El 2026-08-13, tres a la vez. (a) La sonda del paso W6-1 llevaba `-d '{...}'` literal: el dueno la copio y no devolvio nada. (b) La receta decia `cd frontend && npx ng build`, que en el host falla con \"could not determine executable to run\" porque `frontend/node_modules` es un volumen de docker — y ademas sobra, porque el contenedor sirve con `ng serve --poll` y recompila solo. (c) Al fallar ese build, el `&& cd ..` no llego a correr y el `python3 mvp-init.py` de la linea siguiente se busco dentro de `frontend/`. Cerrado en `patch-preflight.py`: comando correcto por proyecto y todo cambio de directorio dentro de un subshell.",
+        "realExample": "El 2026-08-13, tres a la vez. (a) La sonda del paso W6-1 llevaba `-d '{...}'` literal: el dueno la copio y no devolvio nada. (b) La receta decia `cd frontend && npx ng build`, que en el host falla con \"could not determine executable to run\" porque `frontend/node_modules` es un volumen de docker — y ademas sobra, porque el contenedor sirve con `ng serve --poll` y recompila solo. (c) Al fallar ese build, el `&& cd ..` no llego a correr y el `python3 mvp-init.py` de la linea siguiente se busco dentro de `frontend/`. Cerrado en `patch-preflight.py`: comando correcto por proyecto y todo cambio de directorio dentro de un subshell. El 2026-08-15 la misma familia mordio una capa mas arriba: la sonda del paso W6-4 SI estaba ejecutada y era correcta, pero se pintaba en gris apagado, con `word-break: break-all` y sin boton de copiar. El dueno la volvio a teclear a mano y en el camino se perdio la linea que resuelve el id, asi que la URL colapso a la coleccion y devolvio 405. Ejecutar la instruccion es necesario y no basta: tiene que sobrevivir el viaje hasta quien la corre, y eso quiere decir UN CLIC hasta el portapapeles.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-18",
+        "key": "el-nulo-que-apaga-la-pantalla-entera",
+        "pattern": "Un campo nulo mata el update pass de Angular y borra controles que no tienen nada que ver",
+        "howToFind": "La firma esta en el DOM y no hay que adivinarla: un `<a>` con su TEXTO pero SIN `href`, y anclas `<!--container-->` que no renderizan ninguna rama. Angular construye la vista en dos pasadas — la de creacion hace los elementos y las anclas, la de actualizacion evalua los bindings (RouterLink pone el `href` ahi, y `@if` elige rama ahi). Elementos presentes sin bindings aplicados = la pasada de actualizacion lanzo una excepcion. Abrir la consola ANTES de sospechar del bundle o de un `routerLink` que falta. Para cazarlo en frio: por cada columna que una migracion deja `nullable`, buscar quien la formatea (`.replace(`, `.toUpperCase(`, `.split(`, pipes propios) y comprobar que tolera el nulo. Y buscar formateadores duplicados: la misma funcion copiada en tres componentes son tres pantallas que caen por separado.",
+        "whyItHides": "Por dos razones que empujan el diagnostico al sitio equivocado. (1) El radio de la explosion es el tick, no el componente: `ApplicationRef.tick()` refresca el contenido del router-outlet ANTES que el navbar, asi que una excepcion en la pantalla enrutada deja el navbar sin repintar — el menu del avatar no abre y parece un segundo bug, con su propia teoria de z-index. (2) Depende de los datos: solo revienta si la fila venenosa esta en la lista, asi que la misma pantalla funciona para un usuario y no para otro. Y en este caso solo se reproducia navegando por la SPA, no recargando la URL, que es justo lo que hace un guion de pruebas perezoso.",
+        "realExample": "El 2026-08-15, WALK-6. En `/provider/spaces` el proveedor reporto tres cosas: View y Edit no hacian nada, no habia forma de borrar un espacio, y no podia cerrar sesion. Una sola causa: `formatType(type: string) { return type.replace(...) }` con `spaces.type` nullable, y `DisputeDemoSeeder` sembrando una fila con `type: null` y `price_per_day: null`. `TypeError: Cannot read properties of null (reading 'replace')`. Cerrado con un helper unico null-safe (`core/models/space-type.helper.ts`), el seeder dando valores reales, y `frontend/e2e-provider-spaces.mjs` — que navega como un humano y se fabrica su propia fila sin tipo, porque un guardarrail que depende de la basura del seeder pasa en verde el dia que alguien limpia el seeder.",
         "status": "found+fixed"
       }
     ]
@@ -1187,7 +1196,8 @@
           "EH-10",
           "EH-11",
           "EH-12",
-          "EH-14"
+          "EH-14",
+          "EH-18"
         ],
         "groups": [],
         "result": null,
@@ -1224,7 +1234,7 @@
             "id": "W6-4",
             "role": "colaborador",
             "action": "Intentar salirse de la cuenta ajena por la interfaz, y si no hay boton, por peticion directa.",
-            "expected": "No hay boton — y la peticion directa responde 409 diciendo que la desvinculacion pasa por Soporte. BR-15: el vinculo solo lo rompe el dueno, y que Soporte todavia no pueda hacerlo es deuda conocida, no un descuido.",
+            "expected": "No hay boton — y la peticion directa responde 409 diciendo que la desvinculacion pasa por Soporte. BR-15: el vinculo solo lo rompe el dueno, y que Soporte todavia no pueda hacerlo es deuda conocida, no un descuido. Si ves 405 con `allow: GET, HEAD, POST`, el id vino vacio y la URL colapso a la coleccion: la peticion nunca llego al controlador, no es que el guardarrail fallara. Copia el probe entero con su boton — no lo teclees.",
             "probe": "COLAB=colab1@pubads.test; TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"email\\\":\\\"$COLAB\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); ROW=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/collaborations | python3 -c \"import sys,json;print([r['id'] for r in json.load(sys.stdin) if r['status']=='accepted'][0])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/client/collaborators/$ROW | grep -E \"^HTTP/|CONFLICTING_STATE\"   # exige 409 con error_code CONFLICTING_STATE y un mensaje que mande a Soporte. Ni 200 (se solto solo) ni 404 (mentir sobre una fila que el colaborador ve en su propia sesion)."
           },
           {
@@ -1240,6 +1250,13 @@
             "action": "Intentar borrar un espacio que tenga reservas y leer lo que sale en pantalla.",
             "expected": "Sale la LISTA de motivos que devuelve el 409, no un \"error\" generico: un no sin motivo deja al proveedor adivinando cual de sus clientes lo esta reteniendo.",
             "probe": "TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"provider1@pubads.test\",\"password\":\"password\"}' | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); SPACE=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/provider/bookings | python3 -c \"import sys,json;print(json.load(sys.stdin)[0]['space_id'])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/provider/spaces/$SPACE | grep -E \"^HTTP/|blockers\"   # el espacio se saca de una reserva viva a proposito: probar con uno libre no da 409, PROGRAMA su borrado. Exige 409 y blockers[] con kind live_bookings / unsettled_payments, o sea la LISTA de motivos y no un \"error\" generico."
+          },
+          {
+            "id": "W6-7",
+            "role": "proveedor",
+            "action": "En Mis espacios, CON LA CONSOLA DEL NAVEGADOR ABIERTA y habiendo llegado navegando por el menu lateral (no recargando la URL): pulsar View y Edit de cada fila, comprobar que existe el boton de programar borrado, y despues cerrar sesion desde el avatar.",
+            "expected": "View abre el detalle, Edit abre el formulario, cada fila ofrece «Schedule deletion» (o «Cancel deletion» si ya esta programado), el avatar despliega el menu y «Sign Out» devuelve al login. Y la consola: CERO errores. EH-18 — si algo de esto esta muerto, mirar la consola ANTES que el boton: un `<a>` con texto pero sin `href` junto a anclas `<!--container-->` vacias significa que una excepcion mato la pasada de actualizacion, y entonces el fallo del avatar no es un segundo bug sino el mismo. Llegar navegando importa: recargando la URL la pantalla se pinta bien y el fallo no aparece.",
+            "probe": "node frontend/e2e-provider-spaces.mjs   # exige ALL CHECKS PASSED. Se fabrica su propia fila sin tipo y la restaura al salir, asi que no depende de lo que deje el sembrador, y resuelve solo donde estan Playwright, el chromium y el `php artisan` de ESTE equipo (nativo o `docker compose exec -T backend`). Si termina en 2 diciendo NO SE PUDO EJECUTAR, falta una herramienta y la linea para instalarla sale impresa — instalala y repite; salida 1 es la app fallando de verdad. Un WARN de NG0100 en LocationPickerComponent es conocido y esta aplazado en UI-2; cualquier otro error de consola es un fallo del paso."
           }
         ],
         "notes": "Es el recorrido de esta ronda: cierra AUTH-1, COLAB-1 y UI-1 de una sentada. Los pasos 3 y 4 son los que de verdad importan — el 3 porque el caso mixto (dueno propio + colaborador ajeno) es el unico que distingue las dos senales, y el 4 porque un colaborador que se suelta solo rompe la cadena de responsabilidad que sostiene todo lo demas."
@@ -7941,6 +7958,70 @@
       "er": [],
       "classes": [],
       "note": "EH-10. El caso que lo abrio: borrar usuarios en el admin daba 404 en cada clic. Se comprueba de verdad con la consola de red abierta durante WALK-6 y WALK-3."
+    },
+    {
+      "id": "UI-2",
+      "title": "Quitar el NG0100 del selector de ubicacion en el formulario de espacio",
+      "status": "open",
+      "tags": [],
+      "groups": [],
+      "specs": [
+        "§12"
+      ],
+      "ucs": [],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Aplazado a proposito (2026-08-15). Sale en TODA pantalla de edicion de espacio, con tipo o sin el, y es anterior al arreglo de EH-18: `NG0100: ExpressionChangedAfterItHasBeenCheckedError ... Previous value: '-1'. Current value: '3'` en `LocationPickerComponent`. Es ruido de consola, no rompe la pantalla — pero ensucia justo el sitio donde se diagnostica EH-18, que es la razon de arreglarlo. `e2e-provider-spaces.mjs` lo lista como WARN con justificacion explicita en vez de esconderlo; cuando se cierre esto, ese WARN pasa a ser error."
+    },
+    {
+      "id": "F18",
+      "title": "Decidir si spaces.type y spaces.price_per_day deben ser NOT NULL",
+      "status": "open",
+      "tags": [],
+      "groups": [],
+      "specs": [
+        "§12"
+      ],
+      "ucs": [],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Abierto por EH-18 (2026-08-15). Hoy son nullable y toda la UI los trata como obligatorios; un NULL sembrado tumbo la pantalla del proveedor entera. El frontend ya tolera el nulo y el seeder ya no lo escribe, asi que la fuga esta tapada por los dos lados — pero la pregunta de esquema sigue abierta: un espacio publicado sin tipo ni precio no es un espacio, es una ficha a medias que aparece en la busqueda del cliente. Si se cierra como NOT NULL, va con migracion limpia (estamos en MVP, no hay datos que preservar) y hay que revisar antes que el formulario de alta no permita guardar un borrador sin esos campos."
+    },
+    {
+      "id": "F19",
+      "title": "Hacer mvp-init.py utilizable sin docker",
+      "status": "open",
+      "tags": [
+        "tooling"
+      ],
+      "groups": [],
+      "specs": [],
+      "ucs": [],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Menor, aplazado (2026-08-15). `mvp-init.py` esta cableado a `docker compose exec -T backend`, asi que en una maquina sin daemon de docker no corre y hay que invocar `php artisan` a mano. Una variable de entorno tipo `MVP_ARTISAN` que por defecto valga el `docker compose exec` actual lo dejaria servir en los dos sitios. No urge: la maquina del dueno tiene docker."
+    },
+    {
+      "id": "F20",
+      "title": "Unificar el cuerpo de los 404 entre controladores y middleware",
+      "status": "open",
+      "tags": [],
+      "groups": [],
+      "specs": [
+        "§21"
+      ],
+      "ucs": [],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Cosmetico, verificado que NO es fuga (2026-08-15). El controlador de colaboradores responde `{\"message\":\"Not found.\"}` mientras el 404 global de `bootstrap/app.php` y el de los middleware responden `{\"error_code\":\"NOT_FOUND\",\"message\":\"Resource not found.\"}`. EH-14 exige que el par sea indistinguible PARA UN MISMO LLAMANTE, y lo es: un client ajeno ve siempre el primero exista o no la fila, y hay test que compara los dos cuerpos byte a byte. Asi que no hay oraculo — solo dos formas de decir lo mismo, que le cuestan un `if` de mas a quien consuma la API."
     }
   ],
   "lineage": {

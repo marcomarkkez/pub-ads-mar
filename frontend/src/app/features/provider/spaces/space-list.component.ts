@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
-import { Space } from '../../../core/models';
+import { Space, formatSpaceType, spaceTypeClass } from '../../../core/models';
 // UC-37 — one reason a listing cannot be scheduled for deletion (the 409 body). The
 // shape is shared with the account guardrail (Account::disputeBlockers/inUseBlockers),
 // so it is declared once: two copies of one API contract drift, and the drift shows up
@@ -74,12 +74,14 @@ import { Blocker as SpaceBlocker } from '../../../core/models/api-error';
                     }
                   </td>
                   <td>
-                    <span class="badge" [class]="'badge type-' + space.type">
+                    <span class="badge" [class]="typeClass(space.type)">
                       {{ formatType(space.type) }}
                     </span>
                   </td>
                   <td>{{ space.location_text || (space.latitude + ', ' + space.longitude) }}</td>
-                  <td>{{ space.price_per_day | currency:'EUR' }}</td>
+                  <!-- A listing with no price is a real row in the data; an empty cell
+                       would read as "free". Say we don't know instead. -->
+                  <td>{{ (space.price_per_day | currency:'EUR') || 'Not set' }}</td>
                   <td>
                     <!-- §12 keeps THREE levels apart and so does this cell: the provider's own
                          pause, an admin takedown they cannot reverse, and a programmed deletion. -->
@@ -146,6 +148,8 @@ import { Blocker as SpaceBlocker } from '../../../core/models/api-error';
     .type-little_screen { background: #fce7f3; color: #9d174d; }
     .type-radio_station { background: #fef3c7; color: #92400e; }
     .type-other { background: #f3f4f6; color: #374151; }
+    /* No type on the record. Deliberately colourless: it is an absence, not a kind. */
+    .type-unknown { background: #f3f4f6; color: #6b7280; }
     .sub {
       display: block;
       font-size: 11px;
@@ -314,9 +318,11 @@ export class SpaceListComponent implements OnInit {
     this.spaces.update(list => list.map(s => (s.id === space.id ? { ...s, ...space } : s)));
   }
 
-  formatType(type: string): string {
-    return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  }
+  // `spaces.type` is nullable, and a null used to throw from inside the template, which
+  // took the whole update pass down with it (no href on View/Edit, no delete button, and
+  // a navbar that stopped repainting). See core/models/space-type.helper.ts.
+  formatType = formatSpaceType;
+  typeClass = spaceTypeClass;
 
   /** Whole days since the calendar was last synced, or null if never synced. */
   staleDays(space: Space): number | null {

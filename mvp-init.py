@@ -41,7 +41,11 @@ import sys
 
 COMPOSE = ["docker", "compose"]
 ARTISAN = COMPOSE + ["exec", "-T", "backend", "php", "artisan"]
-LOGINS = ["client1", "client2", "provider1", "provider2", "support", "payments", "admin"]
+# `colab1` va en la lista aunque no sea un rol: es una COLABORADORA (Ana Torres, aceptada
+# sobre la cuenta de client1) y `DatabaseSeeder` la crea en linea, asi que no aparece en la
+# salida de `migrate:fresh --seed` y quien recorre WALK-6 no tiene forma de enterarse de que
+# existe. El paso W6-4 empieza por la interfaz — hay que poder entrar como ella.
+LOGINS = ["client1", "client2", "colab1", "provider1", "provider2", "support", "payments", "admin"]
 
 
 def run(args, capture=False):

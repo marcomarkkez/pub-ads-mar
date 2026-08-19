@@ -5,7 +5,7 @@ import { RouterLink, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
-import { Space, SpacePhoto } from '../../../core/models';
+import { Space, SpacePhoto, formatSpaceType, spaceTypeClass } from '../../../core/models';
 
 @Component({
   selector: 'app-space-detail',
@@ -35,7 +35,7 @@ import { Space, SpacePhoto } from '../../../core/models';
         <div class="detail-grid">
           <div class="detail-item">
             <span class="detail-label">Type</span>
-            <span class="badge" [class]="'badge type-' + space()!.type">{{ formatType(space()!.type) }}</span>
+            <span class="badge" [class]="typeClass(space()!.type)">{{ formatType(space()!.type) }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Location</span>
@@ -47,7 +47,7 @@ import { Space, SpacePhoto } from '../../../core/models';
           </div>
           <div class="detail-item">
             <span class="detail-label">Price per Day</span>
-            <span>{{ space()!.price_per_day | currency:'EUR' }}</span>
+            <span>{{ (space()!.price_per_day | currency:'EUR') || 'Not set' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Dimensions</span>
@@ -159,6 +159,8 @@ import { Space, SpacePhoto } from '../../../core/models';
     .type-little_screen { background: #fce7f3; color: #9d174d; }
     .type-radio_station { background: #fef3c7; color: #92400e; }
     .type-other { background: #f3f4f6; color: #374151; }
+    /* No type on the record. Deliberately colourless: it is an absence, not a kind. */
+    .type-unknown { background: #f3f4f6; color: #6b7280; }
 
     /* Photos */
     .photo-grid {
@@ -325,7 +327,8 @@ export class SpaceDetailComponent implements OnInit {
 
   // [todo B2] Availability + calendar management moved to the Edit screen (space-form).
 
-  formatType(type: string): string {
-    return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  }
+  // Null-safe on purpose: `spaces.type` is nullable and a throw here dies inside the
+  // update pass. See core/models/space-type.helper.ts.
+  formatType = formatSpaceType;
+  typeClass = spaceTypeClass;
 }

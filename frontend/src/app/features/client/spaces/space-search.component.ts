@@ -6,7 +6,7 @@ import { Router } from '@angular/router';
 import * as L from 'leaflet';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
-import { Space, PaginatedResponse } from '../../../core/models';
+import { Space, PaginatedResponse, formatSpaceType } from '../../../core/models';
 
 // Minimal shape for the campaign picker (avoids coupling to the full Campaign model barrel).
 interface CampaignLite { id: number; name: string; }
@@ -590,7 +590,8 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
     return (space.photos && space.photos.length > 0) ? space.photos[0].file_url : null;
   }
 
-  formatType(type: string): string {
-    return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  }
+  // Null-safe on purpose: `spaces.type` is nullable and this is called from a template
+  // expression, where a throw kills the whole update pass. See
+  // core/models/space-type.helper.ts.
+  formatType = formatSpaceType;
 }

@@ -754,7 +754,15 @@
             /* BR-17: hay verdades que la pantalla no ensena. Un 404 y un 403 se ven identicos
                en la interfaz y son toda la diferencia de BR-3, asi que el paso lleva su
                comprobacion de consola/cURL al lado de lo que hay que mirar. */
-            (s.probe ? '<div class="walk-probe"><span>comprobar</span> <code>' + esc(s.probe) + '</code></div>' : "") +
+            /* Y va con boton de copiar, que no es adorno: WALK-6 (2026-08-15) fallo porque
+               el probe correcto estaba aqui pero no se podia copiar — se tecleo a mano y en
+               el camino se perdio la linea que llena el id, asi que la URL colapso a la
+               coleccion y devolvio 405. Un comando que no se puede copiar se vuelve a
+               teclear, y se teclea mal. */
+            (s.probe ? '<div class="walk-probe">' +
+              '<div class="walk-probe-head"><span>comprobar</span>' +
+              '<button type="button" class="probe-copy" title="Copiar el comando entero">copiar</button>' +
+              '</div><pre><code>' + esc(s.probe) + '</code></pre></div>' : "") +
             '</li>';
         });
         html += '</ol>';
@@ -801,6 +809,17 @@
     return '<button type="button" class="key-chip" data-key="' + esc(key) + '" ' +
       'title="Copiar «' + esc(key) + '»">' + esc(key) + '</button>';
   }
+
+  /* El comando del paso se copia ENTERO, leyendolo del DOM y no de un atributo: un probe
+     lleva comillas anidadas de tres niveles y meterlo en un `data-` es una via mas de
+     estropearlo. Pasa por `copyText` — que sabe caer a `execCommand` — porque el tablero
+     tambien se sirve por http:// en un port-forward, donde `navigator.clipboard` no existe. */
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest ? ev.target.closest(".probe-copy") : null;
+    if (!btn) return;
+    var code = btn.parentNode.parentNode.querySelector("code");
+    if (code) copyText(code.textContent, btn, "copiado");
+  });
 
   document.addEventListener("click", function (ev) {
     var chip = ev.target.closest ? ev.target.closest(".key-chip") : null;

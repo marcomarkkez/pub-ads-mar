@@ -183,4 +183,56 @@ class Walk6EntryFlowTest extends TestCase
 
         $this->assertDatabaseHas('users', ['id' => $client->id, 'is_active' => true]);
     }
+
+    // ── W6-4 · the walk step, driven the way the walk drives it ───────────────
+
+    /**
+     * The refusal (409, BR-15) is pinned in AccountScopeTest. What was NOT pinned is the
+     * SHAPE OF THE STEP, and that gap cost a walkthrough: WALK-6 told the walker to
+     * `DELETE /api/client/collaborators/$MI_PROPIA_FILA` without ever giving the command
+     * that fills `$MI_PROPIA_FILA`. With the variable empty the URL collapses to the
+     * COLLECTION URI, which exists for GET and POST and not for DELETE, so the walker got
+     *
+     *     HTTP/1.1 405 Method Not Allowed   (allow: GET, HEAD, POST)
+     *
+     * and read it as "the guardrail is missing". It was not: the request never reached the
+     * controller. A 405 from a routing table is indistinguishable, at the walker's end,
+     * from a rule that was never written — so this test pins both halves together, in
+     * order: the id has to come from somewhere (GET /api/collaborations, the only place a
+     * collaborator can see their own grant), and only then does the refusal exist.
+     *
+     * The empty-variable case is asserted too, so that if the collection URI ever gains a
+     * DELETE the walk's failure mode changes loudly here instead of quietly there.
+     */
+    public function test_the_collaborator_finds_their_own_row_before_being_refused_by_it(): void
+    {
+        $owner = User::factory()->create(['role' => 'client']);
+        $helper = User::factory()->create(['role' => 'client']);
+
+        Sanctum::actingAs($owner);
+        $this->postJson('/api/client/collaborators', [
+            'email' => $helper->email,
+            'role' => 'manager',
+        ])->assertStatus(201);
+
+        Sanctum::actingAs($helper);
+
+        // Step 1 — the command the walk was missing. The collaborator never sees
+        // /client/collaborators (that lists THEIR account's helpers, which is empty); the
+        // grant they hold on somebody else's account only shows up here.
+        $mine = $this->getJson('/api/collaborations')->assertStatus(200)->assertJsonCount(1);
+        $id = $mine->json('0.id');
+        $this->assertIsInt($id);
+
+        $this->postJson("/api/collaborations/{$id}/accept")->assertStatus(200);
+
+        // Step 2 — with a real id, the guardrail answers, and it answers about STATE.
+        $this->deleteJson("/api/client/collaborators/{$id}")
+            ->assertStatus(409)
+            ->assertJsonPath('error_code', 'CONFLICTING_STATE');
+
+        // …and with the id the walk forgot to fetch, the router answers first: 405 on the
+        // collection, which says nothing at all about collaborations.
+        $this->deleteJson('/api/client/collaborators/')->assertStatus(405);
+    }
 }

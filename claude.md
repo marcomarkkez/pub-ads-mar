@@ -125,6 +125,78 @@ Run it verbatim first, from the directory you are telling them to be in, on the 
 actually have. This is `BR-17` (a walk may use cURL) taken seriously: a probe is only worth
 having if it is falsifiable, and one that errors on its own syntax falsifies nothing.
 
+## Learning — a command nobody can copy is a command that gets retyped (2026-08-15)
+
+WALK-6 step W6-4 failed with `405 Method Not Allowed` where `409` was demanded. The probe in
+design.json was **correct** — it already contained the `GET /api/collaborations` line that
+resolves the row id. The owner ran a different command, with variable names (`$MI_PROPIA_FILA`,
+`$TOKEN_COLABORADOR`) that **appear nowhere in this repository**: they retyped it by hand, and
+the line that fills the id was the one that fell out. With the variable empty the URL collapsed
+to the collection URI, which exists for `GET`/`POST` and not for `DELETE`. The request never
+reached the controller; the guardrail was never even asked.
+
+The cause was presentation, not content: `.walk-probe code` was rendered muted grey at 11.5px
+with `word-break: break-all` — which chops words mid-token and makes a shell command
+unrecognisable — and **had no copy button**, in a dashboard where the BR/EH keys had one.
+
+Two things follow, and the second is the general one:
+
+- **Anything meant to be pasted must be one click from the clipboard.** Correctness is not
+  enough; a probe is a UI, and its usability is part of whether it works.
+- **`405` on a REST collection route means the id was empty.** Read the `allow:` header before
+  suspecting the endpoint: `allow: GET, HEAD, POST` on a `DELETE` is the router saying the URI
+  never had an id in it. It is an unpopulated variable, not a broken guard.
+
+This is `EH-17` ("la instruccion que nadie ejecuto") one layer up: the probe here *had* been
+run. Running it was necessary and still not sufficient — it also has to survive the trip to the
+person who runs it.
+
+## Learning — one null field blanks a screen you did not touch (2026-08-15)
+
+The same walk reported three unrelated-looking breakages on `/provider/spaces`: View/Edit did
+nothing, no delete button existed, and — on a completely different component — the avatar menu
+would not open, so the provider could not sign out. One cause:
+
+```
+ERROR TypeError: Cannot read properties of null (reading 'replace')
+    at _SpaceListComponent.formatType (...)
+```
+
+`formatType(type: string) { return type.replace(...) }`, and `spaces.type` is nullable —
+`DisputeDemoSeeder` had been writing one row with `type: null` and `price_per_day: null`.
+
+**Read this DOM signature; it names the failure exactly.**
+
+```html
+<td class="actions"><a class="btn btn-sm">View</a><a class="btn btn-sm">Edit</a><!--container--><!--container--></td>
+```
+
+Angular builds a view in two passes. The *create* pass makes elements and the comment anchors
+that control-flow blocks attach to — so the `<a>` tags and their static text exist. The *update*
+pass evaluates bindings: `RouterLink` sets `href` there, and `@if` chooses a branch there. So
+**anchors present + `href` absent + `<!--container-->` with nothing rendered = the update pass
+threw**, at the first binding that raised, leaving everything after it untouched. Never read
+that as a stale bundle or a missing `routerLink`; grep the console instead.
+
+The blast radius is the whole tick, not the component: `ApplicationRef.tick()` refreshes the
+router outlet's contents before the navbar, so an exception in the routed component means the
+navbar never repaints. `menuOpen` toggled correctly on every click — verified — and no toast
+was covering the avatar; the repaint simply never happened. **When an unrelated shell control
+dies at the same time as a page, stop looking for a second bug.**
+
+Three rules from it:
+
+- **Every field a migration allows to be null must be handled as null in the template**, in
+  formatters most of all. A formatter is called inside change detection, where a throw is not
+  a blank cell — it is the rest of the screen.
+- **A shared formatter lives in one file.** The same `formatType` had been copied into three
+  components, so one null crashed the provider list, the provider detail and the client search
+  independently. It is now `core/models/space-type.helper.ts`.
+- **Seeders write the fixtures the UI is judged on.** A seeder that leaves NULLs in columns the
+  UI treats as required is not test data, it is a crash waiting for a walk. And note how it
+  hid: the crash reproduced **only via SPA navigation**, not on a full page load — so a
+  regression script must click through the app like a human, not `goto()` the URL.
+
 ## Rule — before and after EVERY `git apply` / docker action (2026-08-09)
 
 **The prevention used to sit at the wrong moment.** It said: *"the moment the owner says
@@ -448,6 +520,10 @@ The `pg_hba.conf` for PG 17 (`C:\Program Files\PostgreSQL\17\data\pg_hba.conf`) 
 
 - **Postgres must be running for backend verification.** Bare-metal PG17 on port 5434 (or Docker on 5435) is often down in a fresh WSL shell; `php artisan migrate` then fails with `SQLSTATE[08006] Connection refused`. Start PG/Docker before runtime checks; static checks (`php -l`, `ng build`) work without it.
 - **Don't impose constraints stricter than the agreed decision.** If a decision says a field is OPTIONAL, do NOT add a `required`/422 guard for it (e.g. provider rejection_reason was decided optional; adding a "reason required" check was wrong and made us re-decide a settled thing). Before adding any validation/guard, re-read the relevant design.json/decision and match it EXACTLY — over-constraining causes "running in circles."
+- **Anything meant to be pasted must be ONE CLICK from the clipboard — correct is not enough (2026-08-15).** WALK-6 step W6-4 failed with `405` where `409` was demanded, and the probe in design.json was already **correct**: it contained the `GET /api/collaborations` line that resolves the row id. But it rendered as muted grey `<code>` at 11.5px with `word-break: break-all` and **no copy button**, in a dashboard where the BR/EH keys had one. So the owner retyped it by hand — with variable names (`$MI_PROPIA_FILA`, `$TOKEN_COLABORADOR`) that appear NOWHERE in this repo — and the line that fills the id was the one that fell out. Empty variable → the URL collapses to the collection URI → `405`, because that URI exists for `GET`/`POST` and not for `DELETE`. The request never reached the controller and the guardrail was never asked. Two rules: **(1)** a probe is a UI, and its copyability is part of whether it works — `.walk-probe` is now a readable code block with a copy button wired through `copyText` (which falls back to `execCommand`, because the dashboard is also served over `http://` port-forwards where `navigator.clipboard` does not exist). **(2)** **`405` on a REST collection route means the id was empty** — read the `allow:` header before suspecting the endpoint; `allow: GET, HEAD, POST` on a `DELETE` is the router saying the URI never had an id in it. Full write-up: *"a command nobody can copy is a command that gets retyped"* above, and `EH-17` in design.json.
+
+- **A verification script that only runs on the machine that WROTE it verifies nothing (2026-08-19).** WALK-6 step W6-7 did not fail — it *crashed*, on `ERR_MODULE_NOT_FOUND: /opt/node22/lib/node_modules/playwright/index.js`, a path that exists in this sandbox and nowhere in the owner's Codespace (Node 24 there, Node 22 here). Three separate host facts had been baked into `frontend/e2e-*.mjs` as literals: where Playwright lives, where the chromium binary lives (`/opt/pw-browsers/chromium`), and that `php artisan` runs natively — while the Codespace reaches artisan only through `docker compose exec -T backend`. Every one of them is a fact about the AUTHOR's machine, and none of them is a fact about the project. Rules: **(1)** resolve host-shaped facts at RUNTIME (`frontend/e2e-env.mjs` does it in one place for both guards: Playwright via `createRequire().resolve` over local → repo → `npm root -g`, chromium by scanning `PLAYWRIGHT_BROWSERS_PATH` and otherwise letting Playwright pick its own, artisan by probing native then docker). **(2)** *Probe*, never assume — and probe the thing you actually need: the first draft asked `DB::connection()->getDatabaseName()`, which only reads config and green-lit a native artisan with Postgres **down**; `DB::connection()->getPdo()` opens the connection and tells the truth. `tinker` prints its exception on stdout and still **exits 0**, so a printed marker decides, not the exit code. **(3)** Separate *"could not run"* from *"the app is broken"*: a missing tool exits **2** with the one line to paste (`(cd frontend && npm install --no-save playwright && npx playwright install chromium)`), a failed check still exits **1**. A walker must never have to read a Node stack trace to learn that his machine lacks a tool.
+
 - **Spec traceability — annotate code with the spec it implements.** Every file / class / method that implements a design.json behavior MUST carry a short comment naming the spec it satisfies, e.g. `// design.json §B9 — client proof accept/reject gates payout` or `@implements design.json "Proof of Display"`. This keeps code↔design compliance checkable at a glance. Applies to new code and to code you touch.
 - **Momentum over perfection — soft vs hard stops (owner working style).** The owner wants forward progress, not 100% compliance. Resolve ambiguous/"soft" logic conflicts yourself by **latest-decision-wins** (the most recently edited doc / newest owner message overrides older text) or by best-guess of the most sensible scenario, and KEEP BUILDING. Only stop to ask on a **HARD stopper**: something you genuinely cannot infer, or a destructive/irreversible/outward-facing action. Target ~**90% doc compliance** (design.json), not 100% — decisions have changed over time, so some older doc text is intentionally stale. The owner reviews the running app and prunes features afterward. Don't create new planning docs unless asked; edit design.json / todos in place.
 - **Permission changes need a CACHE BUST + a real re-seed — tests passing ≠ app working.** `PermissionMiddleware` reads `RolePermission::getCachedPermissions($role)` which is `Cache::remember(..., 60 min)` on the `database` cache store. Symptom that bit us: all F07-F10 automated tests GREEN (they use a fresh `array` cache + reseed per test), but the live app returned **"Forbidden. You do not have permission"** for `payments` and `support` on their own menus. Two independent causes stacked: (a) the permission cache was stale (old/empty set, 60-min TTL) — the seeder DOES call `RolePermission::clearCache()` at the end, but a belt-and-suspenders `php artisan cache:clear` is the reliable fix; (b) a first `db:seed --class=RolePermissionSeeder` had **not actually persisted** payments/support rows to `pub_ads_mar` (a later `--force` reseed showed `payments|10, support|7`). RULE after ANY permission/seed edit: `docker compose exec backend php artisan db:seed --class=RolePermissionSeeder --force` **then** `php artisan cache:clear`, then hard-reload. DIAGNOSE cleanly, don't guess: `php artisan db:show` (which DB is artisan really on?) + `psql -d pub_ads_mar -c "select role,count(*) from role_permissions group by role;"` (is the DATA there?) — that pair distinguishes wrong-DB vs missing-data vs stale-cache in one shot. Screenshots of the browser Forbidden add no signal; ask for the TERMINAL text.

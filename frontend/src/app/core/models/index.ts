@@ -3,6 +3,7 @@ export * from './account.model';
 export * from './collaboration.model';
 export * from './campaign.model';
 export * from './space.model';
+export * from './space-type.helper';
 export * from './booking.model';
 export * from './chat.model';
 

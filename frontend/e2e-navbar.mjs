@@ -14,7 +14,9 @@
  *   # 3. this script
  *   node frontend/e2e-navbar.mjs
  *
- * Chromium is preinstalled; do NOT run `playwright install`.
+ * Playwright and the chromium binary are resolved at runtime by ./e2e-env.mjs — nothing
+ * about this host is hardcoded here. A missing tool exits 2 with the line to run; exit 1
+ * still means the app failed a check.
  * Override the defaults with BASE=… and PW=… if your paths differ.
  *
  * WHAT IT GUARDS (each check maps to a bug that was live and is now fixed)
@@ -27,14 +29,14 @@
  *   5  the bar still sticks to the top once the page scrolls — `position: sticky` on
  *      .navbar never stuck, because its containing block is the 56px host element
  */
-// Playwright is not a dependency of this app — it is installed globally in the dev
-// image. Resolve it from either place so the script runs without an npm install.
-const pwPkg = await import('playwright')
-  .catch(() => import('/opt/node22/lib/node_modules/playwright/index.js'));
-const { chromium } = pwPkg.default ?? pwPkg;
+// Playwright is deliberately not a dependency of this app: it is a walk tool. Where it
+// lives differs per host, so it is looked up rather than assumed.
+import { launchOptions, loadChromium, orExit } from './e2e-env.mjs';
+
+const { chromium } = await orExit(() => loadChromium());
+const LAUNCH = await orExit(() => launchOptions());
 
 const BASE = process.env.BASE || 'http://localhost:4200';
-const PW = process.env.PW || '/opt/pw-browsers/chromium';
 const USER = process.env.E2E_USER || 'client1@pubads.test';
 const PASS = process.env.E2E_PASS || 'password';
 
@@ -44,7 +46,7 @@ const check = (ok, label, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? `\n        ${detail}` : ''}`);
 };
 
-const browser = await chromium.launch({ executablePath: PW, args: ['--no-sandbox'] });
+const browser = await chromium.launch(LAUNCH);
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 page.on('pageerror', e => { failures++; console.log(`FAIL  uncaught page error: ${e.message}`); });
 

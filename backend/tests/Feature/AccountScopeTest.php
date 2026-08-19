@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\Campaign;
 use App\Models\Collaborator;
+use App\Models\RolePermission;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -277,6 +278,84 @@ class AccountScopeTest extends TestCase
         $this->deleteJson("/api/client/collaborators/{$id}")
             ->assertStatus(404)
             ->assertJsonMissingPath('error_code');
+    }
+
+    /**
+     * EH-14 — "la fuga está en el par, no en la respuesta": one 404 discloses nothing, but
+     * two 404s that differ ANYWHERE turn this endpoint into a probe for "does grant N
+     * exist". The stranger's answer must therefore be the phantom's answer down to the
+     * body, not merely down to the status code — a `message` that named the row, or an
+     * `error_code` present on only one of the two, would be the whole leak.
+     */
+    public function test_a_strangers_404_is_indistinguishable_from_a_row_that_never_existed(): void
+    {
+        $owner = User::factory()->create(['role' => 'client']);
+        $stranger = User::factory()->create(['role' => 'client']);
+
+        Sanctum::actingAs($owner);
+        $id = $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+            ->json('id');
+
+        Sanctum::actingAs($stranger);
+        $real = $this->deleteJson("/api/client/collaborators/{$id}")->assertStatus(404);
+        $phantom = $this->deleteJson('/api/client/collaborators/999999')->assertStatus(404);
+
+        $this->assertSame($real->getStatusCode(), $phantom->getStatusCode());
+        $this->assertSame($real->getContent(), $phantom->getContent());
+
+        // And the row the probe was asking about did not move.
+        $this->assertSame('pending', Collaborator::find($id)->status);
+    }
+
+    /**
+     * The refusal is the CONTROLLER's, and it has to stay the controller's.
+     *
+     * `client` legitimately holds `collaborators.delete` — it is how an owner revokes — and
+     * a collaborator is a `client` too, so `permission:collaborators,delete` lets them
+     * straight through. Nothing in the middleware layer knows the difference between the
+     * two, and nothing there can: the distinction is which ACCOUNT the row belongs to,
+     * which is data, not role. If somebody ever reads the 409 as "the permission matrix
+     * handles this" and drops the guard, the matrix will happily allow the self-unlink.
+     *
+     * So this pins the premise, not just the outcome: the permission IS granted, and the
+     * request IS still refused with the state error. A grant removed from the matrix would
+     * break the owner's revoke instead and show up as the 403 asserted here.
+     */
+    public function test_the_permission_matrix_lets_the_collaborator_through_and_the_guard_still_refuses(): void
+    {
+        $this->assertTrue(
+            RolePermission::roleHasPermission('client', 'collaborators', 'delete'),
+            'A client owner must keep collaborators.delete — the self-unlink guard is not a permission.',
+        );
+
+        $owner = User::factory()->create(['role' => 'client']);
+        $helper = User::factory()->create(['role' => 'client']);
+
+        $grant = Collaborator::create([
+            'account_id' => $owner->account_id,
+            'invited_by_user_id' => $owner->id,
+            'user_id' => $helper->id,
+            'email' => $helper->email,
+            'role' => 'manager',
+            'status' => 'accepted',
+        ]);
+
+        Sanctum::actingAs($helper);
+        $this->deleteJson("/api/client/collaborators/{$grant->id}")
+            ->assertStatus(409)
+            ->assertJsonPath('error_code', 'CONFLICTING_STATE');
+
+        // A provider is refused a layer earlier and never reaches the controller, so its
+        // answer is the middleware's EH-14 404 — on a route WITH parameters a refusal has
+        // to be indistinguishable from a missing row (RefusesWithoutLeaking). Different
+        // status, different body, different layer: the 409 above was not the middleware.
+        $provider = User::factory()->create(['role' => 'provider']);
+        Sanctum::actingAs($provider);
+        $this->deleteJson("/api/client/collaborators/{$grant->id}")
+            ->assertStatus(404)
+            ->assertJsonPath('error_code', 'NOT_FOUND');
+
+        $this->assertSame('accepted', $grant->fresh()->status);
     }
 
     public function test_the_owner_can_still_revoke_a_collaborator_they_invited_by_their_own_email(): void
