@@ -49,11 +49,26 @@ const firstLine = (e) => String(e && (e.stderr || e.message) || e).trim().split(
 
 // ── playwright ───────────────────────────────────────────────────────────────────────
 
+/**
+ * Where the walk tools get installed when they are not already somewhere.
+ *
+ * NOT `frontend/node_modules`, which was the first advice and bounced with EACCES in the
+ * Codespace: that directory is a docker bind mount written by a container running as
+ * root, so the human at the terminal (`codespace`) cannot add to it — and fixing that
+ * with sudo/chown would mean editing the app's own dependency tree to run a test tool.
+ * A private directory under $HOME is writable by definition and belongs to nobody's
+ * build. Being a KNOWN path, it also needs no environment variable on later runs: the
+ * resolver looks here on its own, so the walker installs once and never thinks about it
+ * again. (`E2E_TOOLS_DIR` overrides it; `PLAYWRIGHT_DIR` still wins over everything.)
+ */
+export const TOOLS_DIR = process.env.E2E_TOOLS_DIR ||
+  path.join(process.env.HOME || REPO_ROOT, '.pubads-e2e');
+
 /** Directories from which `require('playwright')` could plausibly see the package. */
 function moduleSearchRoots() {
   const roots = [];
   if (process.env.PLAYWRIGHT_DIR) roots.push(process.env.PLAYWRIGHT_DIR);
-  roots.push(HERE, REPO_ROOT);          // frontend/node_modules, then the repo root's
+  roots.push(HERE, REPO_ROOT, TOOLS_DIR);
   try {
     // `npm root -g` prints <prefix>/lib/node_modules; require() appends node_modules
     // itself, so the directory to search FROM is that path's parent.
@@ -84,10 +99,14 @@ export async function loadChromium() {
   }
   throw new CannotRun(
     'Playwright no esta instalado en este host, y este repo no lo declara como dependencia\n' +
-    'a proposito: es una herramienta de recorrido, no codigo de la app. Instalalo una vez:\n\n' +
-    '    (cd frontend && npm install --no-save playwright && npx playwright install chromium)\n\n' +
-    'y repite el paso. Si ya lo tienes en otro sitio, apunta PLAYWRIGHT_DIR a la carpeta\n' +
-    'que contiene su node_modules. Buscado en:\n' +
+    'a proposito: es una herramienta de recorrido, no codigo de la app. Instalalo UNA vez,\n' +
+    'fuera del arbol de la app (node_modules del proyecto lo escribe un contenedor como\n' +
+    'root y responde EACCES; esta carpeta es tuya):\n\n' +
+    `    npm install --no-save --prefix ${TOOLS_DIR} playwright && \\\n` +
+    `      ${path.join(TOOLS_DIR, 'node_modules', '.bin', 'playwright')} install chromium\n\n` +
+    'y repite el paso: esta ruta se busca sola, no hace falta ninguna variable despues.\n' +
+    'Si ya lo tienes en otro sitio, apunta PLAYWRIGHT_DIR a la carpeta que contiene su\n' +
+    'node_modules. Buscado en:\n' +
     tried.map((t) => `    ${t}`).join('\n'));
 }
 
