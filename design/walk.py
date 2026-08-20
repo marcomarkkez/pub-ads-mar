@@ -10,6 +10,11 @@ justo la forma de fallo que BR-16 persigue — asi que aqui esta ejecutada.
     python3 design/walk.py WALK-1 --fail --by "Marco" --notes "W1-5 dejaba escribir al admin"
     python3 design/walk.py --status
 
+`--by` es OBLIGATORIO y nombra a una persona (BR-20, owner 2026-08-20): un recorrido lo
+anda alguien por la interfaz real, y las sondas de cada paso solo acompanan. Una sonda en
+verde prueba que el servidor contesta lo que se le pidio — no que exista un boton que lo
+pida, ni que se vea, ni que la pantalla siguiente pinte la respuesta.
+
 `--pass` marca el recorrido y pone en `done` los todos que cierra. `--fail` los deja
 abiertos y guarda lo que se vio, que es la mitad que de verdad hace falta despues.
 Las referencias a §, UC, BR y EH NO se tocan solas: se listan para que quien cerro el
@@ -19,10 +24,18 @@ import argparse
 import collections
 import json
 import os
+import re
 import sys
 from datetime import date
 
 DESIGN = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'design.json')
+
+# Nombres que NO son quien anduvo las pantallas. La lista es corta y explicita a proposito:
+# no intenta adivinar si algo es un nombre propio — solo cierra la puerta a firmar un
+# recorrido con el nombre de lo que lo acompana (BR-20).
+NOT_A_PERSON = re.compile(
+    r'^(agente?|agent|bot|ci|cd|pipeline|suite|tests?|phpunit|playwright|e2e|script|'
+    r'automat\w*|claude|gpt|copilot|ia|ai)$', re.I)
 
 
 def load():
@@ -70,7 +83,7 @@ def main():
     ap.add_argument('walk', nargs='?', help='id del recorrido, p. ej. WALK-1')
     ap.add_argument('--pass', dest='passed', action='store_true', help='el recorrido salio bien')
     ap.add_argument('--fail', dest='failed', action='store_true', help='el recorrido encontro algo')
-    ap.add_argument('--by', default='', help='quien lo recorrio')
+    ap.add_argument('--by', default='', help='quien lo recorrio (obligatorio: una persona)')
     ap.add_argument('--notes', default='', help='que se vio (obligatorio si --fail)')
     ap.add_argument('--status', action='store_true', help='que falta por recorrer')
     args = ap.parse_args()
@@ -83,6 +96,18 @@ def main():
 
     if args.passed == args.failed:
         sys.exit('Elige --pass o --fail (uno de los dos).')
+    if not args.by.strip():
+        # BR-20 (owner 2026-08-20). Un recorrido lo anda una PERSONA; las sondas acompanan.
+        # La firma es lo unico que distingue "lo vi en pantalla" de "el servidor contesto":
+        # WALK-6 estuvo a un comando de cerrarse con sus siete sondas en verde y cero
+        # pantallas abiertas, mientras los tres fallos que de verdad tenia solo se veian
+        # pulsando. Sin nombre no se registra nada.
+        sys.exit('--by es obligatorio: un recorrido lo marca quien lo anduvo por la interfaz (BR-20).\n'
+                 '  python3 design/walk.py %s --%s --by "Marco"' % (args.walk, 'pass' if args.passed else 'fail'))
+    if NOT_A_PERSON.match(args.by.strip()):
+        sys.exit('"%s" no es una persona. --by nombra a quien recorrio las pantallas (BR-20):\n'
+                 '  una sonda verde prueba que el servidor contesta, no que exista un boton que lo pida.'
+                 % args.by.strip())
     if args.failed and not args.notes:
         # Un recorrido fallido sin lo que se vio no sirve de nada: manana nadie sabra
         # que reproducir. Es la unica cosa que este script exige.

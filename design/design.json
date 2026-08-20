@@ -561,6 +561,20 @@
         ],
         "enforcedBy": "`patch-preflight.py` y `mvp-init.py` en la raiz del repositorio, y el paso W0 de los siete recorridos que tocan la aplicacion. La parte de \"acordarse de correrlo antes\" sigue siendo humana — por eso vive en el guion del recorrido y no solo en claude.md.",
         "status": "built"
+      },
+      {
+        "id": "BR-20",
+        "key": "un-walk-lo-recorre-una-persona",
+        "title": "Un recorrido lo marca una PERSONA que lo anduvo por la interfaz; la suite acompana, no sustituye",
+        "rule": "Un WALK solo se marca `passed` o `failed` cuando una persona lo ha recorrido por la INTERFAZ REAL, pantalla por pantalla. Las sondas (`probe`) y los guardas automaticos (`frontend/e2e-*.mjs`, la suite de PHPUnit) ACOMPANAN el recorrido: sirven para preparar el terreno, para confirmar un detalle que la pantalla no ensena — un codigo de estado, una cabecera — y para que el fallo no vuelva. No lo sustituyen, y correrlas todas en verde NO es haber recorrido nada.\n\nPor tanto `design/walk.py` EXIGE `--by` con el nombre de quien lo anduvo, y rechaza nombres que no son una persona (agente, bot, ci, suite, tests, claude). Quien firma dice que lo vio en pantalla.\n\nLo que una sonda verde demuestra es exactamente esto: que el servidor contesta lo que se le pidio. No demuestra que haya un boton que lo pida, ni que ese boton se vea, ni que la pantalla siguiente pinte la respuesta, ni que el camino completo se pueda andar sin saber de antemano donde hay que pulsar. Esa mitad solo la ve una persona.",
+        "why": "[owner 2026-08-20] \"Los walks deben ser recorridos humanos, los tests estan bien para acompanar pero no marquemos un walk a menos que lo recorra una persona\". La convencion de `walkthroughs` ya lo decia —\"Los hace una PERSONA, no una suite\"— y aun asi WALK-6 estuvo a un comando de cerrarse con las siete sondas en verde y CERO pantallas abiertas. El propio WALK-6 es la demostracion de por que no vale: sus sondas W6-1..W6-6 pasaron a la primera contra un backend que ya estaba bien, mientras los tres fallos reales que encontro el dueno (View/Edit sin href, el avatar muerto, el borrado ausente) solo existian en la pantalla, llegando por el menu lateral, y ninguna sonda los podia ver. Y el paso que si tenia guarda automatico, W6-7, fallo dos veces por el entorno del guarda antes de mirar la aplicacion.",
+        "appliesTo": [
+          "proceso",
+          "walkthroughs",
+          "agentes"
+        ],
+        "enforcedBy": "design/walk.py — `--pass`/`--fail` exigen `--by` no vacio y rechazan nombres de maquina; sin firma no se registra nada. Y backend/tests/Feature/PlanningCodeCongruenceTest::test_a_recorded_walk_names_the_person_who_walked_it — un recorrido con estado `passed` o `failed` tiene que llevar `result.by` con una persona, de modo que un design.json editado a mano (saltandose walk.py) tampoco cuela.",
+        "status": "built"
       }
     ]
   },

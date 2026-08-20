@@ -238,6 +238,46 @@ class PlanningCodeCongruenceTest extends TestCase
     }
 
     /**
+     * BR-20 (`un-walk-lo-recorre-una-persona`) given teeth.
+     *
+     * A walkthrough is a HUMAN walk of the real interface; the probes and the e2e guards
+     * come along, they do not stand in. So a walk that has been recorded — `passed` or
+     * `failed` — must name the person who walked it. `design/walk.py` refuses to record
+     * one without `--by`, and this is the same rule applied to the file itself, for the
+     * design.json edited by hand around the script.
+     *
+     * Why it is worth a test: WALK-6 came within one command of being closed on seven
+     * green probes and zero screens opened, while the three failures it actually had
+     * (View/Edit with no href, a dead avatar, a missing delete button) existed only on
+     * screen, only when reached through the sidebar. A probe proves the server answers
+     * what it was asked; it cannot prove a button exists that asks it.
+     */
+    public function test_a_recorded_walk_names_the_person_who_walked_it(): void
+    {
+        $design = $this->design();
+        $unsigned = [];
+
+        // The same list `design/walk.py` refuses, so the two doors cannot drift apart.
+        $notAPerson = '/^(agente?|agent|bot|ci|cd|pipeline|suite|tests?|phpunit|playwright|e2e|'
+            . 'script|automat\w*|claude|gpt|copilot|ia|ai)$/i';
+
+        foreach ($design['walkthroughs']['items'] as $walk) {
+            if ($walk['status'] === 'pending') {
+                continue;
+            }
+            $by = trim($walk['result']['by'] ?? '');
+            if ($by === '') {
+                $unsigned[] = "{$walk['id']} is `{$walk['status']}` with no result.by";
+            } elseif (preg_match($notAPerson, $by)) {
+                $unsigned[] = "{$walk['id']} is signed by \"{$by}\", which is not a person";
+            }
+        }
+
+        $this->assertSame([], $unsigned, "A walkthrough was recorded without the person who walked it "
+            . "(BR-20 — the suite comes along, it does not walk):\n  " . implode("\n  ", $unsigned) . "\n");
+    }
+
+    /**
      * EH-10 at the root. Every URL the Angular app builds has to resolve to a route the
      * backend serves — the check that would have caught the delete-users button the day
      * its route was removed, instead of leaving it to fail silently in a user's hands.
