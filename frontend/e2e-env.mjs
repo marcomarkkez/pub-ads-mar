@@ -143,6 +143,53 @@ export function launchOptions() {
   return { args: ['--no-sandbox'], ...(executablePath ? { executablePath } : {}) };
 }
 
+/** The Playwright CLI to quote in an instruction — the one we resolved, not a guess. */
+function playwrightBin() {
+  const local = path.join(TOOLS_DIR, 'node_modules', '.bin', 'playwright');
+  return existsSync(local) ? local : 'npx playwright';
+}
+
+/**
+ * Failures that belong to the HOST, not to the app. Each one is matched narrowly and
+ * answered with the exact command that fixes it — the raw Playwright report for the first
+ * of these is a sixty-line dump of the chromium argv with the one line that matters
+ * ("libatk-1.0.so.0: cannot open shared object file") buried in the middle of it.
+ */
+const HOST_LAUNCH_FAILURES = [
+  {
+    when: /error while loading shared libraries|cannot open shared object file/i,
+    why: 'al navegador descargado le faltan librerias del sistema (libatk, libnss3, …).\n' +
+         'La imagen del Codespace no las trae; Playwright sabe cuales son y las instala',
+    fix: (bin) => `sudo ${bin} install-deps chromium`,
+  },
+  {
+    when: /Executable doesn't exist|Please run the following command to download/i,
+    why: 'Playwright esta instalado pero su navegador no se ha descargado todavia',
+    fix: (bin) => `${bin} install chromium`,
+  },
+];
+
+/**
+ * Start chromium, translating a host-shaped launch failure into a `CannotRun`.
+ *
+ * It THROWS rather than exiting, on purpose: the caller may be holding a database fixture
+ * that has to be put back first, and `process.exit()` does not run `finally` blocks.
+ */
+export async function launchChromium(chromium, options = {}) {
+  try {
+    return await chromium.launch({ ...launchOptions(), ...options });
+  } catch (e) {
+    const text = String((e && e.message) || e);
+    const hit = HOST_LAUNCH_FAILURES.find((h) => h.when.test(text));
+    if (!hit) throw e;
+    throw new CannotRun(
+      `El navegador no arranca en este equipo: ${hit.why}:\n\n` +
+      `    ${hit.fix(playwrightBin())}\n\n` +
+      'y repite el paso. Si no tienes sudo, apunta PW a un chromium del sistema que ya\n' +
+      'funcione (PW=/ruta/al/chrome node frontend/…).');
+  }
+}
+
 // ── php artisan ──────────────────────────────────────────────────────────────────────
 
 /**
@@ -190,19 +237,23 @@ export function makeArtisan(backendDir) {
 
 // ── shared entry point ───────────────────────────────────────────────────────────────
 
+/** Print a `CannotRun` as an instruction and leave with code 2. Never returns. */
+export function bail(e) {
+  console.error(`\nNO SE PUDO EJECUTAR (esto no es un fallo de la app)\n\n${e.message}\n`);
+  process.exit(2);
+}
+
 /**
  * Run one resolution step, turning a `CannotRun` into an instruction and exit code 2.
  * Wrap the resolvers with this BEFORE the guard touches the database or the browser, so a
- * missing tool never gets to look like a half-finished run.
+ * missing tool never gets to look like a half-finished run. Once a fixture is in play the
+ * caller must catch `CannotRun` itself and `bail()` only after restoring it.
  */
 export async function orExit(step) {
   try {
     return await step();
   } catch (e) {
-    if (e instanceof CannotRun) {
-      console.error(`\nNO SE PUDO EJECUTAR (esto no es un fallo de la app)\n\n${e.message}\n`);
-      process.exit(2);
-    }
+    if (e instanceof CannotRun) bail(e);
     throw e;
   }
 }

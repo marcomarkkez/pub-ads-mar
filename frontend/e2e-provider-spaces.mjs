@@ -46,7 +46,7 @@
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchOptions, loadChromium, makeArtisan, orExit } from './e2e-env.mjs';
+import { CannotRun, bail, launchChromium, loadChromium, makeArtisan, orExit } from './e2e-env.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:4200';
 const USER = process.env.E2E_USER || 'provider1@pubads.test';
@@ -63,7 +63,6 @@ const check = (ok, label, detail = '') => {
 // Everything host-shaped is settled HERE, before the database is touched or a browser is
 // started: a missing tool must never surface as a half-run guard.
 const { chromium } = await orExit(() => loadChromium());
-const LAUNCH = await orExit(() => launchOptions());
 
 // ── the fixture: one type-less listing, minted and reverted by this script ──────────
 // `tinker --execute` is the way in, over whichever artisan this host can reach — native
@@ -175,8 +174,13 @@ async function gotoSpacesViaSidebar() {
 // or a mid-run exception. A test may borrow the database; it may not keep it.
 const fixture = mintUntypedFixture();
 
+// A host problem found AFTER the fixture exists cannot exit on the spot: `process.exit()`
+// skips `finally`, and the row would stay type-less in the database. It is parked here and
+// reported once the restore below has run.
+let hostProblem = null;
+
 try {
-  browser = await chromium.launch(LAUNCH);
+  browser = await launchChromium(chromium);
   page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   page.on('console', m => { if (m.type() === 'error') record(m.text()); });
   page.on('pageerror', e => record(`uncaught: ${e.message}`));
@@ -292,8 +296,11 @@ try {
                 `isKnownForeignNoise):\n        ${kinds.join('\n        ')}`);
   }
 } catch (e) {
-  // An exception is a failed run, not an excuse to skip the summary (or the restore).
-  check(false, `the run reached the end without throwing (phase: ${phase})`, e.message);
+  // A tool this host lacks is NOT the app failing a check — accusing the app of it is how
+  // a walker ends up debugging code that was fine. Everything else is a failed run, and a
+  // failed run still owes you the summary (and the restore).
+  if (e instanceof CannotRun) hostProblem = e;
+  else check(false, `the run reached the end without throwing (phase: ${phase})`, e.message);
 } finally {
   if (browser) await browser.close().catch(() => {});
   try {
@@ -302,6 +309,8 @@ try {
     check(false, 'the fixture was restored to its seeded values', e.message);
   }
 }
+
+if (hostProblem) bail(hostProblem);   // the fixture is back; now it is safe to leave
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

@@ -31,10 +31,9 @@
  */
 // Playwright is deliberately not a dependency of this app: it is a walk tool. Where it
 // lives differs per host, so it is looked up rather than assumed.
-import { launchOptions, loadChromium, orExit } from './e2e-env.mjs';
+import { launchChromium, loadChromium, orExit } from './e2e-env.mjs';
 
 const { chromium } = await orExit(() => loadChromium());
-const LAUNCH = await orExit(() => launchOptions());
 
 const BASE = process.env.BASE || 'http://localhost:4200';
 const USER = process.env.E2E_USER || 'client1@pubads.test';
@@ -46,7 +45,7 @@ const check = (ok, label, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? `\n        ${detail}` : ''}`);
 };
 
-const browser = await chromium.launch(LAUNCH);
+const browser = await orExit(() => launchChromium(chromium));
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 page.on('pageerror', e => { failures++; console.log(`FAIL  uncaught page error: ${e.message}`); });
 
