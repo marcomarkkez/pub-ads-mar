@@ -57,7 +57,8 @@ python3 mvp-init.py --no-dispute
 
 # Serve the design dashboard over HTTP (design/design.html fetches design.json, so it
 # MUST be served — opening it as a file:// URL blocks the fetch). Then open
-# http://localhost:8080/design.html
+# http://localhost:8080/  (la raíz redirige al tablero; /design.html también vale)
+# Si sale "Address already in use", el 8080 lo tiene otro proceso: usa 8081.
 cd design && python3 -m http.server 8080
 ```
 

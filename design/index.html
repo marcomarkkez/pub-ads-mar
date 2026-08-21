@@ -1,0 +1,26 @@
+<meta charset="utf-8">
+<title>PubAds — Design Dashboard</title>
+<link rel="icon" href="data:,">
+<!-- El felpudo del tablero.
+
+     `cd design && python3 -m http.server 8080` sirve esta carpeta, y esta carpeta no tenia
+     indice: la raiz `/` contestaba con el listado de ficheros de Python (app.js, design.json,
+     README.md…). El tablero vive en `/design.html`, que es una URL que hay que saberse — y en
+     Codespaces el aviso de "puerto 8080 reenviado" abre precisamente `/`, asi que lo primero
+     que se ve al pulsarlo es el listado, no el tablero. Se parece bastante a que no funcione.
+
+     Abrir design.json desde ese listado tampoco ayuda: son 480 KB de JSON en crudo.
+
+     Se conserva `design.html` como el nombre canonico (lo citan README.md, claude.md,
+     useful_commands.md y el paso W4-1 de WALK-4); esto solo es la puerta de entrada. -->
+<meta http-equiv="refresh" content="0; url=design.html">
+<script>
+  // Arrastra el #hash y el ?query: el tablero guarda la vista activa en el hash
+  // (#walks, #rules…), y un enlace compartido tiene que seguir cayendo donde apuntaba.
+  // `replace` en vez de `href` para no dejar el felpudo en el historial: con `href`,
+  // el boton "atras" del navegador vuelve aqui y rebota hacia delante otra vez.
+  location.replace('design.html' + location.search + location.hash);
+</script>
+<p style="font:15px/1.5 system-ui,sans-serif;margin:3rem">
+  Redirigiendo al tablero: <a href="design.html">design.html</a>
+</p>

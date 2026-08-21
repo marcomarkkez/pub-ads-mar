@@ -278,6 +278,30 @@ class PlanningCodeCongruenceTest extends TestCase
     }
 
     /**
+     * The dashboard's front door. `cd design && python3 -m http.server 8080` serves the
+     * folder, and the folder had no index: `/` answered with Python's file listing while
+     * the dashboard sat at `/design.html`, a URL you had to already know. Codespaces'
+     * forwarded-port notice opens `/`, so the first thing anyone clicking it saw was the
+     * listing — close enough to "it doesn't work" that it was reported as exactly that.
+     *
+     * `design.html` stays the canonical name (README.md, claude.md, useful_commands.md and
+     * WALK-4's W4-1 all cite it); `index.html` is only the doormat, and this asserts the
+     * doormat still points somewhere.
+     */
+    public function test_the_design_dashboard_answers_at_the_served_root(): void
+    {
+        $design = base_path('../design');
+        $index = $design . '/index.html';
+
+        $this->assertFileExists($index, 'design/index.html is what makes http://localhost:8080/ open '
+            . 'the dashboard instead of a directory listing.');
+        $this->assertFileExists($design . '/design.html', 'The doormat needs somewhere to lead.');
+
+        $this->assertStringContainsString('design.html', file_get_contents($index),
+            'design/index.html no longer points at design.html, so the root is a dead end again.');
+    }
+
+    /**
      * EH-10 at the root. Every URL the Angular app builds has to resolve to a route the
      * backend serves — the check that would have caught the delete-users button the day
      * its route was removed, instead of leaving it to fail silently in a user's hands.

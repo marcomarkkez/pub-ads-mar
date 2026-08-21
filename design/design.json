@@ -1070,8 +1070,9 @@
           {
             "id": "W4-1",
             "role": "stakeholder",
-            "action": "Servir design/ por HTTP y abrir el dashboard; recorrer las diez vistas (Specs, Todos, Flow, ER, Classes, Stories, Sprint, Glosario, Preguntas, Recorridos).",
-            "expected": "Cada vista carga sin errores de consola y ninguna queda vacia."
+            "action": "Servir design/ por HTTP (`cd design && python3 -m http.server 8080`) y abrir http://localhost:8080/ SIN escribir el nombre del fichero; recorrer las trece vistas (Specs, Todos, Flow, ER, Classes, User Stories, Sprint, Glosario, Reglas, Cacería, Preguntas, Endpoints, Recorridos).",
+            "expected": "La raiz abre el tablero, no el listado de ficheros de Python: la carpeta no tenia indice y `/` contestaba con app.js / design.json / README.md sueltos, que es lo que se ve al pulsar el aviso de puerto reenviado de Codespaces. Cada vista carga sin errores de consola y ninguna queda vacia; el paso son trece, no diez — Reglas, Cacería y Endpoints llevan tiempo en la barra y este paso todavia no las nombraba.",
+            "probe": "curl -s -o /dev/null -w \"raiz -> %{http_code}\\n\" http://localhost:8080/; curl -s http://localhost:8080/ | grep -c design.html   # exige 200 y un conteo mayor que 0: la raiz es el felpudo (index.html) que redirige a design.html. Si el conteo es 0 y el cuerpo dice \"Directory listing\", falta index.html. Si el comando del servidor murio con \"Address already in use\", el 8080 lo tiene otro proceso — y ese contesta, que es peor que no arrancar: sirve otra carpeta."
           },
           {
             "id": "W4-2",

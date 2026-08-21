@@ -103,7 +103,13 @@ The dashboard renders `design.json` via `fetch`, so it must be **served over HTT
 cd design && python3 -m http.server 8080
 ```
 
-Then open http://localhost:8080/design.html
+Then open http://localhost:8080/ — la raíz redirige al tablero (`index.html` → `design.html`), que
+es lo que hace que el aviso de puerto reenviado de Codespaces caiga en el sitio correcto en vez de
+en el listado de ficheros. `http://localhost:8080/design.html` sigue funcionando igual.
+
+Si el comando muere con `Address already in use`, el puerto ya lo tiene otro proceso —
+probablemente un `http.server` anterior sirviendo otra carpeta, que es peor que no arrancar
+porque contesta: `python3 -m http.server 8081` y listo, o `kill $(lsof -ti:8080)`.
 
 ### Views
 - **Specs** — filterable cards (feature Fxx, kanban status) + search; click for the full body,

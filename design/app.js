@@ -309,7 +309,8 @@
       '<p>This dashboard must be <strong>served over HTTP</strong>, not opened from the file system ' +
       '(a <code>file://</code> URL blocks <code>fetch()</code>). Start a local server:</p>' +
       '<pre>cd design\npython3 -m http.server 8080</pre>' +
-      '<p>then open <code>http://localhost:8080/design.html</code></p>' +
+      '<p>then open <code>http://localhost:8080/</code> (the root redirects here) ' +
+      'or <code>http://localhost:8080/design.html</code></p>' +
       '<p style="color:var(--muted)">If you are already serving it, make sure <code>design.json</code> ' +
       'exists in the same folder as <code>design.html</code>.</p>' +
       '</div>';

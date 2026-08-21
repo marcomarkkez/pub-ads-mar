@@ -313,7 +313,7 @@ executing. The exposure was real even though the outcome was clean.
 | File | Purpose |
 |------|---------|
 | `design/design.json` | THE single canonical source — overview, roles, specs, decisions, schema, API/endpoint map, role/object graph, dev commands, status, the user stories (§19) AND the build backlog. Absorbed ARCHITECTURE.md + cases.md + platform-graph.md (deleted 2026-06-27), then design.md + `.claude/todos/mvp-sprint.json` (deleted 2026-08-02). See `design/README.md` for how to read it. |
-| `design/design.html` | Dashboard over that data — `cd design && python3 -m http.server 8080`. |
+| `design/design.html` | Dashboard over that data — `cd design && python3 -m http.server 8080`, luego `http://localhost:8080/` (`index.html` redirige aquí). |
 | `history.md` | Session diary — append entries, never delete |
 | `claude.md` | This file — agent instructions |
 | `install_beads.md` | Guide for installing the `bd` task CLI |
