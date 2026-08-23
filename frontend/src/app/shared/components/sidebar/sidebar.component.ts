@@ -104,6 +104,12 @@ export class SidebarComponent {
           { label: 'Invoices', icon: '📄', route: '/client/invoices' },
           { label: 'Wallet', icon: '👛', route: '/client/wallet' },
           { label: 'Messages', icon: '💬', route: '/messages' },
+          // design.json §3 · UC-19/UC-20 (WALK-6 paso 3) — la bandeja de invitaciones.
+          // Sin este spread, `invitationsItem()` se construia y no se montaba en ningun
+          // sitio: /collaborations solo se alcanzaba tecleando la URL, que es no
+          // alcanzarse. Marco lo encontro recorriendo WALK-6 — invito a client2, entro
+          // con client2 y no habia por donde enterarse (2026-08-23).
+          ...this.invitationsItem(),
           // design.json §2/§3 (UC-19) — Collaborators is its OWN account-scoped tab under
           // Configurations, shown only to the account OWNER (the one who may invite/revoke:
           // `collaborators.create`). It is no longer a card inside campaign-detail.
@@ -124,6 +130,10 @@ export class SidebarComponent {
           { label: 'Bookings', icon: '📅', route: '/provider/bookings' },
           { label: 'Proofs', icon: '📸', route: '/provider/proofs' },
           { label: 'Messages', icon: '💬', route: '/messages' },
+          // La ruta /collaborations admite `role:client,provider`, asi que la puerta
+          // tiene que existir para los dos. Un proveedor invitado a una cuenta y sin
+          // entrada en el menu esta igual de encerrado que un cliente.
+          ...this.invitationsItem(),
           // Same account screen, same gate. A provider deleting themselves is the case
           // the dispute guardrail exists for (§3 · AD-delguard-09), so they need the
           // screen that shows the refusal at least as much as a client does.

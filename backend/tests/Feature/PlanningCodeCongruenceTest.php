@@ -278,6 +278,56 @@ class PlanningCodeCongruenceTest extends TestCase
     }
 
     /**
+     * EH-10's mirror image: not a control that leads nowhere, but a SCREEN with no control
+     * leading to it.
+     *
+     * `SidebarComponent.invitationsItem()` built the Invitations entry, carried a docblock
+     * explaining that without it "the invitation flow had no way in", and was never called
+     * from `navItems`. Everything else was wired — the API served `GET /collaborations`,
+     * the route existed with its guard, the service fetched and counted, the screen had its
+     * "Accept and join" button — so every probe on that step was green while the flow was
+     * unreachable by anyone who did not type the URL. Marco found it in WALK-6 by inviting
+     * client2 and then looking for the invitation as client2 (2026-08-23).
+     *
+     * Note what a coarser check would have done here: `/collaborations` DOES appear as a
+     * `route:` in this file, inside the dead method. Grepping for the path passes. The
+     * question that fails is whether the thing that builds the entry is ever mounted.
+     */
+    public function test_every_menu_entry_the_sidebar_builds_is_mounted(): void
+    {
+        $sidebar = base_path('../frontend/src/app/shared/components/sidebar/sidebar.component.ts');
+
+        if (! is_file($sidebar)) {
+            $this->markTestSkipped('No frontend checked out next to the backend.');
+        }
+
+        $source = file_get_contents($sidebar);
+
+        preg_match_all('/private\s+(\w+)\s*\(\s*\)\s*:\s*NavItem\[\]/', $source, $m);
+
+        $this->assertNotEmpty($m[1], 'No NavItem[] builders found in the sidebar. Either the menu stopped '
+            . 'being built this way — in which case this test no longer checks anything and must be '
+            . 'rewritten — or the file moved.');
+
+        // Comments come out FIRST. The method's own docblock names it, and a commented-out
+        // call site reads exactly like a live one to a plain string search — which is how
+        // the first draft of this test went green against the very code it was written to
+        // catch. A mention is not a call.
+        $code = preg_replace(['#/\*.*?\*/#s', '#//[^\n]*#'], '', $source);
+
+        $orphans = [];
+
+        foreach ($m[1] as $method) {
+            if (! preg_match('/this\s*\.\s*' . preg_quote($method, '/') . '\s*\(/', $code)) {
+                $orphans[] = "{$method}() builds menu entries that `navItems` never spreads";
+            }
+        }
+
+        $this->assertSame([], $orphans, "The sidebar builds an entry it never mounts, so the screens behind "
+            . "it can only be reached by typing the URL:\n  " . implode("\n  ", $orphans) . "\n");
+    }
+
+    /**
      * The dashboard's front door. `cd design && python3 -m http.server 8080` serves the
      * folder, and the folder had no index: `/` answered with Python's file listing while
      * the dashboard sat at `/design.html`, a URL you had to already know. Codespaces'
