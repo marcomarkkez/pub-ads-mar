@@ -4,6 +4,7 @@ import {
   Output,
   EventEmitter,
   AfterViewInit,
+  OnInit,
   OnChanges,
   OnDestroy,
   SimpleChanges,
@@ -84,7 +85,7 @@ const PIN_ICON = L.divIcon({
     }
   `,
 })
-export class LocationPickerComponent implements AfterViewInit, OnChanges, OnDestroy {
+export class LocationPickerComponent implements OnInit, AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('mapEl') mapEl!: ElementRef<HTMLDivElement>;
 
   /** Initial / bound latitude */
@@ -120,14 +121,46 @@ export class LocationPickerComponent implements AfterViewInit, OnChanges, OnDest
   private readonly http = inject(HttpClient);
   private readonly zone = inject(NgZone);
 
+  /**
+   * UI-2 — the coordinate caption mirrors the INPUTS, so it is seeded here, before the
+   * view is ever checked.
+   *
+   * It used to be seeded inside `initMap()`, which runs from `ngAfterViewInit` — i.e.
+   * DURING the change-detection pass that has already evaluated the `@if` below the map.
+   * The conditional had been checked as "no branch" (-1) and the assignment flipped it to
+   * "branch 3" in the same pass, which is precisely NG0100:
+   *
+   *     Previous value: '-1'. Current value: '3'. Expression location: LocationPicker
+   *
+   * Nothing about that caption ever needed the map to exist: it prints `lat`/`lng`, which
+   * are bound before either lifecycle hook runs. Leaflet keeps `ngAfterViewInit`, because
+   * a map does need its container measured; the text does not.
+   *
+   * Angular logs this as an ERROR, not a warning — it was red in the console on every
+   * visit to a space's edit screen, which is the screen WALK-6 step 7 walks with the
+   * console open. A standing red line nobody may act on is how people stop reading the
+   * console at all, so it is fixed rather than excused (Marco, WALK-6, 2026-08-23).
+   */
+  ngOnInit(): void {
+    this.currentLat = this.lat;
+    this.currentLng = this.lng;
+  }
+
   ngAfterViewInit(): void {
     // Run outside Angular to avoid extra change-detection cycles from Leaflet events
     this.zone.runOutsideAngular(() => this.initMap());
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes['lat'] || changes['lng']) && this.map) {
-      this.zone.runOutsideAngular(() => this.syncMarker());
+    if (changes['lat'] || changes['lng']) {
+      // Safe here for the same reason ngOnInit is: a child's ngOnChanges runs before the
+      // child's own view is checked, never after it.
+      this.currentLat = this.lat;
+      this.currentLng = this.lng;
+
+      if (this.map) {
+        this.zone.runOutsideAngular(() => this.syncMarker());
+      }
     }
   }
 
@@ -153,12 +186,9 @@ export class LocationPickerComponent implements AfterViewInit, OnChanges, OnDest
       maxZoom: 19,
     }).addTo(this.map);
 
+    // The caption is already seeded by ngOnInit; touching it here is what caused NG0100.
     if (this.lat !== null && this.lng !== null) {
-      this.zone.run(() => {
-        this.currentLat = this.lat;
-        this.currentLng = this.lng;
-      });
-      this.placeMarker(this.lat!, this.lng!);
+      this.placeMarker(this.lat, this.lng);
     }
 
     if (!this.readonly) {
@@ -182,10 +212,7 @@ export class LocationPickerComponent implements AfterViewInit, OnChanges, OnDest
     if (!this.map || this.lat === null || this.lng === null) return;
     this.placeMarker(this.lat, this.lng);
     this.map.setView([this.lat, this.lng], this.map.getZoom());
-    this.zone.run(() => {
-      this.currentLat = this.lat;
-      this.currentLng = this.lng;
-    });
+    // The caption is written by ngOnChanges, which is what calls this. Only the map moves here.
   }
 
   private placeMarker(lat: number, lng: number): void {

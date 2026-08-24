@@ -126,18 +126,21 @@ let browser;
 let page;
 
 /**
- * Two known-noisy lines that are NOT this screen's business. Named explicitly rather
- * than filtered by a vague pattern, so each one has to be argued for:
+ * The one known-noisy line that is NOT this screen's business, named explicitly rather
+ * than filtered by a vague pattern so it has to be argued for:
  *
  *  · map tiles. The Edit screen's LocationPicker pulls OpenStreetMap tiles; a sandbox
  *    with no outbound internet answers ERR_TUNNEL_CONNECTION_FAILED. Environment.
- *  · NG0100 in LocationPicker. Reproduced on EVERY space edit screen (ids 1, 2 and 7
- *    alike, typed or not) before and after this fix — a pre-existing dev-mode warning
- *    that belongs to the space-form / location-picker area, not here.
+ *
+ * NG0100 in LocationPicker used to be the second entry: "a pre-existing dev-mode warning
+ * that belongs to the space-form area, not here". Two things were wrong with that. It was
+ * logged as an ERROR, not a warning, so the walker was being told to skip past a red line
+ * on the one step that is walked with the console open; and an allowance is not a place to
+ * park a bug — it is a place a bug hides. It is fixed (LocationPickerComponent.ngOnInit,
+ * 2026-08-23), so the allowance is gone and a return of NG0100 fails this run.
  */
 const isKnownForeignNoise = e =>
-  /Failed to load resource: net::/.test(e.text) ||
-  /NG0100:.*_LocationPickerComponent/.test(e.text);
+  /Failed to load resource: net::/.test(e.text);
 
 /** A real mouse press, so hit-testing (z-index, overlays) is exercised for real. */
 async function realClick(selector) {
