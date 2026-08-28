@@ -21,8 +21,8 @@ use Illuminate\Support\Facades\DB;
  * bottom half. WALK-6 step 3 ("invitar a un colaborador y aceptar la invitación desde la
  * otra sesión") could not be walked at all.
  *
- * SCOPE — read this before adding a method here. These routes are NOT under the client
- * prefix and must NOT reuse CollaboratorController's account scope. There the caller acts
+ * SCOPE — read this before adding a method here. These routes sit next to /collaborators
+ * and must NOT reuse CollaboratorController's account scope. There the caller acts
  * on their own account (`account_id = mine`); here the caller answers an invitation into
  * SOMEONE ELSE's account, where `account_id` is by definition not theirs. Reusing that
  * scope would match zero rows and 404 forever; dropping the scope instead — checking only
@@ -139,7 +139,7 @@ class CollaborationController extends Controller
      *
      * The moment the invitation is `accepted` that reasoning stops applying, and so does
      * this endpoint: 409, and the same Support message as
-     * Client\CollaboratorController::destroy. One rule, stated in the two places a person
+     * CollaboratorController::destroy. One rule, stated in the two places a person
      * can reach it from.
      */
     public function decline(Request $request, int $collaborator): JsonResponse

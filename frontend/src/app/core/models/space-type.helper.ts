@@ -8,7 +8,8 @@
  *     }
  *
  * `spaces.type` is NULLABLE and rows with a null type exist in the demo data
- * (DisputeDemoSeeder mints "Demo Dispute Billboard" with no type and no price), so the
+ * (DisputeDemoSeeder mints its listing — "Espectacular Calzada del Valle" since the 2026-08-23
+ * rename, "Demo Dispute Billboard" before it — with no type and no price), so the
  * call threw `TypeError: Cannot read properties of null (reading 'replace')` — and it
  * threw from inside a template EXPRESSION, i.e. during Angular's update pass.
  *

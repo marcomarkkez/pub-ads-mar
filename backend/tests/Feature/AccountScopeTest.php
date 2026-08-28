@@ -99,11 +99,11 @@ class AccountScopeTest extends TestCase
         $this->postJson('/api/client/campaigns', ['name' => 'A'])->assertStatus(201);
         $this->postJson('/api/client/campaigns', ['name' => 'B'])->assertStatus(201);
 
-        $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+        $this->postJson('/api/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
             ->assertStatus(201);
 
         // 409, not 422: the payload is fine, the account's state is what refuses.
-        $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'publicist'])
+        $this->postJson('/api/collaborators', ['email' => 'ana@x.test', 'role' => 'publicist'])
             ->assertStatus(409)
             ->assertJsonPath('error_code', 'ALREADY_EXISTS');
 
@@ -118,7 +118,7 @@ class AccountScopeTest extends TestCase
 
         foreach ([$first, $second] as $owner) {
             Sanctum::actingAs($owner);
-            $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+            $this->postJson('/api/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
                 ->assertStatus(201);
         }
 
@@ -131,13 +131,13 @@ class AccountScopeTest extends TestCase
         $stranger = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($owner);
-        $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+        $this->postJson('/api/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
             ->assertStatus(201);
 
-        $this->getJson('/api/client/collaborators')->assertStatus(200)->assertJsonCount(1);
+        $this->getJson('/api/collaborators')->assertStatus(200)->assertJsonCount(1);
 
         Sanctum::actingAs($stranger);
-        $this->getJson('/api/client/collaborators')->assertStatus(200)->assertJsonCount(0);
+        $this->getJson('/api/collaborators')->assertStatus(200)->assertJsonCount(0);
     }
 
     public function test_another_accounts_collaborator_cannot_be_revoked(): void
@@ -146,13 +146,13 @@ class AccountScopeTest extends TestCase
         $stranger = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($owner);
-        $id = $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+        $id = $this->postJson('/api/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
             ->json('id');
 
         // §21 rule 2 — a break in the chain is 404, never 403: a 403 would confirm
         // the collaborator exists.
         Sanctum::actingAs($stranger);
-        $this->deleteJson("/api/client/collaborators/{$id}")->assertStatus(404);
+        $this->deleteJson("/api/collaborators/{$id}")->assertStatus(404);
 
         $this->assertSame('pending', Collaborator::find($id)->status);
     }
@@ -162,10 +162,10 @@ class AccountScopeTest extends TestCase
         $owner = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($owner);
-        $id = $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+        $id = $this->postJson('/api/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
             ->json('id');
 
-        $this->deleteJson("/api/client/collaborators/{$id}")->assertStatus(200);
+        $this->deleteJson("/api/collaborators/{$id}")->assertStatus(200);
 
         // Revoked, not deleted — the grant stays as the record of who had access.
         $this->assertSame('revoked', Collaborator::find($id)->status);
@@ -182,7 +182,7 @@ class AccountScopeTest extends TestCase
         $helper = User::factory()->create(['role' => 'client', 'email' => 'ana@x.test']);
 
         Sanctum::actingAs($owner);
-        $id = $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+        $id = $this->postJson('/api/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
             ->assertStatus(201)
             ->json('id');
 
@@ -191,7 +191,7 @@ class AccountScopeTest extends TestCase
         // 409 and NOT 404: §21 rule 2 sends a broken ownership chain to 404 because a
         // 403 would confirm the row exists — but this caller IS the row's subject and
         // already knows it exists. The refusal is about state, so it says so.
-        $response = $this->deleteJson("/api/client/collaborators/{$id}")->assertStatus(409);
+        $response = $this->deleteJson("/api/collaborators/{$id}")->assertStatus(409);
 
         $response->assertJsonPath('error_code', 'CONFLICTING_STATE');
         // Still PENDING, so the truthful answer is not "talk to Support" — it is "you can
@@ -217,7 +217,7 @@ class AccountScopeTest extends TestCase
         ]);
 
         Sanctum::actingAs($helper);
-        $response = $this->deleteJson("/api/client/collaborators/{$grant->id}")
+        $response = $this->deleteJson("/api/collaborators/{$grant->id}")
             ->assertStatus(409)
             ->assertJsonPath('error_code', 'CONFLICTING_STATE');
 
@@ -235,7 +235,7 @@ class AccountScopeTest extends TestCase
         $owner = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($owner);
-        $id = $this->postJson('/api/client/collaborators', ['email' => 'later@x.test', 'role' => 'publicist'])
+        $id = $this->postJson('/api/collaborators', ['email' => 'later@x.test', 'role' => 'publicist'])
             ->assertStatus(201)
             ->json('id');
 
@@ -258,7 +258,7 @@ class AccountScopeTest extends TestCase
         $this->assertSame('pending', Collaborator::find($id)->status);
 
         Sanctum::actingAs($invitee);
-        $this->deleteJson("/api/client/collaborators/{$id}")
+        $this->deleteJson("/api/collaborators/{$id}")
             ->assertStatus(409)
             ->assertJsonPath('error_code', 'CONFLICTING_STATE');
     }
@@ -271,11 +271,11 @@ class AccountScopeTest extends TestCase
         $stranger = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($owner);
-        $id = $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+        $id = $this->postJson('/api/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
             ->json('id');
 
         Sanctum::actingAs($stranger);
-        $this->deleteJson("/api/client/collaborators/{$id}")
+        $this->deleteJson("/api/collaborators/{$id}")
             ->assertStatus(404)
             ->assertJsonMissingPath('error_code');
     }
@@ -293,12 +293,12 @@ class AccountScopeTest extends TestCase
         $stranger = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($owner);
-        $id = $this->postJson('/api/client/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
+        $id = $this->postJson('/api/collaborators', ['email' => 'ana@x.test', 'role' => 'manager'])
             ->json('id');
 
         Sanctum::actingAs($stranger);
-        $real = $this->deleteJson("/api/client/collaborators/{$id}")->assertStatus(404);
-        $phantom = $this->deleteJson('/api/client/collaborators/999999')->assertStatus(404);
+        $real = $this->deleteJson("/api/collaborators/{$id}")->assertStatus(404);
+        $phantom = $this->deleteJson('/api/collaborators/999999')->assertStatus(404);
 
         $this->assertSame($real->getStatusCode(), $phantom->getStatusCode());
         $this->assertSame($real->getContent(), $phantom->getContent());
@@ -341,17 +341,23 @@ class AccountScopeTest extends TestCase
         ]);
 
         Sanctum::actingAs($helper);
-        $this->deleteJson("/api/client/collaborators/{$grant->id}")
+        $this->deleteJson("/api/collaborators/{$grant->id}")
             ->assertStatus(409)
             ->assertJsonPath('error_code', 'CONFLICTING_STATE');
 
-        // A provider is refused a layer earlier and never reaches the controller, so its
+        // Support is refused a layer earlier and never reaches the controller, so its
         // answer is the middleware's EH-14 404 — on a route WITH parameters a refusal has
         // to be indistinguishable from a missing row (RefusesWithoutLeaking). Different
         // status, different body, different layer: the 409 above was not the middleware.
-        $provider = User::factory()->create(['role' => 'provider']);
-        Sanctum::actingAs($provider);
-        $this->deleteJson("/api/client/collaborators/{$grant->id}")
+        //
+        // This used to be a PROVIDER, back when the route lived under `role:client` — which
+        // made it a poor witness the day the owner ruled that providers are companies too
+        // (2026-08-23) and the role list widened. Staff is the honest one: `accounts.type`
+        // is client|provider, so a support agent has no account to staff and never will,
+        // and the assertion cannot go stale for a reason that has nothing to do with layers.
+        $staff = User::factory()->create(['role' => 'support']);
+        Sanctum::actingAs($staff);
+        $this->deleteJson("/api/collaborators/{$grant->id}")
             ->assertStatus(404)
             ->assertJsonPath('error_code', 'NOT_FOUND');
 
@@ -365,11 +371,11 @@ class AccountScopeTest extends TestCase
         $owner = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($owner);
-        $id = $this->postJson('/api/client/collaborators', ['email' => $owner->email, 'role' => 'manager'])
+        $id = $this->postJson('/api/collaborators', ['email' => $owner->email, 'role' => 'manager'])
             ->assertStatus(201)
             ->json('id');
 
-        $this->deleteJson("/api/client/collaborators/{$id}")->assertStatus(200);
+        $this->deleteJson("/api/collaborators/{$id}")->assertStatus(200);
         $this->assertSame('revoked', Collaborator::find($id)->status);
     }
 
@@ -380,9 +386,161 @@ class AccountScopeTest extends TestCase
         Sanctum::actingAs($owner);
 
         // §3 — installator is a PROVIDER-side subrole; a malformed payload is 422.
-        $this->postJson('/api/client/collaborators', ['email' => 'i@x.test', 'role' => 'installator'])
+        $this->postJson('/api/collaborators', ['email' => 'i@x.test', 'role' => 'installator'])
             ->assertStatus(422)
             ->assertJsonValidationErrors('role');
+    }
+
+    // ── §3 (owner 2026-08-23): a provider's account is a company too ──────────
+
+    /**
+     * THE RULING, end to end: "un proveedor puede tener colaboradores y un cliente también,
+     * cada uno es como una empresa."
+     *
+     * Until 2026-08-23 these three routes lived under `Route::middleware('role:client')
+     * ->prefix('client')`, so a provider could not list, invite or revoke ANYBODY on the
+     * account they own — not because the data said so (the table has been keyed on
+     * `account_id` since AC-collab-03, and `accounts.type` is client|provider) but because
+     * the URL had a role in it. The controller needed no change; the prefix did.
+     *
+     * All three verbs in one test on purpose: what broke was the whole screen, and a
+     * provider who can list but not invite is just as stuck as one who can do neither.
+     */
+    public function test_a_provider_owner_lists_invites_and_revokes_on_their_own_account(): void
+    {
+        $owner = User::factory()->create(['role' => 'provider']);
+
+        Sanctum::actingAs($owner);
+
+        $this->getJson('/api/collaborators')->assertStatus(200)->assertJsonCount(0);
+
+        $id = $this->postJson('/api/collaborators', ['email' => 'crew@x.test', 'role' => 'installator'])
+            ->assertStatus(201)
+            ->json('id');
+
+        // Filed against the PROVIDER's own account — the same scope the client side uses,
+        // which is why one controller serves both.
+        $this->assertSame($owner->account_id, Collaborator::find($id)->account_id);
+
+        $this->getJson('/api/collaborators')
+            ->assertStatus(200)
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.role', 'installator');
+
+        $this->deleteJson("/api/collaborators/{$id}")->assertStatus(200);
+
+        // Revoked, not deleted — the grant is the record of who had access (§3).
+        $this->assertSame('revoked', Collaborator::find($id)->status);
+    }
+
+    /**
+     * The move is only half a move without the matrix: `permission:collaborators,{read,
+     * create,delete}` still guards the three routes, and `provider` held none of those
+     * cells. Widening the role list alone would have swapped a 404 at the router for a 403
+     * one layer down — the same dead end, harder to read.
+     *
+     * Asserted after RolePermissionSeeder (setUp), so this pins the SEEDER half; the live
+     * databases are covered by 2026_08_23_000001_grant_provider_collaborators_permissions,
+     * which exists because the seeder truncates and therefore never runs on a populated DB.
+     * Both must say the same thing or a fresh install and a migrated one behave differently.
+     */
+    public function test_the_matrix_gives_a_provider_the_same_collaborator_powers_as_a_client(): void
+    {
+        foreach (['read', 'create', 'delete'] as $action) {
+            $this->assertTrue(
+                RolePermission::roleHasPermission('provider', 'collaborators', $action),
+                "A provider owns an account, so they must hold collaborators.{$action} — "
+                . 'without it /api/collaborators answers 403 to the owner of the account it is about.',
+            );
+            $this->assertTrue(
+                RolePermission::roleHasPermission('client', 'collaborators', $action),
+                "The client side must not lose collaborators.{$action} on the way.",
+            );
+        }
+
+        // Nobody holds `update`: changing somebody's subrole is Support's audited edit
+        // (§11 · UC-23), never the owner's silent one.
+        $this->assertFalse(RolePermission::roleHasPermission('provider', 'collaborators', 'update'));
+        $this->assertFalse(RolePermission::roleHasPermission('client', 'collaborators', 'update'));
+    }
+
+    /**
+     * The ruling gives the power to the OWNER of an account, not to "any provider".
+     *
+     * This is the case the widened role list could have opened by accident: a provider who
+     * was invited into SOMEONE ELSE's account and accepted. `role:client,provider` lets them
+     * through the door and `permission:collaborators,*` now says yes as well — both are role
+     * facts and neither can tell two providers apart. The only thing standing between them
+     * and their host's staff list is the controller's account scope, so it is pinned here.
+     *
+     * Note the collaborator sees their OWN (empty) account instead of an error: they do own
+     * one under the MVP 1:1, and the honest answer to "who works for me" is "nobody", not a
+     * 403 about somebody else's account.
+     */
+    public function test_a_provider_who_only_collaborates_elsewhere_cannot_manage_that_account(): void
+    {
+        $host = User::factory()->create(['role' => 'provider']);
+        $crew = User::factory()->create(['role' => 'provider']);
+        $mate = User::factory()->create(['role' => 'provider']);
+
+        Sanctum::actingAs($host);
+        $crewGrant = $this->postJson('/api/collaborators', ['email' => $crew->email, 'role' => 'supervisor'])
+            ->assertStatus(201)
+            ->json('id');
+        $mateGrant = $this->postJson('/api/collaborators', ['email' => $mate->email, 'role' => 'installator'])
+            ->assertStatus(201)
+            ->json('id');
+
+        Sanctum::actingAs($crew);
+        $this->postJson("/api/collaborations/{$crewGrant}/accept")->assertStatus(200);
+
+        // The host's staff list is not theirs to read, and their own is empty.
+        $this->getJson('/api/collaborators')->assertStatus(200)->assertJsonCount(0);
+
+        // Nor to revoke: §21 rule 2 — 404, never 403, or the answer would confirm the row.
+        $this->deleteJson("/api/collaborators/{$mateGrant}")->assertStatus(404);
+        $this->assertSame('pending', Collaborator::find($mateGrant)->status);
+
+        // And they cannot let themselves out either (BR-15, owner 2026-08-04): the person
+        // who did the acting must not be able to delete the record that says they were.
+        $this->deleteJson("/api/collaborators/{$crewGrant}")
+            ->assertStatus(409)
+            ->assertJsonPath('error_code', 'CONFLICTING_STATE');
+        $this->assertSame('accepted', Collaborator::find($crewGrant)->status);
+
+        // Inviting is scoped the same way: this lands on THEIR account, not the host's.
+        $id = $this->postJson('/api/collaborators', ['email' => 'helper@x.test', 'role' => 'sales'])
+            ->assertStatus(201)
+            ->json('id');
+        $this->assertSame($crew->account_id, Collaborator::find($id)->account_id);
+        $this->assertSame(2, Collaborator::where('account_id', $host->account_id)->count());
+    }
+
+    /**
+     * §3 — the two ecosystems hire from lists that share NO name, so the accepted set has to
+     * come from the ACCOUNT's type. A fixed CLIENT_ROLES list survived the move to a shared
+     * route and would have handed the provider side the mirror of the 2026-07-17 installator
+     * bug: a `publicist` on a provider account, which Chat::PROVIDER_CHAT_SUBROLES refuses —
+     * a collaborator who can be invited and can never open a chat, with nothing saying why.
+     */
+    public function test_a_provider_hires_provider_subroles_and_nothing_else(): void
+    {
+        $owner = User::factory()->create(['role' => 'provider']);
+
+        Sanctum::actingAs($owner);
+
+        foreach (Collaborator::PROVIDER_ROLES as $i => $role) {
+            $this->postJson('/api/collaborators', ['email' => "crew{$i}@x.test", 'role' => $role])
+                ->assertStatus(201);
+        }
+
+        foreach (Collaborator::CLIENT_ROLES as $role) {
+            $this->postJson('/api/collaborators', ['email' => 'oficina@x.test', 'role' => $role])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('role');
+        }
+
+        $this->assertSame(3, Collaborator::where('account_id', $owner->account_id)->count());
     }
 
     public function test_a_provider_collaborator_does_not_reach_another_providers_chats(): void

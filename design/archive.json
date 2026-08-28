@@ -1,0 +1,1910 @@
+{
+  "_note": "Bloques sacados de design.json el 2026-08-23. Ninguno lo lee el tablero (design/app.js), ni walk.py, ni la suite: se comprobo uno a uno antes de moverlos. Se guardan aqui en vez de borrarse porque son historia del proyecto — pero la historia vive en git y en este fichero, no en el plan que se lee en cada sesion.",
+  "schema": {
+    "entities": [
+      {
+        "name": "users",
+        "note": "the 5 system roles; email is account identity",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "name",
+            "type": "varchar"
+          },
+          {
+            "name": "email",
+            "type": "varchar unique"
+          },
+          {
+            "name": "password",
+            "type": "varchar"
+          },
+          {
+            "name": "role",
+            "type": "enum client|provider|admin|support|payments"
+          },
+          {
+            "name": "account_id",
+            "type": "fk accounts nullable unique (NULL = staff; UNIQUE = la regla MVP 1:1)"
+          },
+          {
+            "name": "phone",
+            "type": "varchar"
+          },
+          {
+            "name": "company_name",
+            "type": "varchar"
+          },
+          {
+            "name": "address",
+            "type": "varchar"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "timezone",
+            "type": "varchar nullable (PENDING)"
+          },
+          {
+            "name": "frozen_at",
+            "type": "timestamp nullable (freeze de cuenta; NOT fillable)"
+          },
+          {
+            "name": "freeze_reason",
+            "type": "text nullable"
+          }
+        ],
+        "relations": [
+          {
+            "to": "accounts",
+            "kind": "1..1",
+            "label": "owns"
+          },
+          {
+            "to": "campaigns",
+            "kind": "1..N",
+            "label": "owns (client)"
+          },
+          {
+            "to": "spaces",
+            "kind": "1..N",
+            "label": "owns (provider)"
+          },
+          {
+            "to": "wallet_entries",
+            "kind": "1..N",
+            "label": "has ledger"
+          }
+        ]
+      },
+      {
+        "name": "personal_access_tokens",
+        "note": "Sanctum bearer tokens",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "tokenable_type",
+            "type": "varchar"
+          },
+          {
+            "name": "tokenable_id",
+            "type": "bigint"
+          },
+          {
+            "name": "name",
+            "type": "varchar"
+          },
+          {
+            "name": "token",
+            "type": "varchar hash"
+          },
+          {
+            "name": "abilities",
+            "type": "text"
+          },
+          {
+            "name": "last_used_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "expires_at",
+            "type": "timestamp"
+          }
+        ],
+        "relations": [
+          {
+            "to": "users",
+            "kind": "N..1",
+            "label": "authenticates"
+          }
+        ]
+      },
+      {
+        "name": "accounts",
+        "note": "first-class. El enlace es users.account_id -> accounts (NO accounts.owner_user_id): asi varios usuarios-dueno podran compartir una cuenta sin mover una sola columna [owner 2026-08-01]. La regla MVP \"1 usuario = 1 cuenta\" es un UNIQUE sobre users.account_id; levantarla es borrar ese indice. El staff (admin/support/payments) no tiene cuenta: account_id NULL.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "name",
+            "type": "varchar"
+          },
+          {
+            "name": "type",
+            "type": "enum client|provider"
+          }
+        ],
+        "relations": [
+          {
+            "to": "users",
+            "kind": "1..N",
+            "label": "has owner users"
+          },
+          {
+            "to": "collaborators",
+            "kind": "1..N",
+            "label": "has collaborators"
+          },
+          {
+            "to": "campaigns",
+            "kind": "1..N",
+            "label": "scopes"
+          }
+        ]
+      },
+      {
+        "name": "campaigns",
+        "note": "top client unit; holds budget + adsets account_id = ambito (derivado del creador por hook, no fillable); user_id = usuario que la creo. Bajo cuentas multi-dueno son dos hechos distintos, por eso conviven.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "account_id",
+            "type": "fk accounts (ambito)"
+          },
+          {
+            "name": "user_id",
+            "type": "fk users (client)"
+          },
+          {
+            "name": "name",
+            "type": "varchar"
+          },
+          {
+            "name": "description",
+            "type": "text"
+          },
+          {
+            "name": "status",
+            "type": "varchar"
+          },
+          {
+            "name": "start_date",
+            "type": "date"
+          },
+          {
+            "name": "end_date",
+            "type": "date"
+          },
+          {
+            "name": "budget",
+            "type": "decimal(12,2)"
+          }
+        ],
+        "relations": [
+          {
+            "to": "users",
+            "kind": "N..1",
+            "label": "owned by client"
+          },
+          {
+            "to": "adsets",
+            "kind": "1..N",
+            "label": "groups"
+          },
+          {
+            "to": "invoices",
+            "kind": "1..1",
+            "label": "invoiced by"
+          }
+        ]
+      },
+      {
+        "name": "adsets",
+        "note": "PURE grouping label; no price/date/location effect",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "campaign_id",
+            "type": "fk campaigns"
+          },
+          {
+            "name": "name",
+            "type": "varchar"
+          },
+          {
+            "name": "status",
+            "type": "varchar"
+          },
+          {
+            "name": "latitude/longitude/location_name/radius_km",
+            "type": "LEGACY/unused"
+          }
+        ],
+        "relations": [
+          {
+            "to": "campaigns",
+            "kind": "N..1",
+            "label": "in campaign"
+          },
+          {
+            "to": "ads",
+            "kind": "1..N",
+            "label": "orders ads"
+          }
+        ]
+      },
+      {
+        "name": "ads",
+        "note": "basic publicity unit; own status enum (NOT unified with bookings)",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "adset_id",
+            "type": "fk adsets nullable (orphan/backlog)"
+          },
+          {
+            "name": "space_id",
+            "type": "fk spaces"
+          },
+          {
+            "name": "provider_user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "name",
+            "type": "varchar"
+          },
+          {
+            "name": "media_type",
+            "type": "enum image|video|sound|gif"
+          },
+          {
+            "name": "file_path",
+            "type": "varchar"
+          },
+          {
+            "name": "file_name",
+            "type": "varchar"
+          },
+          {
+            "name": "price",
+            "type": "decimal(12,2)"
+          },
+          {
+            "name": "pricing_unit",
+            "type": "enum day|month|custom"
+          },
+          {
+            "name": "start_date",
+            "type": "date"
+          },
+          {
+            "name": "end_date",
+            "type": "date"
+          },
+          {
+            "name": "status",
+            "type": "enum draft|pending_approval|approved|rejected|active|paused|completed|cancelled"
+          },
+          {
+            "name": "proof_deadline",
+            "type": "timestamp"
+          },
+          {
+            "name": "delete_scheduled_at",
+            "type": "timestamp nullable"
+          }
+        ],
+        "relations": [
+          {
+            "to": "adsets",
+            "kind": "N..1",
+            "label": "grouped in (nullable)"
+          },
+          {
+            "to": "spaces",
+            "kind": "N..1",
+            "label": "for space"
+          },
+          {
+            "to": "users",
+            "kind": "N..1",
+            "label": "from provider"
+          },
+          {
+            "to": "bookings",
+            "kind": "1..N",
+            "label": "booked as"
+          },
+          {
+            "to": "proofs",
+            "kind": "1..N",
+            "label": "proven by"
+          }
+        ]
+      },
+      {
+        "name": "spaces",
+        "note": "§12 tiene TRES niveles y no se pisan: is_active = pausa del propio proveedor (reversible por el); taken_down_at = takedown del admin (el proveedor NO puede revertirlo); freeze = a nivel cuenta, en users. Space::scopeBookable() es el unico sitio que conoce los tres.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "user_id",
+            "type": "fk users (provider)"
+          },
+          {
+            "name": "name",
+            "type": "varchar"
+          },
+          {
+            "name": "type",
+            "type": "varchar"
+          },
+          {
+            "name": "latitude",
+            "type": "decimal"
+          },
+          {
+            "name": "longitude",
+            "type": "decimal"
+          },
+          {
+            "name": "price_per_day",
+            "type": "decimal(12,2)"
+          },
+          {
+            "name": "price_per_month",
+            "type": "decimal(12,2)"
+          },
+          {
+            "name": "pricing_unit",
+            "type": "enum day|month|custom"
+          },
+          {
+            "name": "description",
+            "type": "text"
+          },
+          {
+            "name": "location_text",
+            "type": "varchar"
+          },
+          {
+            "name": "width",
+            "type": "int"
+          },
+          {
+            "name": "height",
+            "type": "int"
+          },
+          {
+            "name": "ical_url",
+            "type": "varchar"
+          },
+          {
+            "name": "calendar_keyword",
+            "type": "varchar"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "taken_down_at",
+            "type": "timestamp nullable (admin takedown; NOT fillable)"
+          },
+          {
+            "name": "takedown_reason",
+            "type": "text nullable"
+          },
+          {
+            "name": "publication_status",
+            "type": "enum published|paused|unpublished (lo que lee el catalogo; `unpublished` = borrado programado)"
+          },
+          {
+            "name": "delete_scheduled_at",
+            "type": "timestamp nullable (NOT fillable; null = nada programado)"
+          }
+        ],
+        "relations": [
+          {
+            "to": "users",
+            "kind": "N..1",
+            "label": "owned by provider"
+          },
+          {
+            "to": "space_photos",
+            "kind": "1..N",
+            "label": "has photos"
+          },
+          {
+            "to": "space_availabilities",
+            "kind": "1..N",
+            "label": "has calendar"
+          },
+          {
+            "to": "ads",
+            "kind": "1..N",
+            "label": "hosts ads"
+          }
+        ]
+      },
+      {
+        "name": "space_photos",
+        "note": "live route /photos; rename target /media",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "space_id",
+            "type": "fk spaces"
+          },
+          {
+            "name": "file_path",
+            "type": "varchar"
+          },
+          {
+            "name": "file_name",
+            "type": "varchar"
+          },
+          {
+            "name": "is_primary",
+            "type": "bool"
+          },
+          {
+            "name": "sort_order",
+            "type": "int"
+          }
+        ],
+        "relations": [
+          {
+            "to": "spaces",
+            "kind": "N..1",
+            "label": "of space"
+          }
+        ]
+      },
+      {
+        "name": "space_availabilities",
+        "note": "availability calendar windows",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "space_id",
+            "type": "fk spaces"
+          },
+          {
+            "name": "start_date",
+            "type": "date"
+          },
+          {
+            "name": "end_date",
+            "type": "date"
+          },
+          {
+            "name": "status",
+            "type": "enum available|booked|blocked"
+          },
+          {
+            "name": "source",
+            "type": "enum manual|ical"
+          }
+        ],
+        "relations": [
+          {
+            "to": "spaces",
+            "kind": "N..1",
+            "label": "of space"
+          }
+        ]
+      },
+      {
+        "name": "bookings",
+        "note": "canonical status enum (verificado contra la migracion 2026-08-03); overlap-guarded via EXCLUDE gist bookings.space_id es RESTRICT (UC-37): la base se niega a soltar un espacio con reservas.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "client_user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "space_id",
+            "type": "fk spaces"
+          },
+          {
+            "name": "ad_id",
+            "type": "fk ads nullable"
+          },
+          {
+            "name": "adset_id",
+            "type": "fk adsets nullable"
+          },
+          {
+            "name": "start_date",
+            "type": "date"
+          },
+          {
+            "name": "end_date",
+            "type": "date"
+          },
+          {
+            "name": "total_price",
+            "type": "decimal(12,2)"
+          },
+          {
+            "name": "status",
+            "type": "enum pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected"
+          },
+          {
+            "name": "display_start",
+            "type": "timestamp (deadline/cron key)"
+          },
+          {
+            "name": "config_snapshot",
+            "type": "json"
+          }
+        ],
+        "relations": [
+          {
+            "to": "users",
+            "kind": "N..1",
+            "label": "booked by client"
+          },
+          {
+            "to": "spaces",
+            "kind": "N..1",
+            "label": "for space"
+          },
+          {
+            "to": "ads",
+            "kind": "N..1",
+            "label": "of ad"
+          },
+          {
+            "to": "payments",
+            "kind": "1..1",
+            "label": "paid by"
+          },
+          {
+            "to": "proofs",
+            "kind": "1..N",
+            "label": "proven by"
+          }
+        ]
+      },
+      {
+        "name": "payments",
+        "note": "money state machine; `free_payment` = cliente acepto, listo para pagar; `held` = congelado en disputa. Nunca son lo mismo.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "booking_id",
+            "type": "fk bookings"
+          },
+          {
+            "name": "amount",
+            "type": "decimal(12,2) MXN"
+          },
+          {
+            "name": "status",
+            "type": "enum pending|completed|failed|free_payment|held|released|refunded"
+          },
+          {
+            "name": "payment_method",
+            "type": "varchar (mocked)"
+          },
+          {
+            "name": "payment_platform",
+            "type": "enum mercadopago|paypal"
+          },
+          {
+            "name": "transaction_id",
+            "type": "varchar"
+          },
+          {
+            "name": "approved_by_payments",
+            "type": "bool"
+          },
+          {
+            "name": "approved_by_user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "payout_releasable_at",
+            "type": "timestamp nullable (arranca la ventana de retencion; se sella al aceptar el cliente)"
+          },
+          {
+            "name": "clawed_back_at",
+            "type": "timestamp nullable"
+          }
+        ],
+        "relations": [
+          {
+            "to": "bookings",
+            "kind": "1..1",
+            "label": "for booking"
+          },
+          {
+            "to": "chat_objects",
+            "kind": "1..N",
+            "label": "attachable to chats"
+          }
+        ]
+      },
+      {
+        "name": "chats",
+        "note": "the ONE chat primitive; NO type column - nature DERIVED",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "opened_by_user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "client_user_id",
+            "type": "fk users nullable"
+          },
+          {
+            "name": "provider_user_id",
+            "type": "fk users nullable"
+          },
+          {
+            "name": "status",
+            "type": "enum open|in_progress|resolved|closed"
+          },
+          {
+            "name": "support_joined_at",
+            "type": "timestamp nullable (PII-relax trigger)"
+          },
+          {
+            "name": "resolved_at",
+            "type": "timestamp nullable"
+          },
+          {
+            "name": "closed_at",
+            "type": "timestamp nullable"
+          },
+          {
+            "name": "closed_by_user_id",
+            "type": "fk users nullable"
+          },
+          {
+            "name": "last_message_at",
+            "type": "timestamp nullable"
+          }
+        ],
+        "relations": [
+          {
+            "to": "chat_participants",
+            "kind": "1..N",
+            "label": "has participants"
+          },
+          {
+            "to": "chat_objects",
+            "kind": "1..N",
+            "label": "attaches objects"
+          },
+          {
+            "to": "chat_flags",
+            "kind": "1..N",
+            "label": "carries flags"
+          },
+          {
+            "to": "messages",
+            "kind": "1..N",
+            "label": "has messages"
+          }
+        ]
+      },
+      {
+        "name": "chat_objects",
+        "note": "polymorphic N; ownership-checked attach",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "chat_id",
+            "type": "fk chats cascade"
+          },
+          {
+            "name": "objectable_type",
+            "type": "morph (Ad|Adset|Campaign|Space|Payment|Booking)"
+          },
+          {
+            "name": "objectable_id",
+            "type": "bigint"
+          },
+          {
+            "name": "attached_by_user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp"
+          }
+        ],
+        "relations": [
+          {
+            "to": "chats",
+            "kind": "N..1",
+            "label": "attached to chat"
+          }
+        ]
+      },
+      {
+        "name": "chat_flags",
+        "note": "N + history; annotate the WHY, not money authority",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "chat_id",
+            "type": "fk chats cascade"
+          },
+          {
+            "name": "type",
+            "type": "enum payment_held|refund|payout_hold|cancel|mismatch|other"
+          },
+          {
+            "name": "reason",
+            "type": "text nullable"
+          },
+          {
+            "name": "active",
+            "type": "bool default true"
+          },
+          {
+            "name": "created_by_user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "superseded_at",
+            "type": "timestamp nullable"
+          }
+        ],
+        "relations": [
+          {
+            "to": "chats",
+            "kind": "N..1",
+            "label": "flags chat"
+          }
+        ]
+      },
+      {
+        "name": "chat_participants",
+        "note": "PER-PERSON membership; access by role, never a flag",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "chat_id",
+            "type": "fk chats"
+          },
+          {
+            "name": "user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "side",
+            "type": "enum client|provider|support|payments|admin"
+          },
+          {
+            "name": "announced",
+            "type": "bool default false"
+          },
+          {
+            "name": "joined_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "left_at",
+            "type": "timestamp nullable"
+          },
+          {
+            "name": "unique",
+            "type": "(chat_id,user_id)"
+          }
+        ],
+        "relations": [
+          {
+            "to": "chats",
+            "kind": "N..1",
+            "label": "member of chat"
+          },
+          {
+            "to": "users",
+            "kind": "N..1",
+            "label": "is user"
+          }
+        ]
+      },
+      {
+        "name": "messages",
+        "note": "kind=system records origin + every transformation",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "chat_id",
+            "type": "fk chats"
+          },
+          {
+            "name": "sender_user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "body",
+            "type": "text"
+          },
+          {
+            "name": "kind",
+            "type": "enum user|system"
+          },
+          {
+            "name": "is_read",
+            "type": "bool"
+          }
+        ],
+        "relations": [
+          {
+            "to": "chats",
+            "kind": "N..1",
+            "label": "in chat"
+          }
+        ]
+      },
+      {
+        "name": "proofs",
+        "note": "CLIENT accepts/rejects (NOT Payments); default proof_uploaded",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "ad_id",
+            "type": "fk ads"
+          },
+          {
+            "name": "booking_id",
+            "type": "fk bookings"
+          },
+          {
+            "name": "uploaded_by_user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "media_type",
+            "type": "enum image|video"
+          },
+          {
+            "name": "file_path",
+            "type": "varchar"
+          },
+          {
+            "name": "file_name",
+            "type": "varchar"
+          },
+          {
+            "name": "notes",
+            "type": "text"
+          },
+          {
+            "name": "status",
+            "type": "enum proof_uploaded|client_accepted|client_rejected"
+          },
+          {
+            "name": "reviewed_by_user_id",
+            "type": "fk users (client)"
+          },
+          {
+            "name": "reviewed_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "deadline",
+            "type": "timestamp"
+          }
+        ],
+        "relations": [
+          {
+            "to": "ads",
+            "kind": "N..1",
+            "label": "for ad"
+          },
+          {
+            "to": "bookings",
+            "kind": "N..1",
+            "label": "for booking"
+          },
+          {
+            "to": "users",
+            "kind": "N..1",
+            "label": "uploaded by"
+          }
+        ]
+      },
+      {
+        "name": "collaborators",
+        "note": "ACCOUNT-SCOPED; unique(account_id, email) — una persona, una invitacion por cuenta. Un `declined` no es un veto perpetuo: como unique(account_id,email) hace que la fila SEA la persona, invitar de nuevo REVIVE la fila (nuevo subrol, vuelta a `pending`); `pending` y `accepted` siguen respondiendo 409 ALREADY_EXISTS.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "account_id",
+            "type": "fk accounts"
+          },
+          {
+            "name": "invited_by_user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "user_id",
+            "type": "fk users nullable"
+          },
+          {
+            "name": "email",
+            "type": "varchar"
+          },
+          {
+            "name": "role",
+            "type": "string (client: publicist|manager; provider: installator|sales|supervisor)"
+          },
+          {
+            "name": "status",
+            "type": "enum pending|accepted|declined|revoked",
+            "note": "`declined` y `revoked` significan lo mismo para el acceso y NADA parecido para quien cerro la puerta: declined lo pone el invitado antes de entrar, revoked el dueno. Esa distincion es toda la justificacion de BR-15 — se puede rechazar, no se puede salir."
+          },
+          {
+            "name": "unique",
+            "type": "(account_id,email)"
+          }
+        ],
+        "relations": [
+          {
+            "to": "accounts",
+            "kind": "N..1",
+            "label": "collaborates on"
+          }
+        ]
+      },
+      {
+        "name": "invoices",
+        "note": "ONE per campaign; per-ad line items",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "campaign_id",
+            "type": "fk campaigns"
+          },
+          {
+            "name": "invoice_number",
+            "type": "varchar unique"
+          },
+          {
+            "name": "total_amount",
+            "type": "decimal(12,2)"
+          },
+          {
+            "name": "status",
+            "type": "enum draft|issued|paid|overdue|cancelled"
+          },
+          {
+            "name": "issued_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "due_at",
+            "type": "timestamp"
+          }
+        ],
+        "relations": [
+          {
+            "to": "campaigns",
+            "kind": "1..1",
+            "label": "for campaign"
+          }
+        ]
+      },
+      {
+        "name": "role_permissions",
+        "note": "global RBAC matrix (system roles)",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "role",
+            "type": "varchar"
+          },
+          {
+            "name": "resource",
+            "type": "varchar"
+          },
+          {
+            "name": "action",
+            "type": "varchar"
+          },
+          {
+            "name": "allowed",
+            "type": "bool"
+          },
+          {
+            "name": "unique",
+            "type": "(role,resource,action)"
+          }
+        ],
+        "relations": []
+      },
+      {
+        "name": "wallet_entries",
+        "note": "append-only ledger; balance = SUM(amount)",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "user_id",
+            "type": "fk users"
+          },
+          {
+            "name": "amount",
+            "type": "signed decimal(12,2) MXN"
+          },
+          {
+            "name": "type",
+            "type": "enum refund|withdrawal|escrow_capture|escrow_release|clawback|adjustment"
+          },
+          {
+            "name": "ref_type",
+            "type": "varchar"
+          },
+          {
+            "name": "ref_id",
+            "type": "bigint"
+          },
+          {
+            "name": "idempotency_key",
+            "type": "varchar unique"
+          }
+        ],
+        "relations": [
+          {
+            "to": "users",
+            "kind": "N..1",
+            "label": "ledger of"
+          }
+        ]
+      },
+      {
+        "name": "system_configurations",
+        "note": "admin-tunable key/value",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "key",
+            "type": "varchar unique"
+          },
+          {
+            "name": "value",
+            "type": "text"
+          },
+          {
+            "name": "updated_by_user_id",
+            "type": "fk users"
+          }
+        ],
+        "relations": []
+      },
+      {
+        "name": "audit_logs",
+        "note": "BUILT 2026-08-02 (migration 2026_08_02_000001, App\\Models\\AuditLog, read-only via GET /admin/audit -> Admin\\AuditController). Append-only: no updated_at on purpose and the model throws on update/delete. The DB-level INSERT-only trigger stays AFTER-MVP per §12.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint pk"
+          },
+          {
+            "name": "actor_id",
+            "type": "fk users nullable (nullOnDelete — the row outlives the actor)"
+          },
+          {
+            "name": "actor_role",
+            "type": "varchar(20) snapshot taken at write time"
+          },
+          {
+            "name": "actor_label",
+            "type": "varchar(255) nullable snapshot"
+          },
+          {
+            "name": "action",
+            "type": "varchar(40) create|update|delete|flag_raise|..."
+          },
+          {
+            "name": "target_type",
+            "type": "varchar(60) API resource slug (spaces, ads, payments, ...)"
+          },
+          {
+            "name": "target_id",
+            "type": "bigint (null-able target for set-wide writes such as the RBAC rewrite)"
+          },
+          {
+            "name": "before",
+            "type": "json nullable — only the fields that changed"
+          },
+          {
+            "name": "after",
+            "type": "json nullable — mirror of before"
+          },
+          {
+            "name": "context",
+            "type": "varchar(255) nullable free-text reason/route note"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp default now (there is NO updated_at)"
+          }
+        ],
+        "relations": [
+          "users"
+        ]
+      },
+      {
+        "name": "(PLANNED) strikes / ratings / account_grants / notifications",
+        "note": "designed, not built",
+        "columns": [
+          {
+            "name": "strikes",
+            "type": "provider strike accrual, trailing 90d, reversible"
+          },
+          {
+            "name": "ratings",
+            "type": "1-5 + comment, one per client per campaign, immutable"
+          },
+          {
+            "name": "account_grants",
+            "type": "per-account collaborator capability overlay"
+          },
+          {
+            "name": "notifications",
+            "type": "dispatcher fan-out, channel/urgency"
+          }
+        ],
+        "relations": []
+      }
+    ]
+  },
+  "lineage": {
+    "suggestedUcProposals": [],
+    "suggestedTodoProposals": [
+      {
+        "for": "UC-29",
+        "title": "Admin moderation: object takedown / restore + provider freeze / unfreeze",
+        "note": "CONSTRUIDO 2026-08-03: takedown/restore + freeze/unfreeze, recurso RBAC `moderation`, UI /admin/moderation, 25 tests. El que sostiene la funcion es test_provider_cannot_self_reverse_an_admin_takedown."
+      },
+      {
+        "for": "UC-31",
+        "title": "Immutable audit log of admin actions",
+        "note": "§12 audit-log (AU-log-01) — CONSTRUIDO 2026-08-02 (migracion, App\\Models\\AuditLog, GET /admin/audit). La propuesta de todo queda cubierta; conservada como registro."
+      },
+      {
+        "for": "UC-32",
+        "title": "Payout-stop window & clawback decision",
+        "note": "CONSTRUIDO 2026-08-03: ventana payout_stop_hours desde payments.payout_releasable_at, stop + clawback con asiento negativo propio (clawback:payment:{id}), 19 tests. SIN cron: una ventana vencida no libera sola, espera a Payments."
+      }
+    ],
+    "registryNote": "[owner 2026-07-25] Stable IDs so specs/UCs/todos can REFERENCE graph elements (not regenerate them).\nPlanning lineage: UC → spec → flow → class → ER (roots = UC + spec). Metadata is reference-only.\n\n**Flow nodes (FL):**\n- `FL01` (start) — Client: map + nearest-first search\n- `FL02` (step) — Multi-select spaces -> campaign backlog orphan ads\n- `FL03` (step) — Move orphans into an adset\n- `FL04` (step) — Upload creative, validated vs media-delivery specs\n- `FL05` (step) — Checkout: ONE invoice per campaign, fee added on top\n- `FL06` (step) — payments.status = held from booking\n- `FL07` (decision) — Provider Approve or Reject?\n- `FL08` (step) — Booking rejected - no charge, funds to wallet\n- `FL09` (step) — Booking live -> dispatched to Installator\n- `FL10` (step) — Display window: proof-pending, deadline default 5d\n- `FL11` (decision) — Primary proof uploaded in time?\n- `FL12` (step) — Auto-cancel + full refund + provider strike\n- `FL13` (step) — proof-uploaded: client reviews\n- `FL14` (decision) — Client Accept or Reject?\n- `FL15` (step) — proofs.status=client_accepted -> payment releasable\n- `FL16` (step) — Payments releases -> processing queue grace window 1h reversible\n- `FL17` (end) — Dispatch to gateway -> released -> settled per provider\n- `FL18` (step) — payments.status=held + payment_held flag\n- `FL19` (step) — Auto-open 3 Support chats: Support-Client / Support-Provider / Support-Payments\n- `FL20` (decision) — Payments + Support decision\n- `FL21` (step) — Cancel booking + full refund to wallet\n- `FL22` (end) — Wallet ledger append-only\n\n**Flow decision branches:**\n- `FL07>FL08` → Reject, reason optional [Reject, reason optional]\n- `FL07>FL09` → Approve per-ad [Approve per-ad]\n- `FL11>FL12` → No, day-5 missed [No, day-5 missed]\n- `FL11>FL13` → Yes [Yes]\n- `FL14>FL15` → Accept [Accept]\n- `FL14>FL18` → Reject / mismatch flag [Reject / mismatch flag]\n- `FL20>FL16` → Satisfactory proof, client accepts [Satisfactory proof, client accepts]\n- `FL20>FL21` → Uphold dispute [Uphold dispute]\n\n**ER entities (ER):** `ER01`=users · `ER02`=personal_access_tokens · `ER03`=accounts · `ER04`=campaigns · `ER05`=adsets · `ER06`=ads · `ER07`=spaces · `ER08`=space_photos · `ER09`=space_availabilities · `ER10`=bookings · `ER11`=payments · `ER12`=chats · `ER13`=chat_objects · `ER14`=chat_flags · `ER15`=chat_participants · `ER16`=messages · `ER17`=proofs · `ER18`=collaborators · `ER19`=invoices · `ER20`=role_permissions · `ER21`=wallet_entries · `ER22`=system_configurations · `ER23`=(PLANNED) strikes / ratings / account_grants / notifications · `ER24`=audit_logs\n\n**Classes (CL):** `CL01`=Chat · `CL02`=ChatParticipant · `CL03`=ChatObject · `CL04`=ChatFlag · `CL05`=Message · `CL06`=ChatController · `CL07`=Booking · `CL08`=Payment · `CL09`=Proof · `CL10`=WalletEntry",
+    "suggestedUcProposalsNote": "Vacio a proposito (dueno 2026-08-03: \"no suenan como UCs, borralas\"). Eran nueve propuestas meta — leer la leyenda, entender los roles, montar el stack, navegar el dashboard. Un UC existe para que algo lo satisfaga: codigo que lo implemente y un WALK que lo cierre. Ninguna de las nueve podia tener lo uno ni lo otro, asi que habrian sumado nueve filas condenadas a `pending` y la cobertura de UCs habria dejado de significar nada. Su contenido vive en .glossary y en design/README.md; la unica que era un recorrido de verdad (DASH-1) nacio como WALK-4."
+  },
+  "notation": {
+    "title": "Spec-Kanban (how to read this file)",
+    "body": "Every spec carries a `kanban` object, so this file IS the board — no second tool, no status\nduplicated elsewhere. The dashboard renders it as tidy chips in the Kanban view of Specs.\n\nShape (stable — a renderer can rely on it):\n  `specs[].kanban` = `{ status, weight, impacts[], deps[], ids[] }`\n  - `status` and `weight` are single strings; `impacts`, `deps` and `ids` are arrays of ids —\n    an empty array means none.\n  - read the board: the dashboard's Kanban view of Specs, or\n    `jq '.specs[] | {id, kanban}' design/design.json`.\n\nFields:\n  - status — lifecycle; NOTHING is `done` until it clears the DOUBLE gate:\n      · `backlog` — specced, not started.\n      · `wip`     — being implemented (code in flight).\n      · `review`  — implemented AND under verification. `review` is a WEIGHTED state, not a rubber\n                    stamp: cleared ONLY by BOTH (a) automated tests green on Postgres AND (b) a\n                    human walkthrough of the flow. Missing either → it stays in review.\n      · `done`    — verified: tests green + human-confirmed. A regression sends it back to `wip`.\n  - weight — total effort incl. build + automated tests + human verification: `S | M | L | XL`.\n  - impacts — features/specs this ENABLES or breaks downstream (→).\n  - deps    — what must land first, upstream (←).\n  - ids     — granular task ids in `mvpSprint.specBacklog.domains` (spec ↔ backlog trace).\n\nProse vs kanban: the PROSE is the spec (what to build); the `kanban` object is the live STATE of\nthat work; `[Fxx]` still tags the feature. When they disagree, fix the lagging one.",
+    "bodyFormat": "markdown"
+  },
+  "mvpSprint": {
+    "uiPhase": {
+      "started": "2026-06-15",
+      "goal": "Owner UI/behavior change-list + full design.json compliance (clients/providers/payments/support/admin).",
+      "refs": [
+        ".claude/plans/platform-graph.md (object graph + role capabilities; collaborator note = TWO ecosystems)",
+        ".claude/plans/ui-endpoint-audit.md (original 26-item endpoint classification + build order)",
+        ".claude/plans/cases.md (story backlog / compliance lens; renamed from cases-v2.md)",
+        "design.json (the canonical design — it absorbed cases.md; on conflict the specs win over the §19 stories)"
+      ],
+      "audit_2026_06_18": {
+        "method": "4 read-only agents: client / provider / staff / doc+contract-logic, comparing los dos documentos canonicos de entonces (hoy design.json) vs ARCHITECTURE.md + actual routes/controllers/components.",
+        "verdict": "Original 26-item list was UI-focused; the audit found whole DESIGN subsystems with NO schema/route backing. MVP demo works, but design-completeness is far from done.",
+        "conflicts_design_wins": [
+          "Date-flexibility (+/-X days) filter: cases.md asks for it but design.json §5 says dates are EXACT, no flex filter. DROP it (do not build)."
+        ],
+        "contract_bugs_fixed": "S24 (this session): same class as B1's #14. L1 payment-list read paginator as array -> Payments queue rendered empty (fixed: read res.data). L2 provider booking update read res.data but controller returned bare AND rejected status 'cancelled' (fixed: controller wraps {data} + allows cancelled). L3 shared ticket reply read res.data but controller returned bare (fixed: wrap {data}). All 3 runtime-verified.",
+        "doc_drift_docsync": [
+          "ARCHITECTURE.md says 26 migrations -> actually 29 (5 late alters, not 2).",
+          "ARCHITECTURE.md status table says 18 models -> actually 19.",
+          "Admin/ folder tree omits ConfigurationController + OversightController (they exist + are routed).",
+          "Manager\\UserController is imported in api.php but registers ZERO routes (dead import)."
+        ]
+      },
+      "done": [
+        "Platform object graph + role-capability matrix (ASCII).",
+        "Endpoint audit of all 26 items (UI-only / data-only / needs-backend).",
+        "[pre-CHAT-1] MvpDemoSeeder: bookings/proofs/payments/tickets-with-objects/conversations seeded + verified via API.",
+        "4-agent design/cases compliance audit (2026-06-18); findings folded into batches + new_subsystems below."
+      ],
+      "batches": [
+        {
+          "id": "B1",
+          "title": "[pre-CHAT-1] UI bug-fixes: map render, /conversations spinner, campaign spec edit + per-ad Book, map-centered landing",
+          "status": "done",
+          "note": "[pre-CHAT-1] S24: MessageController index/store {data:...} (spinner gone); campaign-detail spec edit + per-ad Book (booking runtime-verified); space-search default map view + [map|results] split layout. php -l + ng build clean."
+        },
+        {
+          "id": "B1b",
+          "title": "Contract-shape bugfixes (same class as #14): payment-list, provider booking update (+cancelled enum), shared ticket reply",
+          "status": "done",
+          "note": "[pre-CHAT-1] S24: L1/L2/L3 fixed + runtime-verified (payments list data list=8; provider booking cancel -> {data:{status:cancelled}}; ticket reply -> {data:body}). Convention going forward: mutating endpoints return {data:...}; list endpoints may paginate but UI must read res.data."
+        },
+        {
+          "id": "B2",
+          "title": "Provider polish",
+          "status": "in_progress",
+          "note": "DONE 2026-06-22 (ng build clean): availability date-ranges + Google/iCal calendar moved from space-detail VIEW to space-form EDIT (Calendar-preferred section + manual-ranges accordion + ? help); new spaces redirect to /edit. View now links to Edit. Proof 'View' opens an image/video MODAL (was 404). Provider bookings list: '📸 Add proof' link for waiting_proof/active/confirmed -> /provider/proofs?booking_id=X which pre-opens+prefills the upload form. Booking TS status union aligned to DB enum. STILL TODO: replace proof upload's typed Booking ID with a real dropdown of eligible bookings (B2 proof-dropdown)."
+        },
+        {
+          "id": "B3",
+          "title": "Nav/header: Collaborators under Configurations tab, drop Dashboard, header welcome+name, Help ? button (chat contextual de solo lectura)",
+          "status": "todo",
+          "note": "AUDIT: also add contextual chat buttons on ad/adset/campaign + global Help menu (client) and a 'Talk to support' button that opens a chat with the object auto-attached as a chat_object (POST /chats con el objeto, o POST /chats/{c}/objects) — these client chat/support surfaces are missing in the UI though the endpoints exist. El boton de ayuda abre un chat contextual de solo lectura sobre el objeto en el que estas."
+        },
+        {
+          "id": "B4",
+          "title": "Support powers (backend) + audit log + messaging joins",
+          "status": "done",
+          "note": "[pre-CHAT-1] AUDIT: support is TICKETS-ONLY today. Need: (a) audit_logs table+model+AuditLog::record() helper [BLOCKING, underlies every design 'logged' marker]; instrument all mutating staff actions. (b) generic support edit-any-non-money controller (spaces/ads/users/bookings/proofs/collaborators). (c) POST /conversations/{id}/join writing support_joined_at + announced system message (column exists, never written). (d) Payments has no ticket reply route -> internal Support<->Payments thread is asymmetric. (e) support flag-refund/payout-hold bridge to Payments."
+        },
+        {
+          "id": "B5",
+          "title": "Admin eagle-eye / Activity + audit read",
+          "status": "done",
+          "note": "[pre-CHAT-1] AUDIT: Oversight = conversations+tickets only. Need: rename to Activity; per-object read endpoints (Providers/Spaces/Users/Bookings/Payments/Invoices/Tickets) + advanced node filters (navigate related nodes); admin silent(default)/announce-per-ticket toggle; GET /admin/audit (+?target_type/id per-object history); ?role= filter + split Users by role; scope RBAC editor to EMPLOYEE roles only; space takedown/restore/freeze with guardrails (no delete with active bookings/unsettled funds)."
+        },
+        {
+          "id": "B6",
+          "title": "Provider-side collaborators (account-scoped) + subroles + provider Configurations (account-admin gated)",
+          "status": "todo",
+          "note": "AUDIT CONFIRMED: Collaborator model is campaign_id-scoped/client-only; 'installator' enum is unreachable provider-side. Need account-scoped collaborator model + provider CRUD routes + sidebar item + installator-only proof access; provider account Configurations route + sidebar item. Remember: client and provider collaborator subroles are SEPARATE ecosystems. Also enforce collaborator subrole RBAC (publicist must NOT reach money/billing endpoints — currently unenforced)."
+        },
+        {
+          "id": "B7",
+          "title": "Invoices per-ad/per-adset line-items + money polish",
+          "status": "todo",
+          "note": "AUDIT: invoice rollup ties to checkout (see new_subsystems checkout). Also: provider revenue dashboard buckets (held/paid/refunded) + reject-with-reason on bookings; mismatch-flag should place payout on HOLD (currently only rejects proof + opens ticket); client wallet withdraw flow."
+        },
+        {
+          "id": "B-avail",
+          "title": "Per-ad availability text ('Available' / 'Available in X days until <date>') + 'doesn't coincide' tag",
+          "status": "todo",
+          "note": "AUDIT: SpaceSearchController already computes an availability/coincide boolean but the search UI never renders it. Surface the 'doesn't coincide with your timespan — book for later' tag on result cards."
+        }
+      ],
+      "new_subsystems": [
+        {
+          "id": "N1-ratings",
+          "title": "Provider star ratings",
+          "severity": "major",
+          "note": "§9 Ratings + cases CLIENT #3. NO table/model/route/UI. Eligibility: campaign ended OR live >=30 days, one rating per campaign, optional comment, abusive-comment flag for Support. Avg shown on space detail."
+        },
+        {
+          "id": "N2-media-specs",
+          "title": "Media-delivery specs + per-type templates + upload validation",
+          "severity": "blocking",
+          "note": "§19 media-delivery specs + cases CLIENT #6/#7 + PROVIDER #1. spaces has NO spec columns. Add media_specs (json, from per-type template) + upload_instructions (text); show inline at client upload; HARD-FAIL ad upload validation (format/res/CMYK/bleed/duration/bitrate/size) with concrete message; pre-upload type-mismatch warning. Gates the client upload story."
+        },
+        {
+          "id": "N3-checkout",
+          "title": "One-checkout-per-campaign + payment step",
+          "severity": "blocking",
+          "note": "§8 checkout + cases CLIENT #8. Today each ad is booked individually with a mock payment row; no campaign-level checkout, no aggregated pay screen, no legal-doc links, no invoice generation. Orphan-blocks-checkout guard folds in here."
+        },
+        {
+          "id": "N4-prepay-escrow",
+          "title": "Pre-pay waiting list + escrow",
+          "severity": "blocking",
+          "note": "§6 Book-for-later, Pre-pay & Escrow + cases CLIENT #8. wallet_entries has escrow_capture/release types but NO client flow writes them. Need is_prepay/offer_expiry on bookings, escrow capture at pre-pay checkout, per-space waiting list, provider picks offer (no amounts shown) / trash, refund-to-wallet on expiry."
+        },
+        {
+          "id": "N5-audit-log",
+          "title": "Audit log (cross-cutting)",
+          "severity": "blocking",
+          "note": "Tracked operationally under B4 (table+writes) and B5 (admin read). Listed here as a design subsystem for visibility: append-only, actor/target/before-after/ts, queryable per-object history, admin reads all."
+        },
+        {
+          "id": "N6-notifications",
+          "title": "Notifications / alert dispatcher",
+          "severity": "major",
+          "note": "§13 notifications & alerts + cases full alert schema (~35 events: proof uploaded, deadline, refund, join, takedown...). NO notifications table/route. All alert events unimplemented at data layer."
+        },
+        {
+          "id": "N7-strikes",
+          "title": "Provider strike system + proof deadline cron",
+          "severity": "major",
+          "note": "§7 strike system + cases PROVIDER #6/#9. deadline stored on proofs but NO cron/auto-cancel/refund-on-miss, NO strike column/model, NO dashboard counter. Day-3/4 reminders + day-5 auto-cancel + 3-strike freeze."
+        },
+        {
+          "id": "N8-cancel-refund-tiers",
+          "title": "Tiered cancel/refund policy + legal docs",
+          "severity": "major",
+          "note": "§8 wallet & refunds + cases CLIENT #14. client booking update only allows status:cancelled with no refund-split / pre-vs-post-approval logic; no legal-doc links at checkout."
+        }
+      ],
+      "reconciliation_2026_06_20": {
+        "trigger": "Owner asked why agreed changes 'aren't applied' though everything seemed 'solved on paper'. 3 read-only agents reconciled los documentos canonicos de entonces + platform-graph + todos (hoy todo en design.json) vs actual code.",
+        "answer": "Most agreed UI/behavior is PLANNED-ONLY (B2-B7 + N1-N8) — never coded. SHIPPED so far: B1 (map split-view, campaign spec edit, per-ad Book, conversation spinner), B1b (contract shape bugs), client lands on /client/spaces, '+ Ad Space', human-readable dates, new-campaign modal name fix, admin config label styling, invoice PDF (server dompdf). Everything else is backlog. A few items are PARTIAL (backend exists, UI doesn't render): 'doesn't coincide' tag + budget filter (SpaceSearchController computes, UI ignores), wallet read-only (no withdraw), mismatch-flag opens ticket but doesn't hold payout.",
+        "already_built_not_a_gap": "Provider Messages ARE linked to the conversation's space (ConversationController eager-loads space; list renders conv.space?.name). The missing piece is CONTEXTUAL per-ad/adset/campaign chat buttons (B3), not 'messages not linked'.",
+        "real_gaps_owner_hit": [
+          "Provider /spaces/{id}/edit has NO availability date-ranges + Google/iCal + ? help — those live only in space-detail VIEW, not the edit form (B2 view==edit).",
+          "Client sidebar still shows Dashboard (should drop) + Collaborators still inside campaign-detail with a campaign-scoped model (needs account-scoped + Configurations tab).",
+          "All non-client dashboards show nav cards, no stats numbers."
+        ]
+      },
+      "decisions_2026_06_20": [
+        "Client lands on Spaces (SHIPPED).",
+        "Collaborators are ACCOUNT-scoped (act across all the owner's campaigns), two ecosystems (client publicist/manager...; provider installator/manager...), subroles per ecosystem. Retire campaign_id scoping + the legacy 'proof_uploader' enum.",
+        "[pre-CHAT-1] Proof/payment (FINAL 2026-06-20): payment is HELD from booking until the CLIENT accepts the primary proof. The CLIENT (and collaborators per role) review/accept/reject proofs — Payments does NOT review proof content. Client REJECT (or collaborator mismatch flag) -> 48h re-upload window opens for provider AND a ticket with the payment attached is created for BOTH Support AND Payments (both see it); payout stays HELD until Support+Payments agree to release. Client ACCEPT -> payment releasable, Payments MANUALLY releases (optionally auto under threshold). => remove Payments\\ProofReviewController + Payments 'Proofs' nav; add 'payment' ticketable; proof-reject -> auto-hold + dual Support/Payments ticket.",
+        "Payments auto-approval = admin System Config: toggle + amount THRESHOLD (auto-release under $X), default OFF.",
+        "Invoice PDF generation = server-side (SHIPPED). Reflected in platform-graph.",
+        "All NON-client dashboards (provider/payments/support/admin) must show live stats (metrics per role in design.json §19 Dashboards section). Client has NO dashboard.",
+        "Multi-file ads = FUTURE/deferred; MVP is ONE file per ad/space.",
+        "Booking queue = provider PICKS from the queue of pending requests for a space (marketplace stock-confirm analogy); NOT auto-assigned."
+      ],
+      "new_batches_2026_06_20": [
+        {
+          "id": "B8-dashboards",
+          "title": "Stats dashboards for provider/payments/support/admin",
+          "status": "done",
+          "note": "[pre-CHAT-1] DONE 2026-06-20 (runtime-verified). New Payments/Support/Admin DashboardControllers + GET /{role}/dashboard (role-gated, no perm mw on the running DB; seeder gets dashboard:read for support/payments for future). Provider dashboard extended with revenue_paid/held/refunded. dashboard.component.ts renders a per-role stats grid above quick actions. Payments=paid/on_hold/pending/refunded; Support=waiting_review/solved/unassigned; Admin=users-by-role/spaces/campaigns/tickets/held/paid. php -l + ng build clean."
+        },
+        {
+          "id": "B9-proof-payment-rework",
+          "title": "Proof/payment flow per 2026-06-20 decision",
+          "status": "todo",
+          "note": "Remove Payments proof-content review; add 'payment' as ticketable; proof reject -> auto-hold payment; proof accept -> releasable + manual release; held-payment -> open Support ticket w/ payment attached. Update the canonical prose too (it still says Payments reviews proofs)."
+        },
+        {
+          "id": "B10-autoapprove",
+          "title": "Payments auto-approve config (toggle + threshold)",
+          "status": "todo",
+          "note": "Admin System Config keys: payments_auto_approve (bool, default false) + payments_auto_approve_threshold (amount). Enforce in PaymentController/booking-payment creation."
+        }
+      ],
+      "doc_fixes_done_2026_06_20": [
+        "Canonical doc: Proof of Display rewritten (client reviews, Payments money-only, dual Support/Payments ticket on reject); Collaborator Roles prose now states account-scoped + two separate ecosystems; RBAC notes drop per-campaign; new == Dashboards == section (per-role metrics); multi-file marked deferred (1 file MVP).",
+        "cases.md: date-flexibility dropped (#2); held-slot 'auto-assigned' -> provider-picks (#8 alert); proof ALERT-TABLE rows fixed AND prose fixed (PROVIDER #7, PAYMENTS #1-2, journey #8 -> client reviews, dual Support/Payments ticket).",
+        "ARCHITECTURE.md: 26->29 migrations, 18->19 models, Paris/EUR seed note -> Monterrey/MXN, Payments proof routes (329-331) marked DEPRECATED (B9).",
+        "platform-graph: proof/payment, PDF, dashboards, account collaborators.",
+        "Verified by Team#1 congruence audit 2026-06-20: doc-set + docs<->todos now congruent (defects A1/A2/A4/A5 fixed)."
+      ],
+      "doc_fixes_still_pending": [
+        "ARCHITECTURE.md: add Admin ConfigurationController+OversightController to folder tree. (DONE 2026-06-25 at DOC level: dead Manager\\UserController noted in CLAUDE.md; proofs/bookings status enums reconciled to the canonical ones — CODE migrations still pending [RESUELTO 2026-08-03: proofs colapso a proof_uploaded|client_accepted|client_rejected con migracion; bookings NO se migro y la planeacion se corrigio al enum real], see session_2026_06_25.) (ratings table later via N1; ad_files deferred.)",
+        "Frontend: booking-list currency 'EUR' -> 'MXN'; reseed demo spaces in Monterrey (MvpDemoSeeder).",
+        "CODE (not doc): Timezone (owner decision 2026-06-25) — keep storage in UTC/epoch; add a users.timezone column for per-user DISPLAY; compute deadline math against an Admin System-Configurations default tz (America/Monterrey at launch), NOT the hardcoded config/app.php value.",
+        "CODE (not doc): create the accounts table + Account model (one per owner user for MVP) so collaborators can FK account_id instead of campaign_id."
+      ],
+      "open_decisions_top5": "ALL RESOLVED 2026-06-20: (1) proof-review reversal RATIFIED — see decisions; (2) collaborators ACCOUNT-scoped, kill proof_uploader; (3) dashboard metrics defined in design.json §19 Dashboards; (4) multi-file DEFERRED, 1 file MVP; (5) booking queue = provider-picks.",
+      "session_2026_06_23": {
+        "owner_reaffirmed": "[pre-CHAT-1] Re-confirmed earlier decisions (collaborators account-wide BOTH client+provider, proof/payment B9 reversal, conversations = object with attached object + multi-role + admin-silent/support-announced, provider approve->installer OR reject-with-note). Working style: momentum over perfection, latest-decision-wins on soft conflicts, ~90% doc compliance, only stop on HARD stoppers (now in CLAUDE.md learnings).",
+        "NEW_decision_money": "MONEY = DECIMAL MXN PESOS everywhere, no centavos ('forget cents'). The canonical doc was updated. Code is already decimal(10,2) for bookings/payments/ads/spaces/campaigns; ONLY wallet_entries.amount_centavos uses integer cents -> align it to decimal pesos (amount column) + drop the *100 / /100 conversions in PaymentController/WalletController/wallet.component.",
+        "doc_updates_done": "Canonical doc: cases-v2->cases refs, money->decimal pesos (3 spots), appended 'REVISIONS & ROADMAP (2026-06-15, owner)' section. CLAUDE.md: cases.md key-file note + 'momentum over perfection / soft-vs-hard stops' learning.",
+        "build_order_chosen": "Endpoints-first then UI, feature by feature (backend-first minimizes IDE save-conflicts while owner uses the app). Order: [M] money pesos alignment (small, closes newest decision) -> B9 proof/payment rework (owner contradiction) -> B6 account collaborators + Configurations tab (owner's opening question) -> B3 nav/header (drop Dashboard, welcome+name, Help) -> B-avail availability text -> B4 support powers+audit log -> B5 admin eagle-eye/Activity -> B7 invoices -> N* deferred subsystems by need.",
+        "batch_M_money": "DONE 2026-06-23: wallet_entries amount_centavos -> decimal(12,2) amount (migration converts existing data); WalletEntry model, PaymentController refund+releasePayout, WalletController, wallet.component all drop *100//100. Verified: /client/wallet balance=77500 pesos, no centavos keys, frontend recompiled clean."
+      },
+      "session_2026_06_25": {
+        "summary": "Docs-only session: investigated the 'Collaborators panel' suspected drift (turned out fully built+wired, NOT a phantom), then reconciled ALL spec collisions across the doc set. ~20 SOFT conflicts auto-resolved (latest-decision-wins); 1 HARD conflict (booking state enum) decided by owner.",
+        "investigation_doc": "[DELETED 2026-06-26, folded into spec_backlog below] Was .claude/plans/investigation-planning-to-code-gap.md — diagnosis: the planning-vs-code gap is NOT mock data but SELECTIVE IMPLEMENTATION DEPTH (CRUD-shaped features ship end-to-end; rules buried in prose evaporate) + backend-ahead-of-UI half-features. Root cause: no case-ID->route->component traceability spine — now built as spec_backlog.",
+        "collaborator_scope_FINAL": "Account-scoped (owner reaffirmed 2026-06-24). All SPEC docs flipped: cases.md #11 + invite alert; ARCHITECTURE schema (account_user_id + role string) + relationship map (proof_uploader dropped); la linea de UI de cliente (hoy §3 en design.json). Gap-note docs (compliance-report/ui-endpoint-audit/investigation) left as-is (they correctly describe current campaign-scoped CODE).",
+        "soft_conflicts_resolved": "Money centavos->decimal MXN pesos (ARCHITECTURE wallet, platform-graph ledger, design precision 12,2) + struck compliance-report action#5 (wrong-direction). Roles: proof_uploader/publisher typos->installator/publicist/manager; CLAUDE.md 3->5 roles; Support proof power = mismatch-only; platform-graph subrole prose. Map: design 3x Google->Leaflet/OSM+w3w (Google swappable). Nav: dashboard=non-client stats/client none; 50% bar->3-pane; collaborators under Configurations. Adsets geo cols marked LEGACY. Proofs ARCHITECTURE enum->B9 client-accept. Media 300->150 DPI; pricing day/week/month->day/month/custom.",
+        "HARD_decision_booking_enum_2026_06_25": "Owner chose: el enum canonico del documento gana (draft|waiting-approval|waiting-booking-confirmation|live|proof-pending|proof-uploaded|completed|rejected|cancelled); 'payout-held' is PAYMENTS-only (not a booking state); ADS keep a SEPARATE enum (not unified with bookings). Reconciled la prosa canonica + el bloque canonico + ARCHITECTURE (target annotated). [CORRECCION 2026-08-03] Esa migracion NUNCA se escribio. El enum canonico que se eligio aqui (draft|waiting-booking-confirmation|live|proof-pending|proof-uploaded) no existe en la base: bookings.status es y siempre fue pending|waiting_approval|confirmed|active|waiting_proof|completed|cancelled|rejected. schema.entities.bookings quedo describiendo el enum elegido en vez del construido, asi que cualquier filtro de estados escrito desde la planeacion devolvia cero filas. La entidad ya refleja los 8 valores reales; esta decision queda como registro de por que divergieron.",
+        "CODE_migrations_pending": "Docs now lead code on these items — (1) NEW accounts table (owner_user_id unique, type) + collaborators FK campaign_id->account_id; for MVP 1 user = 1 account (B6). (2) bookings.status -> canonical enum. (3) proofs.status -> pending|uploaded|client_accepted|client_rejected (B9). (4) Timezone: store UTC/epoch, add users.timezone (per-user display), deadline math against an Admin System-Config default tz (America/Monterrey at launch) — NOT a hardcoded config/app.php value. NOTHING committed/pushed.",
+        "next": "Either (a) build the case-ID->route->component traceability table (attacks the root cause), or (b) resume the build order at B9/B6 which now carry the schema migrations the docs are waiting on."
+      },
+      "session_2026_06_27_consolidation": {
+        "what": "Merged ARCHITECTURE.md + cases.md + platform-graph.md + useful compliance-report.md into ONE document (20 numbered sections, 1052 lines). Deleted those 4 files (backed up in session scratchpad). That document became THE single canonical doc. Repointed CLAUDE.md/README.md/ui-endpoint-audit.md/5yo-skill to it. Verified no content lost (21 tables, 34 alert rows, media-spec table, 30 cases, all [owner] markers, integrity invariants).",
+        "owner_decisions_2026_06_27": "Pre-pay OPTIONAL + provider can reject file repeatedly + client can cancel. Proof deadlock -> Support leans client, default cancel+full-refund+rebook. ONE account per email. Refunds 100% unless in-process (supersedes 90/5/5; add to T&C). Ratings immutable/transparent. Provider subroles = installator/sales/supervisor (Sales=messages-only; Supervisor=all-except-remove-people/configs/delete-spaces).",
+        "OPEN_decision_strike_reversal": "When a reversed strike already triggered a freeze that auto-cancelled+refunded upcoming bookings: (A) immediate cancel, reversal restores only future (past permanent); or (B, recommended) freeze pauses new bookings now but DELAYS auto-cancel of upcoming for a configurable appeal window (48-72h) so a reversal within the window is a clean undo. AWAITING owner pick; then write to §7/§12 (design.json) + add todos.",
+        "next": "Owner picks strike-reversal A/B. Then resume backend-first build from spec_backlog critical_path_P1 (accounts table -> account collaborators -> enum migrations -> B9 removal -> audit log...). Nothing committed."
+      },
+      "mvp_focus_2026_06_23": {
+        "deliberation": "3-lens team (mvp-pragmatist/backend-architect/product-flow) + synth: VERDICT continue-backend-first, sequence by money-loop + visibility, ruthlessly cut to ship ASAP.",
+        "strike_reversal_now_MOOT": "OPEN_decision_strike_reversal no longer blocks: strikes are CUT to after-MVP. Build can start with no pending owner decision.",
+        "state_verified_2026_06_23": "single canonical doc (1052 lines; ARCHITECTURE/cases/platform-graph/compliance-report consolidated in + deleted). B9 NOT started: proofs.status=pending_review|approved|rejected, bookings.status=original 8-state, payments.status already has held|released, wallet already decimal pesos (Batch M). /payments/proofs still wired in proof-review-list.component.ts + sidebar.component.ts.",
+        "MVP_minimal_order": [
+          "M (money->pesos) — DONE.",
+          "B9-schema (MINIMAL, not full enum rewrite): add proofs.status client_accepted|client_rejected; add bookings.rejection_reason text nullable. (payments.held/released already exist.)",
+          "B9-endpoints: POST /client/proofs/{proof}/accept (-> payment releasable) + /reject (-> payment HELD). Fold existing flag-mismatch into reject.",
+          "B9-cleanup: remove Payments\\ProofReviewController routes /payments/proofs* AFTER unwiring proof-review-list.component.ts + sidebar (else Payments UI 404s). Payments keeps release/cancel + read-only proof view on HELD payments only.",
+          "PV-booking: provider action = Approve OR Reject(reason) writing bookings.rejection_reason (minimal; no full state-machine rewrite).",
+          "Gate releasePayout on proof client_accepted (manual Payments release; NO auto-approve threshold for MVP).",
+          "[pre-CHAT-1] Day-0 frontend wiring pass (needs IDE frontend tabs CLOSED): start-chat button (POST /conversations), render green/red 'doesn't coincide' availability tag (SpaceSearchController already returns it), wire unused adset/ad/booking/invoice show+PUT edit screens.",
+          "Verify book->approve->prove->accept->release loop runtime on the live publisher stack."
+        ],
+        "AFTER_MVP_cut_or_defer": "ALL already tracked elsewhere in this file (new_subsystems N1-N8 + spec_backlog) — flagged AFTER-MVP here, DO NOT build for v1: N1 ratings, N6 notifications/SMS/Twilio, N7 strikes+cron+auto-cancel, N8/RT tiered refund engine, N4 prepay-escrow+waitlist+sibling-cancel, N5/AU audit_logs, B6 account collaborators+account_grants, N2 media-spec HARD-FAIL validator (keep only basic format/size), N3 campaign checkout+invoice line-items, B4 support edit-any, B5 admin eagle-eye per-object+filters, B10 auto-approve toggle, WT wallet withdraw, SB-overlap gist EXCLUDE (use a lightweight app-level double-book guard if needed), gateway webhooks/FX/clawback/rate-limits/calendar-staleness/multi-file."
+      }
+    },
+    "sessionNotes": {
+      "session_32_chat_unification": "[pre-CHAT-1] BIG REFACTOR (owner 2026-07-17): unify §10 Chat + §11 Tickets into ONE primitive 'Chats, Objetos & Flags'. Ran a 2-agent workflow (blueprints in scratchpad/spec-reconciliation-blueprint.md + chat-acl-security-review.md). LOCKED: no type/kind column (nature DERIVED from participants+objects+flags; origin/transforms in kind=system history); tickets+ticket_messages RETIRED; states open|in_progress|resolved|closed (Support resolves, opener/Admin closes, Support sets in_progress); dispute = 3 chats (Support<->Client/Provider/Payments) + payments.status=held + payment_held flag; participants = FULL per-person chat_participants table (owner chose the fuller shape over the thin one); collaborators: client=all, provider=sales+supervisor NOT installers; Admin oversight = ONE /admin/oversight/chats with filters; UI = single Messages (drop Support tabs), attach object via 2 dropdowns. SECURITY (red-team): access by membership/role NEVER by a mutable flag; R1 fix = Admin read-only/incognito (no ghost-post); R2 fix = ownership-check on object attach (no private-object leak). DONE this session: new §10 written + §11 stub (hoy en design.json). PENDING RECONCILIATIONS (next design patch): §2 matrix (3 rows->1 Chat row), §7 dispute (drop type=), §12 (oversight wording), §15 schema (retire tickets; add chats/chat_objects/chat_flags/chat_participants; messages.conversation_id->chat_id), §16 invariants, §17 endpoint map (unified /chats), §19 cases/alerts (ticket->chat), spec_backlog H_chat_pii/I_tickets_support, claude.md schema table. THEN code phases: schema+models -> ACL(derived, membership) -> dispute re-express (~80% reuse ProofFlagController) -> unified endpoints -> UI -> rebuild seeders(DisputeDemoSeeder) + tests on Postgres (adapt the 37; add close/reopen/hidden-history/derived-nature + R1-R9 security cases). Migration: OK to DROP old ticket/chat data.",
+      "session_31_next": "[pre-CHAT-1] HUMAN WALKTHROUGH (Codespace) surfaced UI gaps; started fixing. DONE: (p22) navbar user-menu was hidden behind the Leaflet map -> raised z-index (logout works on map pages); (p23) removed the client's Dashboard sidebar item (owner picked A: client has no dashboard, lands on Spaces; landingRoute + DashboardComponent already bounced clients); (p24) CLIENT PROOF REVIEW UI (the point-5 gap: client had NO way to accept/reject a proof) -> client BookingController eager-loads 'proofs'; client Bookings detail now shows the proof (media + status) with Accept/Reject buttons hitting /client/proofs/{id}/accept|reject; Booking/Proof TS models updated; DisputeDemoSeeder adds a 2nd booking with a pending_review proof so accept/reject is testable live (booking #1 = disputed/rejected, booking #2 = pending). Verified on Postgres: eager-load returns proofs+file_url, 37 tests still green. NOTE: proof file_path in the demo is a placeholder (broken img is expected; real provider uploads will render). STILL OPEN from the walkthrough: (a) client Messages list labels the support_client thread as 'With: Demo Provider' + shows '0 messages' (should say Support + show the opener) -> conversation-list UI needs thread-type-aware label/preview; (b) Support ticket-detail should surface the 3 dispute threads (or 1, owner leaned 'one thread, functional' -- keep 3 for client/provider privacy but make them openable in the UI); (c) verify p22 menu fix after hard-refresh on /client/spaces. NEXT after walkthrough: processing-queue build (session_30_plan).",
+      "session_30_plan": "[pre-CHAT-1] PROCESSING QUEUE BUILD (owner 2026-07-16: build now, MVP) = PM-procqueue-05b. Re-think of F07-F10 folded into §7/§8/§11 (design.json) (release enters a reversible processing grace window; Support OR Payments can pull processing->held). BUILD STEPS: (1) migration: payments.status pgsql CHECK += 'processing','settled' + add payments.processing_since (timestamp nullable); (2) releasePayout (still gated on client_accepted) -> status='processing', processing_since=now(); MOVE the escrow_release wallet credit OUT of releasePayout INTO the promotion step (money moves at dispatch, not at enqueue); (3) scheduled command payouts:promote-processing (runs each minute) promoting due rows (processing_since + payout_processing_grace <= now) -> status='released' + escrow_release wallet entry (idempotency_key escrow_release:payment:{id}); wire the scheduler in Docker (schedule:work container or cron); (4) hold/cancel during processing -> held (holdPayout already no-ops on released|refunded, and processing is not terminal so it pulls back); (5) config key payout_processing_grace default 1h from System Config/config; (6) UI: payment-list + support ticket-detail show a 'processing' badge + countdown + Cancel/Hold; client/provider see only 'payout pending' (never the processing state); (7) tests: release->processing (NO wallet entry yet, status!=released), promote-command->released+wallet entry, hold-during-processing->held, hold-after-released->no-op (exists). Verify on Postgres + human walkthrough via DisputeDemoSeeder. Kanban: §7,§8 = wip during this build; move to review when tests+human done. AFTER: F11 review.",
+      "session_29_next": "[pre-CHAT-1] Option A (dispute CODE) DONE + TESTS DONE 2026-07-16. Test harness moved to POSTGRES (owner decision): phpunit.xml pins DB_CONNECTION=pgsql + DB_DATABASE=pub_ads_mar_testing (force) - create once: docker compose exec db createdb -U postgres pub_ads_mar_testing. Added 4 feature tests (DisputeReviewFlowTest, DisputeThreadAclPostTest, SupportPaymentFlagTest, PaymentsVisibilityTest) + Tests\\Concerns\\BuildsBookingScenario trait; fixed DisputeThreadsTest URLs (/api/proofs -> /api/client/proofs). Verified locally against real Postgres: 27 passed. TWO real gaps the tests surfaced + fixed: (a) support role lacked conversations:create (couldn't POST replies in joined/dispute threads); (b) payments role lacked conversations entirely (couldn't read/post the internal Support<->Payments thread) - both granted in RolePermissionSeeder; also made MessageController::index order by id (deterministic chat order, created_at tied within a second). Round 2 tests DONE 2026-07-16 (verified local Postgres, 35 passed): AuthorizationNegativeTest (client can't reject others' proofs; provider blocked from /client/proofs; client blocked from /payments+/support), ConversationListingTest (GET /conversations shows only own direct + own support thread; only client can start), MoneyStateTest, PiiWhitelistTest (booked-space address kept, other masked). Fixed a real bug: PaymentController::holdPayout lacked a guard -> holding a released/refunded payment reverted it to held; added the same guard accept/reject/flagPayoutHold use. Added DisputeDemoSeeder (idempotent; held payment + flag + 3 threads + direct; reuses client1/provider1/support/payments logins) for the HUMAN 5-role walkthrough: docker compose exec backend php artisan db:seed --class=DisputeDemoSeeder. HUMAN TODO: confirm whether the CLIENT has accept/reject proof UI (backend route /client/proofs/* exists; frontend only has the old Payments proof-review) -> likely the next code gap. NEXT: continue review F11 (admin oversight) -> F12 (config) -> F13 (notif/calendar) -> F14 (RBAC). Deferred code gaps: F05 ('+ Ad Space' removal + per-ad creative upload), F03 (3-pane search layout), F09 (support edit-any-non-money-object endpoints).",
+      "session_28_next": "[DONE] Feature-by-feature MVP review; implemented the DISPUTE code (option A). See session_29_next + F07.",
+      "session_24_next": "[pre-CHAT-1] B9 proof/payment rework (Payments held-payments view, remove proof review, client reject -> auto-hold + dual Support/Payments ticket). Then B4/B5 (support+admin oversight/user data), B6 (account collaborators + client Configurations tab), B3 nav, B7 money/invoices. Code sequentially (no parallel writes while IDE open); tag [todo Bx]."
+    },
+    "featureReview": {
+      "method": "See claude.md -> Working Method. One feature at a time: doubts/clashes -> ask owner; else resolve with MVP common sense, mark status, report next feature. design.json is the single spec; each `specs[]` entry carries the matching [Fxx] tag in its `features` array, so codes are shared between the specs and this index.",
+      "statusLegend": {
+        "pending": "not yet reviewed",
+        "reviewing": "under review now",
+        "needs_decision": "blocked on owner decision",
+        "resolved": "spec clear + marked; code may still be pending",
+        "deferred": "AFTER-MVP"
+      },
+      "features": [
+        {
+          "id": "mvp-sprint:F01",
+          "code": "F01",
+          "title": "Auth & 5 roles (client, provider, support, payments, admin)",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "1",
+            "14"
+          ],
+          "checklist": [
+            "mvp-sprint:C01"
+          ],
+          "note": "spec clear, verified (C01)"
+        },
+        {
+          "id": "mvp-sprint:F02",
+          "code": "F02",
+          "title": "Accounts & collaborators (subroles: client publicist/manager; provider installator/sales/supervisor; never billing)",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "3"
+          ],
+          "checklist": [
+            "mvp-sprint:C02"
+          ],
+          "note": "spec clear (§3), verified (C02)"
+        },
+        {
+          "id": "mvp-sprint:F03",
+          "code": "F03",
+          "title": "Catalog & map search (3-pane menu|map|list, nearest-first, radio-in-map-range, exact dates)",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "5"
+          ],
+          "checklist": [
+            "mvp-sprint:C03"
+          ],
+          "note": "spec clear; O11 unavailable-sorted-to-bottom added. CODE GAP: mvp-build space-search is a map/list TOGGLE, not the simultaneous 3-pane (§5) -> impl pending"
+        },
+        {
+          "id": "mvp-sprint:F04",
+          "code": "F04",
+          "title": "Campaign->adset->ad backlog (orphans; move to new OR existing adset; ad-origin invariant)",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "4",
+            "5"
+          ],
+          "checklist": [
+            "mvp-sprint:C03",
+            "mvp-sprint:C13"
+          ],
+          "note": "orphans move to new/existing adset (done); ad-origin invariant documented"
+        },
+        {
+          "id": "mvp-sprint:F05",
+          "code": "F05",
+          "title": "Client uploads THEIR creative per ad (image/video/audio) vs space media-specs; client never creates spaces/ads; installer subrole uploads proofs",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "5",
+            "7",
+            "19-case4"
+          ],
+          "checklist": [],
+          "note": "Spec confirmed correct in design.json + new actor-boundary case (§19 · UC-36). CODE GAP: remove the '+ Ad Space' create-from-scratch form; per-ad action = upload creative to the existing (rented-space) ad. Impl pending owner go-ahead."
+        },
+        {
+          "id": "mvp-sprint:F06",
+          "code": "F06",
+          "title": "Booking action & per-ad go-live (provider Approve->installator / Reject; optional reason; no counter-offers)",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "5",
+            "20"
+          ],
+          "checklist": [
+            "mvp-sprint:C13"
+          ],
+          "note": "Owner-confirmed 2026-07-10. Approve/Reject+optional reason: backend done; ADDED the provider-UI Reject flow with optional reason (was Approve/Cancel only). Per-ad go-live inherent (bookings carry ad_id). DEFERRED to their features: installation queue (install_date + installator view) -> F07; inquiry->booking thread on approval+payment -> F08."
+        },
+        {
+          "id": "mvp-sprint:F07",
+          "code": "F07",
+          "title": "Proof of display (provider/installator/supervisor upload primary proof; client accept/reject; deadline; NO re-upload loop -> reject auto-holds + auto-routes to Payments+Support, manual human release)",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "7"
+          ],
+          "checklist": [
+            "mvp-sprint:C07",
+            "mvp-sprint:C09"
+          ],
+          "note": "CODE DONE 2026-07-16 (Option A), re-expressed on the unified chat primitive by CHAT-1..CHAT-4 (2026-08-02): Client/ProofFlagController::reject now (a) holds the payout, (b) raises a `payment_held` chat flag with reason 'Payment held - <reason>', (c) idempotently auto-opens THREE dispute chats via openDisputeChats() — internal (Support+Payments), support_client (Support+the client) and support_provider (Support+the provider) — each with a one-time system opener message. There is NO `chats.type` column: a chat's nature is DERIVED at read time from its participants (chat_participants), its attached objects (chat_objects) and its flags (chat_flags). The ACL is membership-based and lives in Shared/ChatController; PiiMaskingService relaxes masking on the staff-side chats. The Conversation and Ticket models and the `conversations`/`tickets` tables were DROPPED. --- ORIGINAL SPEC: Owner 2026-07-10: NO re-upload cycle — the 48h re-upload window is retired everywhere. Client reject -> ONLY automatic = payout auto-hold + auto-open of the 3 dispute chats with the payment attached as a chat object. Release/refund is a MANUAL Payments+Support human decision. Primary-proof uploaders = provider owner OR Installator OR Supervisor subrole (NOT Sales, no client role). [owner 2026-07-14] Dispute refinement: the proof deadline is the ONLY automatic phase; on client-reject the ONLY automatic actions are payout auto-HELD + the `payment_held` flag + the 3 Support-anchored dispute chats. All resolution is human; new-proof requests are human."
+        },
+        {
+          "id": "mvp-sprint:F08",
+          "code": "F08",
+          "title": "Chat & PII masking (contact masked; booked-space address whitelisted; internal Support<->Payments threads client-invisible)",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "10"
+          ],
+          "checklist": [
+            "mvp-sprint:C06"
+          ],
+          "note": "Owner-approved 2026-07-10. Masking core done (phone/email/URL/address + booked-space whitelist + privileged roles see raw). ACL: since CHAT-1..CHAT-4 there is no MessageController and no `type` column — access to a chat is decided by PARTICIPATION (chat_participants) plus role, in Shared/ChatController. A client is not a participant of the internal Support<->Payments dispute chat, so it can neither read nor post there; the guarantee comes from membership, never from a mutable flag. [owner 2026-07-14] F08<->F09<->F10 clash resolved: the client<->provider chat also lets SUPPORT read/post AFTER it joins (POST /chats/{c}/join); PAYMENTS never enters a client<->provider chat (it works through the internal dispute chat and Support relays); Admin reads via /admin/oversight/chats and is READ-ONLY. §10 updated; chat ACL tests cover client-vs-internal."
+        },
+        {
+          "id": "mvp-sprint:F09",
+          "code": "F09",
+          "title": "Soporte como chat; apertura automatica de chats de disputa (boton de soporte sobre cualquier objeto; poderes de Support: unirse al chat, marcar refund/payout-hold, editar cualquier objeto sin dinero)",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "11"
+          ],
+          "checklist": [
+            "mvp-sprint:C04",
+            "mvp-sprint:C08",
+            "mvp-sprint:C09"
+          ],
+          "note": "Support-as-chat done. The routes POST /support/conversations/{c}/join and POST /support/payments/{p}/flag-refund|flag-payout-hold are RETIRED; their behaviour lives on the unified chat map: (1) POST /chats/{c}/join -> Support becomes a participant, the entry is announced with a system message, F08 masking relaxes, idempotent; (2) POST /chats/{c}/flags -> Support raises `refund` / `payout_hold` flags on the chat (flag only; Payments executes — a payout-hold flag parks payments.status=held). Support has NO money authority. UI: ONE Messages surface, no Support tabs. [2026-08-02] LAST CODE ITEM DONE (UC-23): PUT /support/{spaces|ads|bookings|users|collaborators}/{id} in Support\\ObjectEditController, each edit + its AuditLog row in ONE transaction. Money is unreachable twice over: money OBJECTS have no route here (Support flags, Payments executes) and money-DETERMINING fields (total_price, price_per_*, amount) are outside every whitelist and re-checked by assertNonMoney(). users.role/password stay Admin-only; collaborators.role IS Support's per §1. Built UC-31 with it (audit_logs + AuditLog + GET /admin/audit) since 'audited' has no meaning without a log. RBAC rows land via migration 2026_08_02_000002 because the seeder truncates and never runs on a populated DB. SupportEditAuditTest 14 green; full suite green on Postgres. F09 now needs only the human walkthrough WALK-1; §11 folded into §10."
+        },
+        {
+          "id": "mvp-sprint:F10",
+          "code": "F10",
+          "title": "Money (Payments approve/reject/refund/release/hold; wallet idempotent; per-provider payout; per-ad invoice lines)",
+          "status": "resolved",
+          "mvp": true,
+          "designSections": [
+            "8"
+          ],
+          "checklist": [
+            "mvp-sprint:C10"
+          ],
+          "note": "Core money done: approve/reject/refund(+wallet credit, idempotent)/release(gated on client_accepted)/hold; payments list+buttons. CLOSED the F09->F10 loop: a Payment reaches the chat side as a polymorphic chat_object, and the reason the money is parked lives in chat_flags (`payment_held` / `refund` / `payout_hold`). Payments index/show load those flags and the payment-list shows a flag-note per attached Support flag, so Payments sees WHY money is held and what Support requested. DEFERRED/AFTER-MVP: escrow, Admin 24h payout-stop window, per-provider payout scheduling, gateway webhooks/FX/clawback."
+        },
+        {
+          "id": "mvp-sprint:F11",
+          "code": "F11",
+          "title": "Admin oversight / eagle-eye (sees all incl. support & payments chats)",
+          "status": "pending",
+          "mvp": true,
+          "designSections": [
+            "12"
+          ],
+          "checklist": [
+            "mvp-sprint:C11"
+          ],
+          "note": ""
+        },
+        {
+          "id": "mvp-sprint:F12",
+          "code": "F12",
+          "title": "Admin configurations (apply-scope new-only vs all; snapshot-at-creation)",
+          "status": "pending",
+          "mvp": true,
+          "designSections": [
+            "12"
+          ],
+          "checklist": [
+            "mvp-sprint:C12"
+          ],
+          "note": ""
+        },
+        {
+          "id": "mvp-sprint:F13",
+          "code": "F13",
+          "title": "Notifications & calendar (availability, iCal/Google sync, date ranges)",
+          "status": "pending",
+          "mvp": true,
+          "designSections": [
+            "13"
+          ],
+          "checklist": [
+            "mvp-sprint:C05"
+          ],
+          "note": ""
+        },
+        {
+          "id": "mvp-sprint:F14",
+          "code": "F14",
+          "title": "RBAC & capabilities (role_permissions, per-route middleware, permissions editor)",
+          "status": "pending",
+          "mvp": true,
+          "designSections": [
+            "14"
+          ],
+          "checklist": [],
+          "note": ""
+        },
+        {
+          "id": "mvp-sprint:F15",
+          "code": "F15",
+          "title": "Book-for-later, pre-pay & escrow",
+          "status": "deferred",
+          "mvp": false,
+          "designSections": [
+            "6"
+          ],
+          "checklist": [],
+          "note": ""
+        },
+        {
+          "id": "mvp-sprint:F16",
+          "code": "F16",
+          "title": "Strikes (90-day counter, appeals)",
+          "status": "deferred",
+          "mvp": false,
+          "designSections": [
+            "7"
+          ],
+          "checklist": [],
+          "note": ""
+        },
+        {
+          "id": "mvp-sprint:F17",
+          "code": "F17",
+          "title": "Ratings",
+          "status": "deferred",
+          "mvp": false,
+          "designSections": [
+            "9"
+          ],
+          "checklist": [],
+          "note": ""
+        }
+      ]
+    },
+    "checklist": [
+      {
+        "id": "C01",
+        "item": "Roles: client, provider, support, payments, admin exist",
+        "status": "verified",
+        "note": "all roles log in with correct permission counts"
+      },
+      {
+        "id": "C02",
+        "item": "Account owner can create subroles: installator, publicist, manager",
+        "status": "verified",
+        "note": "backend validation + Collaborator::ROLES; collaborator role field added to UI"
+      },
+      {
+        "id": "C03",
+        "item": "Multi-search select: accumulate spaces across searches, add to campaign",
+        "status": "verified",
+        "note": "space-search basket + add-to-campaign; full search->campaign->backlog->adset chain runtime-tested"
+      },
+      {
+        "id": "C04",
+        "item": "Every item has a Support button; item attached to the ticket as context",
+        "status": "verified",
+        "note": "ticketable polymorphic + ticket-form sends ticketable_type/id; reference-less ticket also works (B2)"
+      },
+      {
+        "id": "C05",
+        "item": "Provider sets up each space + Google Calendar availability or a date range",
+        "status": "implemented",
+        "note": "SpaceAvailability + IcalSyncService present; not UI-walked this session"
+      },
+      {
+        "id": "C06",
+        "item": "Provider and user can chat with contact info masked",
+        "status": "implemented",
+        "note": "PiiMaskingService render-time mask + space-address whitelist; not UI-walked"
+      },
+      {
+        "id": "C07",
+        "item": "Provider uploads proof of installed ad (video for radio, photo/video per type)",
+        "status": "implemented",
+        "note": "Proof upload + file_url accessor fixed; no proofs seeded so not runtime-walked"
+      },
+      {
+        "id": "C08",
+        "item": "Support sees new requests with items attached (or not)",
+        "status": "verified",
+        "note": "[pre-CHAT-1] support ticket queue returns array (B3 fix); reference-less + attached tickets both list"
+      },
+      {
+        "id": "C09",
+        "item": "Automatic ticket to support when a proof is mismatch-flagged by client",
+        "status": "implemented",
+        "note": "[pre-CHAT-1] ProofFlagController auto-ticket + ownership guard; no proofs seeded to runtime-walk"
+      },
+      {
+        "id": "C10",
+        "item": "Payments role makes deposits (payouts) and refunds",
+        "status": "verified",
+        "note": "refund -> status refunded + wallet_entry credited (77,500 MXN), idempotent"
+      },
+      {
+        "id": "C11",
+        "item": "Admin eagle-eye: sees all, incl. support and payments chats",
+        "status": "verified",
+        "note": "[pre-CHAT-1] /admin/oversight/conversations + tickets HTTP 200, no participant filter"
+      },
+      {
+        "id": "C12",
+        "item": "Admin configurations; apply-scope new-only vs all objects",
+        "status": "implemented",
+        "note": "ConfigurationController apply_scope new_only|all + in-flight snapshot; not UI-walked"
+      },
+      {
+        "id": "C13",
+        "item": "End-to-end client journey (map-select -> campaign -> adset -> book/refund -> support chat)",
+        "status": "verified",
+        "note": "core chain runtime-verified; provider-reject/auto-reject/proof legs are implemented, partial UI walk pending"
+      }
+    ],
+    "workstreams": [
+      {
+        "id": "WS-beads",
+        "title": "Diagnose + restore beads (dolt->sqlite)",
+        "status": "done"
+      },
+      {
+        "id": "WS-audit",
+        "title": "Audit 13 checklist items + doc state vs code",
+        "status": "done"
+      },
+      {
+        "id": "WS-impl",
+        "title": "Implement gaps (agent team + manual finish)",
+        "status": "done"
+      },
+      {
+        "id": "WS-4ri",
+        "title": "Canonical 5-role + collaborator subroles + state machines",
+        "status": "done"
+      },
+      {
+        "id": "WS-h6a",
+        "title": "Money: payout/refund flows (wallet/escrow MVP-scoped)",
+        "status": "done"
+      },
+      {
+        "id": "WS-2r6",
+        "title": "Subsystems: auto-apertura de chats de disputa, masking, eagle-eye, configs",
+        "status": "done"
+      },
+      {
+        "id": "WS-8qi",
+        "title": "Doc sync: design.json + migrations",
+        "status": "done"
+      },
+      {
+        "id": "WS-review",
+        "title": "Read-only verification team -> fix list applied",
+        "status": "done",
+        "note": "5 blocking + 7 major + minors, all applied sequentially"
+      },
+      {
+        "id": "WS-docker",
+        "title": "Docker 'publisher' stack build + bring-up",
+        "status": "done",
+        "note": "BuildKit broken -> DOCKER_BUILDKIT=0; all 4 containers up + verified"
+      },
+      {
+        "id": "WS-verify",
+        "title": "Runtime verification against live stack",
+        "status": "done",
+        "note": "C01/C03/C13/C04/B1/B3/C10/C11 verified; C05/C06/C07/C09/C12 static-verified"
+      },
+      {
+        "id": "WS-history",
+        "title": "Session summaries in history.md (Sessions 19-22)",
+        "status": "done"
+      }
+    ],
+    "futureDebt": [
+      "UC-37 · la purga es MANUAL a proposito (owner 2026-08-03: \"Manual por el momento en la fase mvp, anotalo para un futuro\"). `php artisan spaces:purge --confirm`. Cuando haya scheduler, el comando ya revalida bloqueos en el momento de purgar, asi que automatizarlo es registrarlo en el kernel y nada mas.",
+      "UC-32 · §8 dice que una ventana de retencion vencida libera sola. No hay scheduler en el MVP, asi que hoy simplemente espera a Payments. Mismo enganche que la purga.",
+      "§2 promete un auto-aprobado (toggle + umbral, por defecto OFF). NO existe clave de config y ningun codigo lo lee; deliberadamente no se sembro una clave muerta. Es una funcion, no un ajuste.",
+      "BR-15 · desvincular a un colaborador ACEPTADO no lo puede hacer nadie hoy: ni el, ni el dueno por otra via que quitarlo, ni Soporte. El ruling (owner 2026-08-04) dice \"excepto que hablen con soporte (no hay aun esa capacidad en la plataforma, eso es un tema para despues)\". Queda anotado para que no aparezca por sorpresa como un boton del colaborador, que es justo lo que la regla impide."
+    ],
+    "notes": {
+      "stack": "Docker project 'publisher' UP: db(:5435)/backend/nginx(:8000)/frontend(:4200). START with: export WSLENV=DOCKER_BUILDKIT:$WSLENV; DOCKER_BUILDKIT=0 docker compose up -d. BuildKit is broken on this machine -> always DOCKER_BUILDKIT=0. Use /mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe.",
+      "beads": "Re-initialized to sqlite backend 2026-06-13 (dolt unreadable: bd.exe lacks CGO). All MVP issues (nez/5gk/4v7/wl7/c9x) closed.",
+      "git": "All work on branch 'mvp-build'; NOT pushed (git auth blocked). Commits 60741f0 -> 289e0f6.",
+      "login": "client1@pubads.test / password (also support@/payments@/admin@pubads.test)."
+    },
+    "statusLegend": {
+      "verified": "code done AND confirmed working at runtime against the live stack",
+      "implemented": "code done + php-lint/ng-build clean + static-reviewed, but not yet exercised at runtime (needs UI walk-through or more seed data)"
+    }
+  }
+}

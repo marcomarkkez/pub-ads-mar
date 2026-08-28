@@ -333,7 +333,10 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private map: L.Map | null = null;
   private centerMarker: L.Marker | null = null;
-  private spaceMarkers: L.Marker[] = [];
+  // space.id → marker. A Map and not an array because markers are now REUSED across
+  // searches and selection changes: tearing them down and rebuilding them is exactly what
+  // broke the detail popup (see syncSpaceMarkers).
+  private spaceMarkers = new Map<number, L.Marker>();
 
   constructor(
     private http: HttpClient,
@@ -353,6 +356,7 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.map?.remove();
     this.map = null;
+    this.spaceMarkers.clear();
   }
 
   // ── Map ────────────────────────────────────────────────────────────────────
@@ -372,6 +376,11 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.map.on('click', (e: L.LeafletMouseEvent) => {
       this.zone.run(() => {
+        // Clicking bare map means "I'm looking somewhere else now", so the open detail
+        // panel must go with it. Leaflet already closed the popup for us on 'preclick'
+        // (closePopupOnClick), which clears selectedSpace through popupclose; this line
+        // covers the list-view path, where a card can be selected with no popup to close.
+        this.selectedSpace.set(null);
         this.latitude = +e.latlng.lat.toFixed(6);
         this.longitude = +e.latlng.lng.toFixed(6);
         this.centerMarker?.setLatLng([this.latitude, this.longitude]);
@@ -383,44 +392,101 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
     // invalidate once and draw any spaces already loaded by the initial search.
     setTimeout(() => {
       this.map?.invalidateSize();
-      this.updateMapMarkers();
+      this.recenterSearchOrigin();
+      this.syncSpaceMarkers();
     }, 0);
   }
 
-  private updateMapMarkers(): void {
+  /** Move the blue "search from here" dot + the viewport to the current search origin. */
+  private recenterSearchOrigin(): void {
     if (!this.map) return;
-    // Update center marker
     this.centerMarker?.setLatLng([this.latitude, this.longitude]);
     this.map.setView([this.latitude, this.longitude], this.map.getZoom());
+  }
 
-    // Clear old space markers
-    this.spaceMarkers.forEach(m => m.remove());
-    this.spaceMarkers = [];
+  /**
+   * Reconcile the space markers with the current result set IN PLACE.
+   *
+   * This used to drop every marker and rebuild them from scratch, and because selecting a
+   * space called it too, the marker's popup was destroyed ~0ms after the click that opened
+   * it (removing a marker fires 'remove' → closePopup). The panel flashed and what stayed
+   * behind was the orange icon + outlined card, with nothing left to dismiss: that is the
+   * "no se quita" the owner hit on the Demo Dispute fixture. Reusing the marker objects
+   * hands the popup lifecycle back to Leaflet — its × button, close-on-map-click and
+   * close-the-previous-one-on-open all work again — and selectedSpace simply mirrors it.
+   */
+  private syncSpaceMarkers(): void {
+    if (!this.map) return;
 
-    // Add new space markers
-    this.spaces().forEach(space => {
-      const lat = +space.latitude;
-      const lng = +space.longitude;
-      const isSelected = this.selectedSpace()?.id === space.id;
-      const marker = L.marker([lat, lng], {
-        icon: isSelected ? SPACE_ICON_SELECTED : SPACE_ICON,
-      }).addTo(this.map!);
+    const alive = new Set<number>();
+    for (const space of this.spaces()) {
+      alive.add(space.id);
+      const marker = this.spaceMarkers.get(space.id);
+      if (marker) {
+        marker.setLatLng([+space.latitude, +space.longitude]);
+        marker.setPopupContent(this.popupHtml(space));
+        continue;
+      }
+      const created = L.marker([+space.latitude, +space.longitude], { icon: SPACE_ICON }).addTo(this.map);
+      created.bindPopup(this.popupHtml(space));
+      // The popup IS the detail panel, so selection follows the popup instead of the raw
+      // click. One source of truth is why "another marker", "empty map" and "×" all end up
+      // dismissing it without any of them needing to know about the others.
+      created.on('popupopen', () => this.zone.run(() => this.setSelected(space)));
+      created.on('popupclose', () => this.zone.run(() => this.clearSelected(space.id)));
+      this.spaceMarkers.set(space.id, created);
+    }
 
-      marker.bindPopup(`
-        <div style="min-width:160px;">
-          <strong style="display:block;margin-bottom:4px;">${space.name}</strong>
-          <span style="font-size:12px;color:#666;">${this.formatType(space.type)}</span><br>
-          <strong style="color:#2563eb;">$${space.price_per_day}/day</strong>
-          ${space.width && space.height ? `<span style="font-size:12px;color:#666;margin-left:6px;">${space.width}×${space.height}m</span>` : ''}
-        </div>
-      `);
+    // Markers whose space fell out of the result set. Removing an open one fires popupclose
+    // → clearSelected, so a selection can never outlive the listing it points at.
+    const stale = [...this.spaceMarkers.keys()].filter(id => !alive.has(id));
+    for (const id of stale) {
+      this.spaceMarkers.get(id)!.remove();
+      this.spaceMarkers.delete(id);
+    }
+    const selectedId = this.selectedSpace()?.id;
+    if (selectedId !== undefined && !alive.has(selectedId)) {
+      // List-view selections have no popup, so nothing fired above — clear them by hand.
+      this.zone.run(() => this.selectedSpace.set(null));
+    }
 
-      marker.on('click', () => {
-        this.zone.run(() => this.selectSpace(space));
-      });
+    this.refreshMarkerIcons();
+  }
 
-      this.spaceMarkers.push(marker);
+  private popupHtml(space: Space): string {
+    // Names/dimensions come from providers, so they get escaped before landing in innerHTML.
+    const e = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+    return `
+      <div style="min-width:160px;">
+        <strong style="display:block;margin-bottom:4px;">${e(space.name)}</strong>
+        <span style="font-size:12px;color:#666;">${e(this.formatType(space.type))}</span><br>
+        <strong style="color:#2563eb;">$${e(space.price_per_day)}/day</strong>
+        ${space.width && space.height ? `<span style="font-size:12px;color:#666;margin-left:6px;">${e(space.width)}×${e(space.height)}m</span>` : ''}
+      </div>
+    `;
+  }
+
+  /** Paint the selected marker orange. Guarded: setIcon() rebuilds the icon DOM, and doing
+   *  that to a marker whose popup is opening right now is asking for trouble. */
+  private refreshMarkerIcons(): void {
+    const selectedId = this.selectedSpace()?.id ?? null;
+    this.spaceMarkers.forEach((marker, id) => {
+      const icon = id === selectedId ? SPACE_ICON_SELECTED : SPACE_ICON;
+      if (marker.options.icon !== icon) marker.setIcon(icon);
     });
+  }
+
+  private setSelected(space: Space): void {
+    this.selectedSpace.set(space);
+    this.refreshMarkerIcons();
+  }
+
+  /** Only the space that owns the panel may close it: when the user jumps from marker A to
+   *  marker B, popupclose(A) arrives right before popupopen(B) and must not undo B. */
+  private clearSelected(spaceId: number): void {
+    if (this.selectedSpace()?.id !== spaceId) return;
+    this.selectedSpace.set(null);
+    this.refreshMarkerIcons();
   }
 
   // ── View toggle ────────────────────────────────────────────────────────────
@@ -430,7 +496,10 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.showMap() && this.map) {
       // Leaflet needs an invalidateSize() after being shown from display:none
       setTimeout(() => this.map?.invalidateSize(), 50);
-      this.zone.runOutsideAngular(() => this.updateMapMarkers());
+      this.zone.runOutsideAngular(() => {
+        this.recenterSearchOrigin();
+        this.syncSpaceMarkers();
+      });
     }
   }
 
@@ -464,7 +533,10 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
         this.pages.set(Array.from({ length: res.last_page }, (_, i) => i + 1));
         this.loading.set(false);
         if (this.showMap()) {
-          this.zone.runOutsideAngular(() => this.updateMapMarkers());
+          this.zone.runOutsideAngular(() => {
+            this.recenterSearchOrigin();
+            this.syncSpaceMarkers();
+          });
         }
       },
       error: (err) => {
@@ -474,12 +546,20 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Clicking a result card = open that space's panel on the map (same end state as clicking
+   *  its marker). Note it no longer re-runs recenterSearchOrigin(), which used to pan the map
+   *  straight back to the search origin one line after we had panned to the space. */
   selectSpace(space: Space): void {
-    this.selectedSpace.set(space);
-    if (this.showMap() && this.map) {
-      this.map.setView([+space.latitude, +space.longitude], 15);
-      this.zone.runOutsideAngular(() => this.updateMapMarkers());
+    const marker = this.spaceMarkers.get(space.id);
+    if (this.showMap() && this.map && marker) {
+      this.map.setView([+space.latitude, +space.longitude], Math.max(this.map.getZoom(), 15));
+      // openPopup() fires popupopen, and THAT is what records the selection — so the card
+      // path and the marker path converge on one state, dismissible the same way.
+      this.zone.runOutsideAngular(() => marker.openPopup());
+      return;
     }
+    // List view (or a space with no marker yet): no popup to mirror, set it directly.
+    this.setSelected(space);
   }
 
   /**

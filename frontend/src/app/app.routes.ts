@@ -47,6 +47,21 @@ export const routes: Routes = [
           .then(m => m.CollaborationListComponent),
       },
 
+      // design.json §3 · UC-19 — the collaborators of the caller's OWN account.
+      // Top-level and role:client,provider because the API is (owner 2026-08-23: "un
+      // proveedor puede tener colaboradores y un cliente también, cada uno es como una
+      // empresa"). Under /client this screen was unreachable for a provider even though
+      // the endpoint was account-scoped all along. The OWNER gate is not here but in the
+      // sidebar (`canManageCollaborators` → is_owner): a collaborator on somebody else's
+      // account is still a client/provider and would pass this guard, and the API is what
+      // has the last word — it scopes to the caller's own account and lists nothing.
+      {
+        path: 'collaborators',
+        canActivate: [roleGuard('client', 'provider')],
+        loadComponent: () => import('./features/collaborators/collaborator-list.component')
+          .then(m => m.CollaboratorListComponent),
+      },
+
       // Client routes
       {
         path: 'client',
@@ -55,9 +70,6 @@ export const routes: Routes = [
           { path: 'campaigns', loadComponent: () => import('./features/client/campaigns/campaign-list.component').then(m => m.CampaignListComponent) },
           { path: 'campaigns/new', loadComponent: () => import('./features/client/campaigns/campaign-form.component').then(m => m.CampaignFormComponent) },
           { path: 'campaigns/:id', loadComponent: () => import('./features/client/campaigns/campaign-detail.component').then(m => m.CampaignDetailComponent) },
-          // design.json §2/§3 (UC-19) — Collaborators is ACCOUNT-scoped and belongs to the
-          // account OWNER, so it is its own screen, NOT a card inside one campaign.
-          { path: 'collaborators', loadComponent: () => import('./features/client/collaborators/collaborator-list.component').then(m => m.CollaboratorListComponent) },
           { path: 'spaces', loadComponent: () => import('./features/client/spaces/space-search.component').then(m => m.SpaceSearchComponent) },
           { path: 'bookings', loadComponent: () => import('./features/client/bookings/booking-list.component').then(m => m.BookingListComponent) },
           { path: 'invoices', loadComponent: () => import('./features/client/invoices/invoice-list.component').then(m => m.InvoiceListComponent) },

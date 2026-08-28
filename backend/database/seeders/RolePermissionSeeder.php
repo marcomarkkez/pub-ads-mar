@@ -36,6 +36,11 @@ class RolePermissionSeeder extends Seeder
                 'dashboard'             => ['read'],
                 'proofs'                => ['create', 'read'],
                 'chats'                 => ['create', 'read'],
+                // §3 · UC-19 (owner 2026-08-23) — "cada uno es como una empresa": staffing
+                // the account you own is an ACCOUNT power, not a client one. Same three
+                // actions as the client side, and no 'update' for the same reason nobody
+                // has it — changing a subrole is Support's audited edit (§11).
+                'collaborators'         => ['create', 'read', 'delete'],
             ],
 
             'admin' => [

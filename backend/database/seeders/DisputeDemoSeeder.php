@@ -34,6 +34,22 @@ class DisputeDemoSeeder extends Seeder
         $this->user('support@pubads.test', 'Demo Support', 'support');
         $this->user('payments@pubads.test', 'Demo Payments', 'payments');
 
+        // The listing this demo hangs off USED to be called "Demo Dispute Billboard" at
+        // "123 Main St", and a client walking /client/spaces on 2026-08-27 hit it on the map
+        // and read it as a leaked test fixture ("no tengo idea qué es esa location").
+        // It cannot simply be hidden from the client search: the space is the object attached
+        // to the seeded client↔provider chat, and UC-8 says the ONLY way into a provider chat
+        // is from a PUBLISHED listing — an invisible space makes that walkthrough unreachable,
+        // and filtering fixtures out of the search would put demo-awareness into production
+        // query code. So it stays public and only the *label* changes: same realistic Spanish
+        // naming as the DatabaseSeeder billboards, so browsing inventory looks like inventory.
+        // Opting out entirely is still `python3 mvp-init.py --no-dispute` (skips this seeder).
+        $legacyName = 'Demo Dispute Billboard';
+        $spaceName = 'Espectacular Calzada del Valle';
+        // Rename before the updateOrCreate below: its key is (user_id, name), so without this
+        // an already-seeded database would keep the old row AND grow a second one next to it.
+        Space::where('user_id', $provider->id)->where('name', $legacyName)->update(['name' => $spaceName]);
+
         // `type` and `price_per_day` are spelled out ON PURPOSE — this is not decoration.
         // This row used to be seeded without them, and the NULL type took down the WHOLE
         // provider "My Spaces" screen on 2026-08-15: formatType(null) threw from a template
@@ -45,14 +61,18 @@ class DisputeDemoSeeder extends Seeder
         // updateOrCreate, not firstOrCreate: databases seeded before that date must heal
         // on the next `php artisan db:seed`, not keep the NULLs forever.
         $space = Space::updateOrCreate(
-            ['user_id' => $provider->id, 'name' => 'Demo Dispute Billboard'],
+            ['user_id' => $provider->id, 'name' => $spaceName],
             [
                 'type' => 'billboard',
                 'price_per_day' => 1500.00,
                 'pricing_unit' => 'day',
-                'latitude' => 25.6597,
-                'longitude' => -100.4023,
-                'location_text' => '123 Main St',
+                // Off the client search's DEFAULT map centre (25.6597 / -100.4023) on purpose:
+                // sitting exactly on it buried this marker under the blue "search from here"
+                // dot, so the client saw only empty map, clicked it, and a panel he had no
+                // reason to expect appeared. Still ~1 km out, so it stays in the default hit.
+                'latitude' => 25.6534,
+                'longitude' => -100.3944,
+                'location_text' => 'Calzada del Valle, San Pedro Garza García',
                 'is_active' => true,
             ]
         );

@@ -17,10 +17,40 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Collaborator extends Model
 {
-    public const ROLES = ['installator', 'publicist', 'manager'];
+    /**
+     * Every subrole that may appear in the column, both ecosystems at once. Only Support's
+     * edit-any route validates against this: it fixes a grant on SOMEBODY's account without
+     * being told whose, so it is the one caller that cannot narrow the list by account type.
+     * Everything that creates a grant narrows it — see rolesFor().
+     */
+    public const ROLES = ['installator', 'publicist', 'manager', 'sales', 'supervisor'];
 
     /** §3 — the two CLIENT-side subroles an account owner may invite. */
     public const CLIENT_ROLES = ['publicist', 'manager'];
+
+    /**
+     * §3 — the PROVIDER-side subroles. A separate list, not a superset: the two sides are
+     * two ecosystems and share no subrole name, which is why the accepted set has to be
+     * chosen by the ACCOUNT's type rather than by whoever is holding the form.
+     */
+    public const PROVIDER_ROLES = ['installator', 'sales', 'supervisor'];
+
+    /**
+     * The subroles an account of this type may hire (owner 2026-08-23 — both sides are
+     * companies and both hire, but they do not hire the same jobs).
+     *
+     * `accounts.type` is client|provider and nothing else, so an unknown type would be a
+     * corrupt row; it hires nobody rather than defaulting to one side's list, because a
+     * default here means silently filing a person under the wrong ecosystem.
+     */
+    public static function rolesFor(string $accountType): array
+    {
+        return match ($accountType) {
+            Account::TYPE_CLIENT => self::CLIENT_ROLES,
+            Account::TYPE_PROVIDER => self::PROVIDER_ROLES,
+            default => [],
+        };
+    }
 
     // ── The grant's lifecycle (UC-19/UC-20) ──────────────────────────────────
     //
@@ -48,6 +78,12 @@ class Collaborator extends Model
         'installator' => ['proofs.create'],
         'publicist' => ['campaigns.manage', 'ads.manage', 'tickets.create'],
         'manager' => ['*'],
+        // Provider-side chat access is decided by Chat::PROVIDER_CHAT_SUBROLES, not by
+        // can(); these two hold no capability here YET, and an absent key already means
+        // "grants nothing" (see can()). Listing them empty says that on purpose, so the
+        // next person does not read the gap as an oversight and hand them '*'.
+        'sales' => [],
+        'supervisor' => [],
     ];
 
     protected $fillable = [

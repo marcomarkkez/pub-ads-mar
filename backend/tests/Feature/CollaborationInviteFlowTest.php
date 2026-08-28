@@ -34,7 +34,7 @@ class CollaborationInviteFlowTest extends TestCase
     {
         Sanctum::actingAs($owner);
 
-        return $this->postJson('/api/client/collaborators', ['email' => $email, 'role' => $role])
+        return $this->postJson('/api/collaborators', ['email' => $email, 'role' => $role])
             ->assertStatus(201)
             ->json('id');
     }
@@ -239,7 +239,7 @@ class CollaborationInviteFlowTest extends TestCase
         $this->postJson("/api/collaborations/{$id}/accept")->assertStatus(200);
 
         Sanctum::actingAs($owner);
-        $this->deleteJson("/api/client/collaborators/{$id}")->assertStatus(200);
+        $this->deleteJson("/api/collaborators/{$id}")->assertStatus(200);
 
         Sanctum::actingAs($helper);
         $this->postJson("/api/collaborations/{$id}/accept")
@@ -286,7 +286,7 @@ class CollaborationInviteFlowTest extends TestCase
         $id = $this->invite($owner, $helper->email);
 
         Sanctum::actingAs($owner);
-        $this->postJson('/api/client/collaborators', ['email' => $helper->email, 'role' => 'manager'])
+        $this->postJson('/api/collaborators', ['email' => $helper->email, 'role' => 'manager'])
             ->assertStatus(409)
             ->assertJsonPath('error_code', 'ALREADY_EXISTS');
 
@@ -294,7 +294,7 @@ class CollaborationInviteFlowTest extends TestCase
         $this->postJson("/api/collaborations/{$id}/accept")->assertStatus(200);
 
         Sanctum::actingAs($owner);
-        $this->postJson('/api/client/collaborators', ['email' => $helper->email, 'role' => 'publicist'])
+        $this->postJson('/api/collaborators', ['email' => $helper->email, 'role' => 'publicist'])
             ->assertStatus(409)
             ->assertJsonPath('error_code', 'ALREADY_EXISTS');
     }
@@ -369,9 +369,11 @@ class CollaborationInviteFlowTest extends TestCase
 
     public function test_a_provider_can_answer_an_invitation_too(): void
     {
-        // The `collaborators` permission belongs to the account OWNER (client only), so
-        // gating these routes on it would have made a provider-side collaborator unable
-        // to accept the invitation they were sent — a dead endpoint on arrival.
+        // The `collaborators` permission is the account OWNER's power over their OWN
+        // account (/collaborators), and holding it is not what entitles a person to answer
+        // an invitation: the invitee may own nothing anywhere and still be entitled to say
+        // yes. Gating these routes on it would have made a provider-side collaborator
+        // unable to accept the invitation they were sent — a dead endpoint on arrival.
         $owner = User::factory()->create(['role' => 'provider']);
         $installer = User::factory()->create(['role' => 'provider']);
 

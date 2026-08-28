@@ -63,9 +63,13 @@ export class UserFormComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
 
-    this.http.get<{ user: User }>(`${this.api}/admin/users/${this.userId}`).subscribe({
-      next: (res) => {
-        const user = res.user;
+    // Admin\UserController::show() returns the User model bare — `response()->json($user)` —
+    // exactly like store()/update() and like the rows inside index()'s paginator. Only
+    // POST /login wraps its user in `{ user: … }`, and this component was written against
+    // that shape: `res.user` came back undefined and the read of `.name` threw inside the
+    // subscriber, so `loading` never cleared and /admin/users/{id} span forever (WALK-6 W6-5).
+    this.http.get<User>(`${this.api}/admin/users/${this.userId}`).subscribe({
+      next: (user) => {
         this.name = user.name;
         this.email = user.email;
         this.role = user.role;

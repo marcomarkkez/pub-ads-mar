@@ -72,7 +72,7 @@ class Walk6EntryFlowTest extends TestCase
         $this->assertNotSame($owner->account_id, $ownAccount);
 
         Sanctum::actingAs($owner);
-        $invitation = $this->postJson('/api/client/collaborators', [
+        $invitation = $this->postJson('/api/collaborators', [
             'email' => 'ana.ayuda@x.test',
             'role' => 'manager',
         ])->assertStatus(201)->json('id');
@@ -112,7 +112,7 @@ class Walk6EntryFlowTest extends TestCase
         $helper = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($owner);
-        $invitation = $this->postJson('/api/client/collaborators', [
+        $invitation = $this->postJson('/api/collaborators', [
             'email' => $helper->email,
             'role' => 'manager',
         ])->assertStatus(201)->json('id');
@@ -126,7 +126,7 @@ class Walk6EntryFlowTest extends TestCase
             ->assertJsonPath('is_owner', true)
             ->assertJsonPath('collaborating_on', []);
 
-        $this->getJson('/api/client/collaborators')
+        $this->getJson('/api/collaborators')
             ->assertStatus(200)
             ->assertJsonCount(1)
             ->assertJsonPath('0.status', 'accepted');
@@ -184,12 +184,78 @@ class Walk6EntryFlowTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $client->id, 'is_active' => true]);
     }
 
+    /**
+     * BR-10 in the one direction PlanningCodeCongruenceTest cannot see. That file proves the
+     * URL the UI builds resolves to a route; it says nothing about the SHAPE that comes back,
+     * and W6-5 fell into exactly that gap: `GET /admin/users/{id}` answered 200, the walker
+     * got a spinner that never stopped, and the console said
+     *
+     *     TypeError: Cannot read properties of undefined (reading 'name')
+     *
+     * The edit screen was typed `http.get<{ user: User }>` — the envelope POST /login uses —
+     * while Admin\UserController::show() returns the model bare, like store(), update() and
+     * every row of index()'s paginator. `res.user` was undefined, reading `.name` threw
+     * INSIDE the subscriber, so `loading` never cleared: a green request and a dead screen.
+     *
+     * So this test does not restate the controller. It reads the shape the screen declares
+     * and the fields the screen assigns straight out of the component source, and holds the
+     * live response to them. It fails whichever side moves — re-wrap the endpoint without
+     * telling the form, or re-type the form without telling the endpoint — which is the only
+     * way "the UI goes hand in hand with the endpoints" is a check and not a hope.
+     */
+    public function test_the_user_edit_screen_reads_the_shape_the_api_actually_returns(): void
+    {
+        $component = base_path('../frontend/src/app/features/admin/users/user-form.component.ts');
+
+        if (! is_file($component)) {
+            $this->markTestSkipped('No frontend checked out next to the backend.');
+        }
+
+        $source = file_get_contents($component);
+
+        $this->assertSame(1, preg_match(
+            '/this\.http\.get<(?<shape>[^>]+)>\(\s*`\$\{this\.api\}\/admin\/users\/\$\{this\.userId\}`/',
+            $source,
+            $call
+        ), 'The edit screen no longer loads the user the way this test recognises, so the test is '
+         . 'no longer checking anything. Re-read user-form.component.ts and re-point it.');
+
+        // `this.email = user.email` — the fields the screen will actually reach for. Deriving
+        // them beats listing them: a field added to the form is covered the day it is added.
+        preg_match_all('/this\.\w+ = user\.(?<field>\w+)/', $source, $reads);
+        $fields = array_values(array_unique($reads['field']));
+        $this->assertGreaterThan(3, count($fields), 'Too few field reads found — see above.');
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $client = User::factory()->create(['role' => 'client']);
+
+        Sanctum::actingAs($admin);
+        $payload = $this->getJson("/api/admin/users/{$client->id}")->assertStatus(200)->json();
+
+        // `{ user: User }` declares an envelope; `User` declares the model bare. Either is a
+        // fine contract — what is not fine is the two ends holding different ones.
+        $root = $payload;
+
+        if (preg_match('/^\{\s*(?<key>\w+)\s*:/', trim($call['shape']), $envelope)) {
+            $this->assertArrayHasKey($envelope['key'], $payload,
+                "The screen unwraps `res.{$envelope['key']}`, which the endpoint does not send. "
+                . 'Every read off it throws inside the subscriber, so the spinner never stops. '
+                . 'Top-level keys served: ' . implode(', ', array_keys($payload)));
+            $root = $payload[$envelope['key']];
+        }
+
+        foreach ($fields as $field) {
+            $this->assertArrayHasKey($field, $root,
+                "The screen reads `user.{$field}`, which this response has no field for (EH-2).");
+        }
+    }
+
     // ── W6-4 · the walk step, driven the way the walk drives it ───────────────
 
     /**
      * The refusal (409, BR-15) is pinned in AccountScopeTest. What was NOT pinned is the
      * SHAPE OF THE STEP, and that gap cost a walkthrough: WALK-6 told the walker to
-     * `DELETE /api/client/collaborators/$MI_PROPIA_FILA` without ever giving the command
+     * `DELETE /api/collaborators/$MI_PROPIA_FILA` without ever giving the command
      * that fills `$MI_PROPIA_FILA`. With the variable empty the URL collapses to the
      * COLLECTION URI, which exists for GET and POST and not for DELETE, so the walker got
      *
@@ -210,7 +276,7 @@ class Walk6EntryFlowTest extends TestCase
         $helper = User::factory()->create(['role' => 'client']);
 
         Sanctum::actingAs($owner);
-        $this->postJson('/api/client/collaborators', [
+        $this->postJson('/api/collaborators', [
             'email' => $helper->email,
             'role' => 'manager',
         ])->assertStatus(201);
@@ -218,7 +284,7 @@ class Walk6EntryFlowTest extends TestCase
         Sanctum::actingAs($helper);
 
         // Step 1 — the command the walk was missing. The collaborator never sees
-        // /client/collaborators (that lists THEIR account's helpers, which is empty); the
+        // /collaborators (that lists THEIR OWN account's helpers, which is empty); the
         // grant they hold on somebody else's account only shows up here.
         $mine = $this->getJson('/api/collaborations')->assertStatus(200)->assertJsonCount(1);
         $id = $mine->json('0.id');
@@ -227,12 +293,12 @@ class Walk6EntryFlowTest extends TestCase
         $this->postJson("/api/collaborations/{$id}/accept")->assertStatus(200);
 
         // Step 2 — with a real id, the guardrail answers, and it answers about STATE.
-        $this->deleteJson("/api/client/collaborators/{$id}")
+        $this->deleteJson("/api/collaborators/{$id}")
             ->assertStatus(409)
             ->assertJsonPath('error_code', 'CONFLICTING_STATE');
 
         // …and with the id the walk forgot to fetch, the router answers first: 405 on the
         // collection, which says nothing at all about collaborations.
-        $this->deleteJson('/api/client/collaborators/')->assertStatus(405);
+        $this->deleteJson('/api/collaborators/')->assertStatus(405);
     }
 }

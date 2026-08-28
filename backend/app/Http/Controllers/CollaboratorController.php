@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Http\Controllers\Client;
+namespace App\Http\Controllers;
 
 use App\Enums\ApiErrorCode;
-use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Collaborator;
 use App\Models\User;
@@ -13,8 +12,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * design.json §3 (UC-19, AC-collab-03/04) — the client account's Collaborators
- * screen: `GET|POST|DELETE /client/collaborators`.
+ * design.json §3 (UC-19, AC-collab-03/04) — an account's Collaborators screen:
+ * `GET|POST|DELETE /collaborators`.
+ *
+ * Top-level, NOT under `/client` (owner 2026-08-23: "un proveedor puede tener
+ * colaboradores y un cliente también, cada uno es como una empresa"). Owning a company
+ * and inviting people into it is an ACCOUNT capability; the caller's role only decides
+ * WHICH subroles that company hires. While these lived under the `/client` prefix a
+ * provider had no way at all to staff their own account — the screen existed, the table
+ * was account-scoped, and the only thing standing in the way was the URL.
  *
  * These routes used to be nested under a campaign
  * (`/client/campaigns/{campaign}/collaborators`), which encoded the exact thing
@@ -47,10 +53,15 @@ class CollaboratorController extends Controller
 
         $validated = $request->validate([
             'email' => 'required|email|max:255',
-            // §3 (owner 2026-07-17) — installator is PROVIDER-side only. Accepting it here
-            // created a collaborator that Chat::CLIENT_CHAT_SUBROLES then refuses, so the
-            // person could see campaigns but never open a chat, with nothing explaining why.
-            'role' => 'required|in:' . implode(',', Collaborator::CLIENT_ROLES),
+            // §3 (owner 2026-07-17) — the two sides hire from DIFFERENT lists and the lists
+            // share no names, so the accepted set is read from the ACCOUNT, never from the
+            // caller's role habits. Offering installator to a client minted a collaborator
+            // that Chat::CLIENT_CHAT_SUBROLES then refused — the person saw campaigns but
+            // could never open a chat, with nothing explaining why. The mirror of that bug
+            // is what a fixed CLIENT_ROLES list would have handed the provider side the day
+            // this route stopped being client-only: a publicist on a provider account, which
+            // Chat::PROVIDER_CHAT_SUBROLES refuses just as silently.
+            'role' => 'required|in:' . implode(',', Collaborator::rolesFor($account->type)),
         ]);
 
         $existing = $account->collaborators()->where('email', $validated['email'])->first();

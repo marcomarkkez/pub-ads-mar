@@ -8,7 +8,7 @@ import { parseApiError } from '../../core/models/api-error';
 import {
   roleBadgeLabel,
   roleDescription,
-} from '../client/collaborators/collaborator-role.helper';
+} from '../collaborators/collaborator-role.helper';
 
 /**
  * design.json §3 · UC-19/UC-20 · WALK-6 step 3 — "aceptar la invitación desde la otra

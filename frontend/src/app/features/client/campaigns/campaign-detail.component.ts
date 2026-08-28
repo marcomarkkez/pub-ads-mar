@@ -245,7 +245,7 @@ import { Campaign, Adset, Ad } from '../../../core/models';
         design.json §2/§3 (UC-19) — the Collaborators card that used to sit here is GONE.
         Collaborators are ACCOUNT-scoped: they act across every campaign of the account, so
         managing them from inside ONE campaign implied a per-campaign scope that does not
-        exist. They now live on their own owner-only tab at /client/collaborators.
+        exist. They now live on their own owner-only tab at /collaborators.
       -->
     }
   `,

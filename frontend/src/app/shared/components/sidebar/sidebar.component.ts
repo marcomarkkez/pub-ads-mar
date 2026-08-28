@@ -68,9 +68,11 @@ export class SidebarComponent {
    * tell two clients apart. /me now carries the real account context.
    *
    * `is_owner` is the field that matches what the endpoint actually accepts:
-   * Client\CollaboratorController scopes every read and write to
-   * `$request->user()->account_id`, so the question the screen asks is "do I have an
-   * account of my own?" — exactly `is_owner`.
+   * CollaboratorController scopes every read and write to `$request->user()->account_id`,
+   * so the question the screen asks is "do I have an account of my own?" — exactly
+   * `is_owner`. It is NOT "am I a client": a provider owns a company too (owner
+   * 2026-08-23), which is why this computed is spread into both menus and why the entry
+   * still stays away from a provider who is only somebody else's installator.
    *
    * `collaborating_on` is deliberately NOT the gate. Under the MVP unique index on
    * users.account_id every registered client owns exactly one account, INCLUDING a person
@@ -81,6 +83,18 @@ export class SidebarComponent {
    * for labelling the OTHER accounts, never for locking this one.
    */
   canManageCollaborators = computed(() => this.auth.isAccountOwner());
+
+  /**
+   * One builder for both menus, on purpose. While the client branch owned a hand-written
+   * copy of this entry and the provider branch owned nothing, "cada uno es como una
+   * empresa" was true in the API and false in the menu — a provider could not reach their
+   * own collaborators screen at all. Two copies of one entry is how that comes back.
+   */
+  private collaboratorsItem(): NavItem[] {
+    if (!this.canManageCollaborators()) return [];
+
+    return [{ label: 'Collaborators', icon: '👥', route: '/collaborators' }];
+  }
 
   /**
    * §3 · UC-37 — the same fact under the name the Account screen needs it by:
@@ -113,9 +127,7 @@ export class SidebarComponent {
           // design.json §2/§3 (UC-19) — Collaborators is its OWN account-scoped tab under
           // Configurations, shown only to the account OWNER (the one who may invite/revoke:
           // `collaborators.create`). It is no longer a card inside campaign-detail.
-          ...(this.canManageCollaborators()
-            ? [{ label: 'Collaborators', icon: '👥', route: '/client/collaborators' }]
-            : []),
+          ...this.collaboratorsItem(),
           // design.json §3 · UC-37 — GET/DELETE /account answers exactly "I have an
           // account of my own", i.e. `is_owner`, so the tab is gated on the same signal
           // as Collaborators and for the same reason.
@@ -134,6 +146,11 @@ export class SidebarComponent {
           // tiene que existir para los dos. Un proveedor invitado a una cuenta y sin
           // entrada en el menu esta igual de encerrado que un cliente.
           ...this.invitationsItem(),
+          // §3 · UC-19 (owner 2026-08-23) — "un proveedor puede tener colaboradores y un
+          // cliente también, cada uno es como una empresa". Same entry, same builder, same
+          // owner gate as the client side: a provider who is only somebody else's
+          // installator owns no account and gets no entry, exactly as before.
+          ...this.collaboratorsItem(),
           // Same account screen, same gate. A provider deleting themselves is the case
           // the dispute guardrail exists for (§3 · AD-delguard-09), so they need the
           // screen that shows the refusal at least as much as a client does.

@@ -369,21 +369,22 @@ def main():
             api("GET", f"/client/bookings/{booking_id}", token=client1_token)
 
     # =========================================================
-    # 8. CLIENT: Collaborators
+    # 8. ACCOUNT: Collaborators
     # =========================================================
-    print("\n--- CLIENT: Collaborators ---")
+    print("\n--- ACCOUNT: Collaborators ---")
 
-    # design.json §3 — ACCOUNT-scoped, not campaign-nested, and the subroles are
-    # publicist|manager (proof_uploader was never one of them).
-    api("GET", "/client/collaborators", token=client1_token)
-    _, collab = api("POST", "/client/collaborators", token=client1_token, data={
+    # design.json §3 — ACCOUNT-scoped, not campaign-nested, and no /client prefix
+    # (owner 2026-08-23: a provider owns a company too). The subroles come from the
+    # ACCOUNT's type: publicist|manager here (proof_uploader was never one of them).
+    api("GET", "/collaborators", token=client1_token)
+    _, collab = api("POST", "/collaborators", token=client1_token, data={
         "email": rand_email(),
         "role": "publicist",
     })
     collab_id = collab.get("id") if collab else None
 
     if collab_id:
-        api("DELETE", f"/client/collaborators/{collab_id}", token=client1_token)
+        api("DELETE", f"/collaborators/{collab_id}", token=client1_token)
 
     # =========================================================
     # 9. CLIENT: Invoices

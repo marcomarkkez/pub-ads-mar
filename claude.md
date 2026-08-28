@@ -475,6 +475,10 @@ The `pg_hba.conf` for PG 17 (`C:\Program Files\PostgreSQL\17\data\pg_hba.conf`) 
 
 ## Learnings / Common Mistakes
 
+- **NEVER run `git checkout <file>` in this repo.** Work here lives UNCOMMITTED in the working tree for long stretches — that is the standing arrangement, not an accident (patches are delivered as `pNN.patch` and the owner commits). On 2026-08-23 an agent used `git checkout design/design.json` to undo a bad reformat and silently destroyed three weeks of edits, because HEAD in this sandbox is far behind `origin/mvp-build`. To undo your own edit, re-edit it. If you must recover a file from git, take it from `origin/<branch>` (`git show origin/mvp-build:path > path`), never from HEAD, and only after checking what the working tree holds that the remote does not.
+
+- **A `tar`-based patch recipe drops DELETIONS.** Cutting `pNN.patch` works by untarring the live tree over a worktree at `origin/mvp-build` and diffing against `git write-tree`. `tar -x` only ADDS: a file the live tree no longer has (a `git mv`, a retired class) still sits in the worktree, so `git add -A` records no deletion and the patch leaves the owner with BOTH copies. After untarring, walk `git ls-files -z` and remove anything missing from the live tree — testing `[ ! -e "$f" ] && [ ! -L "$f" ]`, because `-e` is false for a broken symlink and this repo tracks one (`.claude/skills/skill-creator` points at a path on the owner's machine).
+
 - **Timestamp every DECISION change.** Whenever the owner sets or changes a decision, record it inline with a dated marker `[owner YYYY-MM-DD]` in design.json (and history.md / todos) and commit it, so `latest-decision-wins` can be resolved by DATE and the git history shows WHEN each call was made. The owner asked for this explicitly (2026-07-17): persist design decisions first (committed) so they're reviewable in git before the code lands. Same rule in AGENTS.md.
 
 - **Windows `NUL` vs bash `/dev/null`:** On Windows with bash shell, never redirect to `NUL` — bash treats it as a literal filename and creates a `nul` file. Always use `/dev/null` instead.

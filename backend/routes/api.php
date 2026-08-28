@@ -15,12 +15,12 @@ use App\Http\Controllers\Client\AdsetController;
 use App\Http\Controllers\Client\BacklogController;
 use App\Http\Controllers\Client\BookingController as ClientBookingController;
 use App\Http\Controllers\Client\CampaignController;
-use App\Http\Controllers\Client\CollaboratorController;
 use App\Http\Controllers\Client\InvoiceController;
 use App\Http\Controllers\Client\ProofFlagController;
 use App\Http\Controllers\Client\SpaceSearchController;
 use App\Http\Controllers\Client\WalletController;
 use App\Http\Controllers\CollaborationController;
+use App\Http\Controllers\CollaboratorController;
 use App\Http\Controllers\Payments\DashboardController as PaymentsDashboardController;
 use App\Http\Controllers\Payments\PaymentController;
 use App\Http\Controllers\Provider\BookingController as ProviderBookingController;
@@ -69,13 +69,35 @@ Route::middleware('auth:sanctum')->group(function () {
         //
         // Deliberately NO `permission:` middleware. The `collaborators` resource in
         // RolePermission is the account OWNER's power to invite/list/revoke on their own
-        // account — provider has none of it, and gating these routes on it would make a
-        // provider unable to answer an invitation they were legitimately sent. Answering
-        // an invitation addressed to you is not an account power; the row itself is the
-        // authorization, which is exactly what the scope checks.
+        // account (the /collaborators block below), and answering an invitation is not
+        // that power: the person doing it may hold no account power anywhere and still be
+        // entitled to say yes. The row itself is the authorization, which is exactly what
+        // the scope checks. Gating this on `collaborators.read` would also make the guard
+        // depend on a matrix cell that has nothing to do with the question — the cell moved
+        // for providers on 2026-08-23 and nothing here had to change, which is the point.
         Route::get('collaborations', [CollaborationController::class, 'index']);
         Route::post('collaborations/{collaborator}/accept', [CollaborationController::class, 'accept']);
         Route::post('collaborations/{collaborator}/decline', [CollaborationController::class, 'decline']);
+
+        // ── Collaborators on MY OWN account (§3 UC-19, AC-collab-04) ────────────────
+        // Also not under a role prefix, and for the sibling reason: owner 2026-08-23 —
+        // "un proveedor puede tener colaboradores y un cliente también, cada uno es como
+        // una empresa". Holding a company and staffing it is an ACCOUNT capability, so the
+        // caller's role cannot be what decides whether the route exists; it only decides
+        // which subroles the account may hire (Collaborator::rolesFor). Under `/client`
+        // these routes left a provider unable to invite anybody into their own account —
+        // the table was already account-scoped, only the URL said otherwise.
+        //
+        // The `permission:` middleware STAYS: unlike answering an invitation, this IS the
+        // owner's power over their own account, and it is the cell an admin revokes to take
+        // it away. Providers were granted it in 2026_08_23_000001 (see RolePermissionSeeder).
+        //
+        // The campaign-nested routes are RETIRED: §3 says a collaborator "points to
+        // account_id (never a campaign or space)", and nesting them under a campaign is what
+        // let the same person be invited once per campaign under unique(campaign_id,email).
+        Route::get('collaborators', [CollaboratorController::class, 'index'])->middleware('permission:collaborators,read');
+        Route::post('collaborators', [CollaboratorController::class, 'store'])->middleware('permission:collaborators,create');
+        Route::delete('collaborators/{collaborator}', [CollaboratorController::class, 'destroy'])->middleware('permission:collaborators,delete');
     });
 
     // ── Client routes ───────────────────────────────────────
@@ -114,14 +136,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Space search
         Route::get('spaces/search', [SpaceSearchController::class, 'search'])->middleware('permission:spaces,read');
-
-        // Collaborators — ACCOUNT-scoped (§3, AC-collab-04). The campaign-nested
-        // routes are RETIRED: §3 says a collaborator "points to account_id (never
-        // a campaign or space)", and nesting them under a campaign is what let the
-        // same person be invited once per campaign under unique(campaign_id,email).
-        Route::get('collaborators', [CollaboratorController::class, 'index'])->middleware('permission:collaborators,read');
-        Route::post('collaborators', [CollaboratorController::class, 'store'])->middleware('permission:collaborators,create');
-        Route::delete('collaborators/{collaborator}', [CollaboratorController::class, 'destroy'])->middleware('permission:collaborators,delete');
 
         // Invoices
         Route::get('invoices', [InvoiceController::class, 'index'])->middleware('permission:invoices,read');
