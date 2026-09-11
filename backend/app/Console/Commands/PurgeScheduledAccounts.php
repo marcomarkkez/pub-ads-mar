@@ -52,6 +52,7 @@ class PurgeScheduledAccounts extends Command
         $confirmed = (bool) $this->option('confirm');
         $purged = 0;
         $skipped = 0;
+        $failed = 0;
 
         foreach ($due as $account) {
             $blockers = $account->deletionBlockers();
@@ -89,40 +90,58 @@ class PurgeScheduledAccounts extends Command
                 continue;
             }
 
-            DB::transaction(function () use ($account, $proofCount) {
-                $owner = $account->owner;
+            // Per-row isolation, for the same reason spaces:purge has it (2026-09-05):
+            // this loop destroys rows behind a wall of RESTRICT foreign keys, and any one
+            // of them throwing used to abort the whole run — so a single un-purgeable
+            // account silently kept every account queued behind it alive, with no line of
+            // output saying so. A purge that stops halfway and reports success is worse
+            // than one that refuses out loud.
+            try {
+                DB::transaction(function () use ($account, $proofCount) {
+                    $owner = $account->owner;
 
-                // Written BEFORE the delete: the rows are about to stop existing, so the
-                // mirrored attributes are the only record of what was destroyed.
-                AuditLog::record(
-                    $owner,
-                    'purge',
-                    $account,
-                    [
-                        'account' => $account->getAttributes(),
-                        'owner_user_id' => $owner?->id,
-                        'owner_email' => $owner?->email,
-                        'proofs' => $proofCount,
-                    ],
-                    null,
-                    'programmed deletion executed by accounts:purge (§3 · §12 · UC-37)',
-                );
+                    // Written BEFORE the delete: the rows are about to stop existing, so the
+                    // mirrored attributes are the only record of what was destroyed.
+                    AuditLog::record(
+                        $owner,
+                        'purge',
+                        $account,
+                        [
+                            'account' => $account->getAttributes(),
+                            'owner_user_id' => $owner?->id,
+                            'owner_email' => $owner?->email,
+                            'proofs' => $proofCount,
+                        ],
+                        null,
+                        'programmed deletion executed by accounts:purge (§3 · §12 · UC-37)',
+                    );
 
-                if ($owner !== null) {
-                    if ($proofCount > 0) {
-                        Proof::where('uploaded_by_user_id', $owner->id)->delete();
+                    if ($owner !== null) {
+                        if ($proofCount > 0) {
+                            Proof::where('uploaded_by_user_id', $owner->id)->delete();
+                        }
+
+                        // Sanctum tokens carry no FK to users — nothing would clean them up.
+                        $owner->tokens()->delete();
+
+                        // The user first: users.account_id is RESTRICT, so the account row
+                        // can only go once nothing points at it.
+                        $owner->delete();
                     }
 
-                    // Sanctum tokens carry no FK to users — nothing would clean them up.
-                    $owner->tokens()->delete();
+                    $account->delete();
+                });
+            } catch (\Throwable $e) {
+                $failed++;
+                $this->error(sprintf(
+                    'FAILED  #%d %s — %s',
+                    $account->id,
+                    $account->name,
+                    trim(explode("\n", $e->getMessage())[0]),
+                ));
 
-                    // The user first: users.account_id is RESTRICT, so the account row
-                    // can only go once nothing points at it.
-                    $owner->delete();
-                }
-
-                $account->delete();
-            });
+                continue;
+            }
 
             $purged++;
             $this->line(sprintf('DELETED  #%d %s', $account->id, $account->name));
@@ -130,16 +149,19 @@ class PurgeScheduledAccounts extends Command
 
         $this->newLine();
         $this->info(sprintf(
-            '%s: %d account(s), %d skipped as still in use or disputed.',
+            '%s: %d account(s), %d skipped as still in use or disputed, %d failed.',
             $confirmed ? 'Purged' : 'Dry run (nothing was deleted) — would purge',
             $purged,
             $skipped,
+            $failed,
         ));
 
         if (! $confirmed) {
             $this->comment('Re-run with --confirm to actually delete.');
         }
 
-        return self::SUCCESS;
+        // A skip is the command working; a failure is not. Only the latter is worth a
+        // non-zero exit, so a scheduler run does not page anyone for a healthy refusal.
+        return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }
 }

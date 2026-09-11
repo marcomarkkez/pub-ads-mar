@@ -24,6 +24,15 @@
  * logging in, and restores the exact previous values in a `finally`, pass or fail. If the
  * fixture cannot be created the run FAILS — it never passes for lack of data.
  *
+ * SECOND GUARD, same screen (added 2026-09-05): what a listing with a PROGRAMMED DELETION
+ * says about itself. DELETE /provider/spaces/{id} used to refuse a listing clients were
+ * still on, and this screen rendered the reasons red under the row as "this listing cannot
+ * be scheduled for deletion yet". The owner reversed that — the schedule succeeds there,
+ * unpublishes the listing, and the reasons come back as information — so the row is now a
+ * receipt and the old copy would actively misinform. Same fixture discipline: a second
+ * space is put into `unpublished` + `delete_scheduled_at` by hand and restored in the
+ * `finally`, so the script never leaves a real deletion programmed on the demo data.
+ *
  * The project has no wired-up frontend test runner, so this is a standalone Playwright
  * script, a sibling of e2e-navbar.mjs.
  *
@@ -96,6 +105,66 @@ function mintUntypedFixture() {
   console.log(`INFO  fixture: space ${fixture.id} "${fixture.name}" temporarily has ` +
               `type=null (was ${fixture.type}, ${fixture.price_per_day}/day)`);
   return fixture;
+}
+
+/**
+ * Second fixture, for UC-37 [owner 2026-09-05]. DELETE /provider/spaces/{id} used to
+ * REFUSE a listing with live bookings and this screen painted the reasons red under the
+ * row as "cannot be scheduled for deletion yet". The schedule now succeeds on exactly that
+ * listing — it unpublishes it and reports the reasons as information — so the red refusal
+ * row would be a lie about what just happened.
+ *
+ * The state is written straight into the database rather than by clicking the button: this
+ * script must not leave a real programmed deletion behind if it dies mid-run, and a row it
+ * wrote itself is a row it knows how to put back. It picks a DIFFERENT space from the
+ * type-less fixture, so neither check can be reading the other's row.
+ */
+function mintScheduledFixture(excludeId) {
+  const out = artisan(`
+    $u = App\\Models\\User::where('email', ${phpStr(USER)})->first();
+    $s = $u ? App\\Models\\Space::where('user_id', $u->id)->where('id', '!=', ${Number(excludeId)})
+              ->whereNull('delete_scheduled_at')->orderBy('id')->first() : null;
+    if ($s) {
+      echo 'E2E_SCHEDULED ' . json_encode([
+        'id' => $s->id, 'name' => $s->name,
+        'publication_status' => $s->publication_status,
+      ]) . PHP_EOL;
+      $s->forceFill([
+        'publication_status' => App\\Models\\Space::PUBLICATION_UNPUBLISHED,
+        'delete_scheduled_at' => now()->addDays(30),
+      ])->save();
+    }
+  `);
+  const found = /E2E_SCHEDULED (\{.*\})/.exec(out);
+  if (!found) {
+    throw new Error(`could not mint the scheduled-deletion fixture in ${BACKEND} — the ` +
+      `provider needs a second space. Seed first (python3 mvp-init.py --fresh).\n` +
+      `artisan said: ${out.trim()}`);
+  }
+  const fixture = JSON.parse(found[1]);
+  console.log(`INFO  fixture: space ${fixture.id} "${fixture.name}" temporarily has a ` +
+              `programmed deletion (was ${fixture.publication_status})`);
+  return fixture;
+}
+
+/** Undo mintScheduledFixture. Same contract as restoreFixture: it MUST run. */
+function restoreScheduledFixture(fixture) {
+  const out = artisan(`
+    $d = json_decode(${phpStr(JSON.stringify(fixture))}, true);
+    $s = App\\Models\\Space::find($d['id']);
+    if ($s) {
+      $s->forceFill([
+        'publication_status' => $d['publication_status'],
+        'delete_scheduled_at' => null,
+      ])->save();
+      echo 'E2E_UNSCHEDULED ' . $s->id . ' ' . $s->publication_status . PHP_EOL;
+    }
+  `);
+  if (!/E2E_UNSCHEDULED/.test(out)) {
+    throw new Error(`scheduled fixture NOT restored — space ${fixture.id} is left with a ` +
+      `programmed deletion. artisan said: ${out.trim()}`);
+  }
+  console.log(`INFO  fixture restored: ${out.match(/E2E_UNSCHEDULED.*/)[0]}`);
 }
 
 /** Put the row back exactly as it was. Must run even when the checks blow up. */
@@ -176,6 +245,7 @@ async function gotoSpacesViaSidebar() {
 // try/finally so the row goes back to its real values on every exit path — green, red,
 // or a mid-run exception. A test may borrow the database; it may not keep it.
 const fixture = mintUntypedFixture();
+const scheduled = mintScheduledFixture(fixture.id);
 
 // A host problem found AFTER the fixture exists cannot exit on the spot: `process.exit()`
 // skips `finally`, and the row would stay type-less in the database. It is parked here and
@@ -218,6 +288,34 @@ try {
     l.buttons.length === 1 && /^(Schedule deletion|Cancel deletion)$/.test(l.buttons[0]));
   check(allButtons, 'every row renders its Schedule/Cancel deletion button',
     links.map((l, i) => `row ${i}: ${JSON.stringify(l.buttons)}`).join('\n        '));
+
+  // --- 2b. a programmed deletion reads as a receipt, not as a refusal ----------------
+  // UC-37 [owner 2026-09-05]. Two halves, and both matter: the row has to SAY what
+  // happened (unpublished, running bookings finish, here is the way back), and it has to
+  // stop saying the thing that is no longer true. The old copy — "This listing cannot be
+  // scheduled for deletion yet" — described a 409 that this endpoint no longer returns, on
+  // a row where the schedule had in fact gone through.
+  const note = await page.evaluate((id) => {
+    const el = document.querySelector('td.schedule-note');
+    const buttons = [...document.querySelectorAll('td.actions button')].map(b => b.textContent.trim());
+    return {
+      text: el ? el.textContent.replace(/\s+/g, ' ').trim() : null,
+      hasCancel: buttons.includes('Cancel deletion'),
+      screen: document.body.textContent.replace(/\s+/g, ' '),
+      id,
+    };
+  }, scheduled.id);
+
+  check(note.text !== null, 'the scheduled listing explains itself under its row',
+    `space ${scheduled.id} "${scheduled.name}" has delete_scheduled_at set; no td.schedule-note rendered`);
+  check(!!note.text && /unpublished/i.test(note.text) && /Cancel deletion/.test(note.text),
+    'the note says it is unpublished and names the way back',
+    `note was: ${note.text || '(absent)'}`);
+  check(!/cannot be scheduled for deletion/i.test(note.screen),
+    'the screen no longer calls a successful schedule a refusal',
+    'the pre-2026-09-05 copy "This listing cannot be scheduled for deletion yet" is back on screen');
+  check(note.hasCancel, 'the scheduled row offers Cancel deletion, not Schedule deletion',
+    `buttons on screen: ${JSON.stringify(note.hasCancel)}`);
 
   // --- 3. View navigates to a detail screen that actually loads ----------------------
   const viewHref = links[0].hrefs[0];
@@ -306,10 +404,17 @@ try {
   else check(false, `the run reached the end without throwing (phase: ${phase})`, e.message);
 } finally {
   if (browser) await browser.close().catch(() => {});
+  // Each restore in its own try: a failure to put one row back must not leave the other
+  // one dirty as well.
   try {
     restoreFixture(fixture);
   } catch (e) {
     check(false, 'the fixture was restored to its seeded values', e.message);
+  }
+  try {
+    restoreScheduledFixture(scheduled);
+  } catch (e) {
+    check(false, 'the scheduled fixture was restored to its seeded values', e.message);
   }
 }
 

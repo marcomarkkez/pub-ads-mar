@@ -39,11 +39,26 @@ export enum ApiErrorCode {
  * BR-10 — the refusal travels WITH its reasons and the UI has to show them: "no"
  * without a reason leaves the owner guessing which of their clients is holding the
  * object, and guessing is not a state a person can act from.
+ *
+ * Same shape, one place it is NOT a refusal: since the owner's 2026-09-05 correction,
+ * DELETE /provider/spaces/{id} SUCCEEDS on a busy listing and returns this list on the
+ * 200 as `purge_blockers` — the reasons the row cannot be destroyed on its due date yet.
+ * Read the key, not the type, to know whether you are looking at a "no" or at a "later".
  */
 export interface Blocker {
   kind: string;
   count: number;
   message: string;
+  /**
+   * `true` = waiting will never clear this one (Space::deletionBlockers' `booking_history`:
+   * past bookings reference the listing and their invoices, payments and proofs are argued
+   * from them, so the row is unpublished forever and never destroyed). Absent or `false` =
+   * a "later" that a finishing booking or a settling payout really does end.
+   *
+   * A screen that cannot tell the two apart promises a deletion date that will never
+   * arrive, which is the one thing worse than saying no.
+   */
+  permanent?: boolean;
 }
 
 /** The `blockers[]` of a 409 body, or [] when the refusal carried none. */

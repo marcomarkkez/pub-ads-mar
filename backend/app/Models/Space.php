@@ -110,6 +110,12 @@ class Space extends Model
      * Owner 2026-08-03: "No deben poder borrarse ads que tengan aún clientes usándolos."
      * The answer is a LIST, not a boolean: a refusal that cannot say what is blocking it
      * leaves the provider with no move except to guess. Empty array = nothing blocks.
+     *
+     * Each entry carries `permanent`: false means "wait and this goes away" (the booking
+     * finishes, the payout settles), true means the row can be unpublished forever but is
+     * never destroyed. Two facts that both read as "not today" but end in opposite places,
+     * and a provider told only "not today" for the second one is being told a date that
+     * will never arrive.
      */
     public function deletionBlockers(): array
     {
@@ -121,12 +127,32 @@ class Space extends Model
             ->whereIn('booking_id', $this->bookings()->select('id'))
             ->count();
 
+        // Finished bookings — the ones the two counts above deliberately let go. They are
+        // history to the client and hold nothing UP, but `bookings.space_id` is ON DELETE
+        // RESTRICT for every status (migration 2026_08_03_000030), so the engine keeps
+        // refusing the DELETE long after the last client stopped caring. Until this was
+        // counted here, a listing that had ever been booked once cleared deletionBlockers()
+        // the day its bookings completed and then blew up inside spaces:purge with an
+        // SQLSTATE[23503] on its due date — an outcome nobody had been shown and nobody
+        // could act on.
+        //
+        // The RESTRICT is right and stays: invoices, payments and proofs hang off those
+        // bookings, and destroying or orphaning a client's paid campaign to tidy a
+        // provider's catalog is the trade §12 exists to refuse. So this is not a "yet" —
+        // it is the listing's final state, and it is named separately from `live_bookings`
+        // because "a client is on this right now" and "a client's records outlive this"
+        // are different sentences to the person reading them.
+        $finishedBookings = $this->bookings()
+            ->whereNotIn('status', self::LIVE_BOOKING_STATUSES)
+            ->count();
+
         $blockers = [];
 
         if ($liveBookings > 0) {
             $blockers[] = [
                 'kind' => 'live_bookings',
                 'count' => $liveBookings,
+                'permanent' => false,
                 'message' => $liveBookings . ' booking(s) are still live on this listing.',
             ];
         }
@@ -135,7 +161,19 @@ class Space extends Model
             $blockers[] = [
                 'kind' => 'unsettled_payments',
                 'count' => $unsettledPayments,
+                'permanent' => false,
                 'message' => $unsettledPayments . ' payment(s) on this listing have not finished settling.',
+            ];
+        }
+
+        if ($finishedBookings > 0) {
+            $blockers[] = [
+                'kind' => 'booking_history',
+                'count' => $finishedBookings,
+                'permanent' => true,
+                'message' => $finishedBookings . ' past booking(s) reference this listing, and their'
+                    . ' invoices, payments and proofs are argued from them. This listing stays'
+                    . ' unpublished; it cannot be destroyed.',
             ];
         }
 

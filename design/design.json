@@ -270,8 +270,8 @@
         "id": "BR-1",
         "key": "nada-en-uso-se-destruye",
         "title": "Nada que este en uso se destruye jamas",
-        "rule": "Un DELETE sobre un objeto del que otros dependen no borra: despublica y PROGRAMA el borrado con fecha. La peticion se rechaza con 409 y los bloqueadores viajan DENTRO de la respuesta (`blockers[]`: que tipo, cuantos y por que). La destruccion real solo ocurre despues, en un comando que corre una PERSONA, y ese comando vuelve a comprobar los bloqueadores en ese momento en vez de fiarse del chequeo de hace un mes.",
-        "why": "\"No deben poder borrarse ads que tengan aun clientes usandolos, se pueden despublicar y programar para borrado\" [owner 2026-08-03]. Antes de esto, un proveedor ordenando su catalogo ejecutaba un DELETE que, por CASCADE, se llevaba por delante cada booking del espacio y cada pago de esos bookings: la campana pagada de un cliente desaparecia sin que nadie lo pidiera. Un \"no\" sin motivo tampoco sirve — el proveedor se queda adivinando cual de sus clientes retiene el espacio —, por eso los bloqueadores forman parte del rechazo.",
+        "rule": "Un DELETE sobre un objeto del que otros dependen no borra: despublica y PROGRAMA el borrado con fecha. Que haya reservas vivas o pagos sin liquidar NO impide agendar — es exactamente el caso para el que la agenda existe: se agenda igual y, en la MISMA transaccion, se despublica, de modo que no entran actividades nuevas mientras se apaga y las vivas terminan solas (no se cancela nada). Los bloqueadores viajan DENTRO del 200 como INFORMACION —'agendado; todavia no se puede destruir porque…'—, no como negativa: `purge_blockers[]` en spaces (que tipo, cuantos y por que). La destruccion real solo ocurre despues, en un comando que corre una PERSONA, y ese comando vuelve a comprobar los bloqueadores en ese momento en vez de fiarse del chequeo de hace un mes; ese re-chequeo es la unica guarda que queda. Lo que sigue siendo 409: que YA hubiera un borrado agendado (ALREADY_EXISTS — un segundo DELETE correria la fecha), que falte una confirmacion explicita de perdida (CONFIRMATION_REQUIRED) y que el objeto sea parte de una disputa abierta (OBJECT_IN_USE), porque ese expediente tambien es el registro de la otra parte. Los bloqueadores dicen ademas si el motivo se va a acabar o no (`permanent`): una reserva viva o un pago sin liquidar se resuelven solos con el tiempo (`live_bookings`, `unsettled_payments`), pero las reservas YA TERMINADAS (`booking_history`) referencian el listing para siempre — sus facturas, pagos y pruebas se argumentan desde ellas —, asi que ese anuncio se queda despublicado y NO se destruye nunca. Se dice antes de la fecha, no el dia de la fecha, y no se mezcla con la cuenta de reservas vivas: 'un cliente lo esta usando' y 'los registros de un cliente lo sobreviven' son frases distintas.",
+        "why": "\"No deben poder borrarse ads que tengan aun clientes usandolos, se pueden despublicar y programar para borrado\" [owner 2026-08-03]. Antes de esto, un proveedor ordenando su catalogo ejecutaba un DELETE que, por CASCADE, se llevaba por delante cada booking del espacio y cada pago de esos bookings: la campana pagada de un cliente desaparecia sin que nadie lo pidiera. Un \"no\" sin motivo tampoco sirve — el proveedor se queda adivinando cual de sus clientes retiene el espacio —, por eso los bloqueadores viajan siempre con la respuesta. [owner 2026-09-05] \"Lo de schedule for deletion se ve raro, creo que mas bien deberia de hacerse el schedule, dejando en claro que no se puede borrar inmediatamente porque hay anuncios corriendo, pero que si se puede despublicar. […] basicamente agendarlo solo sirve cuando hay anuncios o pagos pendientes, pero al mismo tiempo que se debe agendar se debe pausar la publicacion, es decir no se puede eliminar del todo.\" Hasta ese dia Provider\\SpaceController::destroy devolvia 409 OBJECT_IN_USE justo cuando habia reservas vivas o pagos sin liquidar y no agendaba nada: agendar solo funcionaba en el anuncio que no necesitaba agenda, y el proveedor con clientes encima se quedaba sin ninguna jugada. La ruta de cuenta (AccountController::destroy, AD-delguard-09) ya hacia lo correcto; espacios era la que se habia desviado. [2026-09-05, mismo dia, defecto encontrado al revisar la purga] `bookings.space_id` es RESTRICT para CUALQUIER estado, pero deletionBlockers() solo contaba las vivas: un anuncio que alguna vez tuvo una reserva quedaba 'sin bloqueos' en cuanto esta se completaba y luego reventaba con SQLSTATE[23503] dentro de spaces:purge el dia de su fecha — una negativa del motor que ninguna pantalla habia anunciado. Peor: esa excepcion se escapaba del bucle, asi que UN anuncio asi abortaba la corrida entera y los demas agendados detras se quedaban sin tocar y sin una linea que lo dijera. La FK se queda (borrar el listing se llevaria las facturas y pagos del cliente); lo que faltaba era DECIRLO, y aislar cada fila.",
         "appliesTo": [
           "spaces",
           "ads",
@@ -279,7 +279,7 @@
           "bookings",
           "payments"
         ],
-        "enforcedBy": "Provider\\SpaceController::destroy (409 + blockers) · Space::deletionBlockers() · Space::PUBLICATION_UNPUBLISHED (valor propio, no `is_active=false`) · Console\\Commands\\PurgeScheduledSpaces (`spaces:purge`, manual, re-chequea) · migracion 2026_08_03_000030 (bookings.space_id CASCADE → RESTRICT)",
+        "enforcedBy": "Provider\\SpaceController::destroy (200 + `purge_blockers[]`, despublica en la misma transaccion; 409 ALREADY_EXISTS solo si ya estaba agendado) · Space::deletionBlockers() · Space::PUBLICATION_UNPUBLISHED (valor propio, no `is_active=false`) · Client\\BookingController::refuseUnbookable (un anuncio agendado no acepta reservas nuevas: la busqueda no basta, el space_id es publico) · AccountController::destroy + scheduleDeletion (mismo trato un nivel arriba) · Console\\Commands\\PurgeScheduledSpaces (`spaces:purge`, manual, re-chequea; cada fila es su propio intento — DELETED/SKIP/KEPT/FAILED — y un fallo se reporta en su linea sin abortar la corrida) · migracion 2026_08_03_000030 (bookings.space_id CASCADE → RESTRICT)",
         "status": "built"
       },
       {
@@ -872,7 +872,7 @@
     ]
   },
   "walkthroughs": {
-    "convention": "WALK-n son recorridos humanos por la interfaz real. Los hace una PERSONA, no una suite: un test verde demuestra que una funcion responde, no que una pantalla sea usable ni que un flujo se pueda completar de principio a fin.\n\nLAS REFERENCIAS SON EL CRITERIO DE CIERRE (owner 2026-08-04). Cada recorrido apunta a lo que demuestra: `closes` (todos Fxx/otros), `specs`, `ucs`, `br` y `eh`. Leelo asi:\n  - `status: pending`  → el recorrido no se ha hecho. TODO lo que referencia sigue abierto, aunque el codigo este escrito y los tests pasen.\n  - `status: failed`   → se hizo y algo no cuadro. Lo referenciado sigue abierto y `result.notes` dice exactamente que se vio.\n  - `status: passed`   → resultado positivo. AHI y solo ahi se marcan como `done` las referencias; los todos que solo existian para este recorrido se pueden borrar.\n\nRegla dura, sin excepcion: un Fxx no pasa a `done` mientras el WALK que lo cierra siga `pending`. Un § no se da por terminado por revision de codigo en seco (ver BR-16): se da por terminado cuando su recorrido pasa.\n\nUn paso puede llevar `probe`: una comprobacion de consola, HTTP o cURL que se corre DURANTE el recorrido (BR-17). No sustituye a mirar la pantalla — sirve para lo que la pantalla no ensena, como el codigo de estado exacto de una negativa.\n\nSE CIERRA CON `design/walk.py`, no a mano:\n  python3 design/walk.py --status                       → que falta por recorrer y que bloquea\n  python3 design/walk.py WALK-1 --pass --by \"...\" --notes \"...\"\n  python3 design/walk.py WALK-1 --fail --by \"...\" --notes \"...\"   (--notes es obligatorio)\nAl pasar, el script pone en `done` los todos de `closes` y LISTA las referencias a §, UC, BR y EH sin tocarlas: cerrar un § es una decision de quien recorrio, no un efecto colateral. Al fallar no cierra nada y guarda lo observado, que es la mitad que de verdad hace falta despues.\n\nPASO CERO, en todos los recorridos que tocan la aplicacion: `python3 mvp-init.py`. La base del contenedor se vacia en CADA reinicio, y eso no se manifiesta como un error de base de datos sino como \"credenciales incorrectas\" en el login — sintoma que se parece tanto a una contrasena mal escrita que ya nos costo una sesion entera adivinando contrasenas con la base a cero. El aprendizaje estaba escrito en claude.md y no se recupero a tiempo; por eso vive ahora en el propio guion del recorrido, donde no depende de que alguien lo recuerde.",
+    "convention": "WALK-n son recorridos humanos por la interfaz real. Los hace una PERSONA, no una suite: un test verde demuestra que una funcion responde, no que una pantalla sea usable ni que un flujo se pueda completar de principio a fin.\n\nLAS REFERENCIAS SON EL CRITERIO DE CIERRE (owner 2026-08-04). Cada recorrido apunta a lo que demuestra: `closes` (todos Fxx/otros), `specs`, `ucs`, `br` y `eh`. Leelo asi:\n  - `status: pending`  → el recorrido no se ha hecho. TODO lo que referencia sigue abierto, aunque el codigo este escrito y los tests pasen.\n  - `status: failed`   → se hizo y algo no cuadro. Lo referenciado sigue abierto y `result.notes` dice exactamente que se vio.\n  - `status: passed`   → resultado positivo. AHI y solo ahi se marcan como `done` las referencias; los todos que solo existian para este recorrido se pueden borrar.\n\nRegla dura, sin excepcion: un Fxx no pasa a `done` mientras el WALK que lo cierra siga `pending`. Un § no se da por terminado por revision de codigo en seco (ver BR-16): se da por terminado cuando su recorrido pasa.\n\nUn paso puede llevar `probe`: una comprobacion de consola, HTTP o cURL que se corre DURANTE el recorrido (BR-17). No sustituye a mirar la pantalla — sirve para lo que la pantalla no ensena, como el codigo de estado exacto de una negativa.\n\nSE CIERRA CON `design/walk.py`, no a mano:\n  python3 design/walk.py --status                       → que falta por recorrer y que bloquea\n  python3 design/walk.py WALK-1 --pass --by \"...\" --notes \"...\"\n  python3 design/walk.py WALK-1 --fail --by \"...\" --notes \"...\"   (--notes es obligatorio)\nAl pasar, el script pone en `done` los todos de `closes` y LISTA las referencias a §, UC, BR y EH sin tocarlas: cerrar un § es una decision de quien recorrio, no un efecto colateral. Al fallar no cierra nada y guarda lo observado, que es la mitad que de verdad hace falta despues.\n\nPASO CERO, en todos los recorridos que tocan la aplicacion: `python3 mvp-init.py`. La base del contenedor se vacia en CADA reinicio, y eso no se manifiesta como un error de base de datos sino como \"credenciales incorrectas\" en el login — sintoma que se parece tanto a una contrasena mal escrita que ya nos costo una sesion entera adivinando contrasenas con la base a cero. El aprendizaje estaba escrito en claude.md y no se recupero a tiempo; por eso vive ahora en el propio guion del recorrido, donde no depende de que alguien lo recuerde.\n\nWALK_TRACE SIEMPRE PUESTO (2026-09-05, absorbido del retirado WALK-7). Antes de empezar cualquier recorrido: `WALK_TRACE=true` en backend/.env, `php artisan config:clear`, y `tail -f backend/storage/logs/walk.log` en una terminal aparte. El rastro no es un recorrido propio: es la lente con la que se andan todos los demas, y un REFUSED 404 en el log mientras la pantalla no dice nada es un fallo del paso que lo produjo.\n\nSEIS RECORRIDOS, UNO POR PERSONA SENTADA (2026-09-05). Estaban partidos por funcionalidad y eso obligaba a repetir el mismo login cuatro veces. Ahora cada uno es una sesion: visitante, cliente, proveedor, staff, mensajeria y tablero.",
     "items": [
       {
         "id": "WALK-1",
@@ -950,26 +950,36 @@
       },
       {
         "id": "WALK-2",
-        "title": "Recorrido humano de campañas, adsets y anuncios",
+        "title": "Cliente: campanas, colaboradores y fronteras de cuenta",
         "todoId": "WALK-2",
         "status": "pending",
         "closes": [
-          "§21"
+          "§21",
+          "COLAB-1",
+          "COLAB-2"
         ],
         "specs": [
-          "§21"
+          "§21",
+          "§3"
         ],
         "ucs": [
-          "UC-43"
+          "UC-43",
+          "UC-19",
+          "UC-20"
         ],
         "br": [
           "BR-1",
           "BR-3",
+          "BR-8",
+          "BR-15",
           "BR-19"
         ],
         "eh": [
           "EH-6",
-          "EH-14"
+          "EH-11",
+          "EH-12",
+          "EH-14",
+          "EH-15"
         ],
         "groups": [],
         "steps": [
@@ -998,51 +1008,38 @@
             "action": "Pedir por URL un objeto que pertenece a otra cuenta.",
             "expected": "Responde 404, nunca 403: un 403 confirmaria que ese objeto existe.",
             "probe": "curl -si -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/client/campaigns/$ID_AJENO | head -1   # exige 404, no 403"
+          },
+          {
+            "id": "W6-3",
+            "role": "cliente",
+            "action": "Ventana A, como duenno: 1) 👥 Collaborators → «Invite a collaborator» → correo de otro usuario con cuenta propia (client2@pubads.test). Ventana B (incognito), como ese usuario: 2) entrar. 3) Encontrar la invitacion SIN que nadie diga la URL. 4) Aceptarla. 5) NO recargar: mirar el menu.",
+            "expected": "En B: «📨 Invitations (1)» en el menu nada mas entrar → lleva a /collaborations → fila con «Accept and join». Tras aceptar y sin recargar: el contador baja Y «👥 Collaborators» sigue en el menu (es duenno de su cuenta ademas de colaborar). Sin entrada 📨, el flujo no tiene puerta: fue asi hasta p99.",
+            "probe": "COLAB=colab1@pubads.test; TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"email\\\":\\\"$COLAB\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/me | python3 -c \"import sys,json;d=json.load(sys.stdin);print('is_owner=',d['is_owner'],' collaborating_on=',d['collaborating_on'])\"   # pon en COLAB el correo que acabas de aceptar; colab1@pubads.test ya viene aceptado en la cuenta 3 del sembrador. Exige LAS DOS senales a la vez: is_owner= True Y collaborating_on= [3] no vacio. Ese es el caso mixto de EH-11: si una de las dos falta, la pestana esta colgada de la senal equivocada."
+          },
+          {
+            "id": "W6-4",
+            "role": "colaborador",
+            "action": "En la ventana B, como colaborador: 1) 📨 Invitations. 2) Sobre la fila ya aceptada, buscar cualquier control para salirse de la cuenta ajena. 3) Lanzar la peticion directa.",
+            "expected": "No hay ningun control para salirse. La peticion directa responde 409 y manda a Soporte (BR-15). Un 405 con `allow: GET, HEAD, POST` es el id vacio, no el guardarrail.",
+            "probe": "COLAB=colab1@pubads.test; TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"email\\\":\\\"$COLAB\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); ROW=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/collaborations | python3 -c \"import sys,json;print([r['id'] for r in json.load(sys.stdin) if r['status']=='accepted'][0])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/collaborators/$ROW | grep -E \"^HTTP/|CONFLICTING_STATE\"   # exige 409 con error_code CONFLICTING_STATE y un mensaje que mande a Soporte. Ni 200 (se solto solo) ni 404 (mentir sobre una fila que el colaborador ve en su propia sesion)."
+          },
+          {
+            "id": "W7-2",
+            "role": "cliente",
+            "action": "Pedir por URL un espacio de proveedor que NO existe y despues uno que SI existe.",
+            "expected": "Las dos lineas del log tienen que ser IDENTICAS en estado y la respuesta identica en cuerpo. Si una dice 404 y la otra 403, o si los cuerpos difieren, ahi esta EH-14 otra vez: restando las dos respuestas se enumeran ids ajenos. Este paso ya fallo dos veces seguidas —primero por el estado, luego por el cuerpo— asi que se comprueban los dos.",
+            "probe": "curl -si -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/provider/spaces/999999 | head -1; curl -si -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/provider/spaces/$ID_REAL | head -1"
+          },
+          {
+            "id": "W7-3",
+            "role": "cliente",
+            "action": "Pedir la COLECCION que no es suya: /api/provider/spaces, sin id.",
+            "expected": "403, no 404 — y eso es correcto, no una inconsistencia. Una ruta de coleccion no nombra ninguna fila, asi que no hay nada que enumerar, y el 403 le dice a quien pregunta de buena fe que se ha equivocado de sitio."
           }
         ],
         "notes": "Mantiene a §21 en `wip`. Es la contraparte de WALK-1 del lado de campañas.",
-        "result": null
-      },
-      {
-        "id": "WALK-3",
-        "title": "Recorrido humano de F11 (vista eagle-eye del admin)",
-        "todoId": "WALK-3",
-        "status": "pending",
-        "closes": [
-          "F11"
-        ],
-        "specs": [
-          "§12"
-        ],
-        "ucs": [
-          "UC-28"
-        ],
-        "br": [
-          "BR-9",
-          "BR-19"
-        ],
-        "eh": [
-          "EH-8"
-        ],
-        "groups": [],
-        "steps": [
-          {
-            "id": "W0",
-            "role": "quien recorra",
-            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
-            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
-          },
-          {
-            "id": "W3-1",
-            "role": "admin",
-            "action": "Recorrer la vista de actividad de principio a fin (el guion original O1 a O7).",
-            "expected": "Todo lo que la vista promete se puede alcanzar desde la interfaz, sin construir URLs a mano.",
-            "probe": "En la consola del navegador: ninguna peticion de la vista debe responder 404. Una que lo haga es un control muerto (EH-10)."
-          }
-        ],
-        "notes": "F11 se cerro con evidencia de tests y su recorrido nunca se ejecuto; por eso baja a `review` hasta que este recorrido pase.",
-        "result": null
+        "result": null,
+        "note": "Absorbe W6-3/W6-4 (colaboradores) del antiguo WALK-6 y W7-2/W7-3 (pedir por URL lo ajeno) del retirado WALK-7 (2026-09-05). Todo lo hace un cliente en una sola sesion."
       },
       {
         "id": "WALK-4",
@@ -1091,11 +1088,12 @@
       },
       {
         "id": "WALK-5",
-        "title": "Recorrido humano del dinero: retener, liberar, reembolsar y recuperar",
+        "title": "Dinero y staff: pagos, moderacion, soporte y usuarios",
         "todoId": "WALK-5",
         "status": "pending",
         "closes": [
-          "F10"
+          "F10",
+          "F11"
         ],
         "specs": [
           "§8",
@@ -1104,16 +1102,20 @@
         "ucs": [
           "UC-6",
           "UC-7",
+          "UC-28",
           "UC-32"
         ],
         "br": [
           "BR-4",
           "BR-5",
           "BR-6",
+          "BR-9",
           "BR-19"
         ],
         "eh": [
           "EH-4",
+          "EH-8",
+          "EH-10",
           "EH-13"
         ],
         "groups": [],
@@ -1173,79 +1175,13 @@
             "role": "proveedor",
             "action": "Mirar el monedero despues de todo lo anterior.",
             "expected": "Las dos filas se ven por separado con su fecha y su motivo, y el saldo es la suma. En ningun momento la plataforma le quito dinero sin que un humano lo decidiera y lo firmara."
-          }
-        ],
-        "notes": "BR-4 y BR-5 en una sola sentada. La regla que se esta comprobando es que a un proveedor no se le obliga a devolver dinero ya depositado: reembolso y clawback son actos distintos, sobre personas distintas, y el segundo siempre lo decide un humano dentro de una ventana, con motivo y auditado. El paso 5 es el que falla si alguien vuelve a juntar los dos caminos.",
-        "result": null
-      },
-      {
-        "id": "WALK-6",
-        "title": "Recorrido humano de entrada: login, menu y colaboradores",
-        "todoId": "WALK-6",
-        "status": "pending",
-        "closes": [
-          "AUTH-1",
-          "COLAB-1",
-          "UI-1",
-          "COLAB-2"
-        ],
-        "specs": [
-          "§3"
-        ],
-        "ucs": [
-          "UC-53"
-        ],
-        "br": [
-          "BR-8",
-          "BR-10",
-          "BR-15",
-          "BR-19"
-        ],
-        "eh": [
-          "EH-8",
-          "EH-10",
-          "EH-11",
-          "EH-12",
-          "EH-14",
-          "EH-18"
-        ],
-        "groups": [],
-        "result": null,
-        "steps": [
-          {
-            "id": "W0",
-            "role": "quien recorra",
-            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
-            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count().PHP_EOL;\"; curl -s -o /dev/null -w \"login client1 -> %{http_code}\\n\" -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"client1@pubads.test\",\"password\":\"password\"}'   # exige 8 usuarios o mas y \"login client1 -> 200\". 0 usuarios = sin sembrar, y entonces el login dira \"credenciales incorrectas\" por mucho que la contrasena sea la buena."
           },
           {
-            "id": "W6-1",
-            "role": "cliente",
-            "action": "1) /login → «Register». 2) Correo nuevo, contrasena `password`, rol client. 3) Enviar. 4) NO recargar: mirar el menu lateral tal como quedo.",
-            "expected": "El menu ya trae «👥 Collaborators». Si hay que recargar para verlo, el paso falla (BR-8).",
-            "probe": "EMAIL=\"walk6-$(date +%s)@pubads.test\"; curl -si -X POST localhost:8000/api/register -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"name\\\":\\\"Walk Seis\\\",\\\"email\\\":\\\"$EMAIL\\\",\\\"password\\\":\\\"password\\\",\\\"password_confirmation\\\":\\\"password\\\",\\\"role\\\":\\\"client\\\"}\" | tr ',' '\\n' | grep -E \"^HTTP/|is_owner|collaborating_on\"   # exige 201 y \"is_owner\":true EN LA RESPUESTA DEL REGISTRO, no solo en /me. El correo lleva la hora para poder repetir la sonda: repetir uno ya usado es 422."
-          },
-          {
-            "id": "W6-2",
-            "role": "cliente",
-            "action": "1) Avatar → «Sign Out». 2) Volver a entrar con el mismo correo. 3) Mirar el menu en el primer pintado, antes de tocar nada.",
-            "expected": "«👥 Collaborators» esta desde el primer pintado, sin parpadeo ni recarga.",
-            "probe": "LOGIN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"client1@pubads.test\",\"password\":\"password\"}'); TOKEN=$(echo \"$LOGIN\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); ME=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/me); python3 -c \"import json,sys;k=['account_id','is_owner','collaborating_on'];a=json.loads(sys.argv[1]);b=json.loads(sys.argv[2]);ca={x:a.get(x) for x in k};cb={x:b.get(x) for x in k};print('login:',ca);print('me   :',cb);print('IGUALES' if ca==cb else 'DISTINTOS')\" \"$LOGIN\" \"$ME\"   # exige IGUALES: el login ya trae el mismo contexto de cuenta que /me, que es lo que permite pintar el menu completo sin recargar. Cambia el correo por el que registraste en W6-1 si quieres."
-          },
-          {
-            "id": "W6-3",
-            "role": "cliente",
-            "action": "Ventana A, como duenno: 1) 👥 Collaborators → «Invite a collaborator» → correo de otro usuario con cuenta propia (client2@pubads.test). Ventana B (incognito), como ese usuario: 2) entrar. 3) Encontrar la invitacion SIN que nadie diga la URL. 4) Aceptarla. 5) NO recargar: mirar el menu.",
-            "expected": "En B: «📨 Invitations (1)» en el menu nada mas entrar → lleva a /collaborations → fila con «Accept and join». Tras aceptar y sin recargar: el contador baja Y «👥 Collaborators» sigue en el menu (es duenno de su cuenta ademas de colaborar). Sin entrada 📨, el flujo no tiene puerta: fue asi hasta p99.",
-            "probe": "COLAB=colab1@pubads.test; TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"email\\\":\\\"$COLAB\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/me | python3 -c \"import sys,json;d=json.load(sys.stdin);print('is_owner=',d['is_owner'],' collaborating_on=',d['collaborating_on'])\"   # pon en COLAB el correo que acabas de aceptar; colab1@pubads.test ya viene aceptado en la cuenta 3 del sembrador. Exige LAS DOS senales a la vez: is_owner= True Y collaborating_on= [3] no vacio. Ese es el caso mixto de EH-11: si una de las dos falta, la pestana esta colgada de la senal equivocada."
-          },
-          {
-            "id": "W6-4",
-            "role": "colaborador",
-            "action": "En la ventana B, como colaborador: 1) 📨 Invitations. 2) Sobre la fila ya aceptada, buscar cualquier control para salirse de la cuenta ajena. 3) Lanzar la peticion directa.",
-            "expected": "No hay ningun control para salirse. La peticion directa responde 409 y manda a Soporte (BR-15). Un 405 con `allow: GET, HEAD, POST` es el id vacio, no el guardarrail.",
-            "probe": "COLAB=colab1@pubads.test; TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"email\\\":\\\"$COLAB\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); ROW=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/collaborations | python3 -c \"import sys,json;print([r['id'] for r in json.load(sys.stdin) if r['status']=='accepted'][0])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/collaborators/$ROW | grep -E \"^HTTP/|CONFLICTING_STATE\"   # exige 409 con error_code CONFLICTING_STATE y un mensaje que mande a Soporte. Ni 200 (se solto solo) ni 404 (mentir sobre una fila que el colaborador ve en su propia sesion)."
+            "id": "W3-1",
+            "role": "admin",
+            "action": "Recorrer la vista de actividad de principio a fin (el guion original O1 a O7).",
+            "expected": "Todo lo que la vista promete se puede alcanzar desde la interfaz, sin construir URLs a mano.",
+            "probe": "En la consola del navegador: ninguna peticion de la vista debe responder 404. Una que lo haga es un control muerto (EH-10)."
           },
           {
             "id": "W6-5",
@@ -1253,29 +1189,16 @@
             "action": "1) Entrar como admin@pubads.test. 2) Menu → «👥 Users». 3) Abrir F12 → pestana Network. 4) En UNA fila, pulsar todo lo pulsable, incluido abrir el detalle del usuario.",
             "expected": "Ninguna peticion responde 404. No hay boton de borrar: hay desactivar y reactivar. El detalle del usuario abre sin errores de consola. Un 404 aqui es EH-10 en vivo.",
             "probe": "TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"admin@pubads.test\",\"password\":\"password\"}' | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); TARGET=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/admin/users | python3 -c \"import sys,json;print([u['id'] for u in json.load(sys.stdin)['data'] if u['email']=='client2@pubads.test'][0])\"); for BODY in '{\"is_active\":false}' '{\"is_active\":true}'; do curl -s -o /dev/null -w \"PUT $BODY -> %{http_code}\\n\" -X PUT -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"$BODY\" localhost:8000/api/admin/users/$TARGET; done; curl -s -o /dev/null -w \"DELETE -> %{http_code}\\n\" -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/admin/users/$TARGET   # exige 200, 200 y 405: desactivar y reactivar responden, y el borrado NO EXISTE como ruta. Un 404 en cualquiera de las tres es EH-10 en vivo (boton que apunta a algo que no esta)."
-          },
-          {
-            "id": "W6-6",
-            "role": "proveedor",
-            "action": "1) Entrar como provider1@pubads.test. 2) Menu → «📍 My Spaces». 3) En la fila de un espacio CON reservas, pulsar «Schedule deletion». 4) Leer lo que sale en la pantalla.",
-            "expected": "Sale la LISTA de motivos bajo la fila (reservas vivas, pagos sin liquidar), no un «error» generico. El toast solo resume el no; el porque va en la fila.",
-            "probe": "TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"provider1@pubads.test\",\"password\":\"password\"}' | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); SPACE=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/provider/bookings | python3 -c \"import sys,json;print(json.load(sys.stdin)[0]['space_id'])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/provider/spaces/$SPACE | grep -E \"^HTTP/|blockers\"   # el espacio se saca de una reserva viva a proposito: probar con uno libre no da 409, PROGRAMA su borrado. Exige 409 y blockers[] con kind live_bookings / unsettled_payments, o sea la LISTA de motivos y no un \"error\" generico."
-          },
-          {
-            "id": "W6-7",
-            "role": "proveedor",
-            "action": "Como provider1, CON F12 → Console abierta desde el principio: 1) llegar a «📍 My Spaces» pulsando el menu lateral, NO recargando la URL. 2) Comprobar que cada fila de la lista trae «Schedule deletion» (o «Cancel deletion»). 3) Pulsar View y Edit de cada fila. 4) Avatar → «Sign Out».",
-            "expected": "El boton de borrado esta en la FILA de la lista, no dentro de /edit: buscarlo alli es no encontrarlo y no es un fallo. View abre el detalle, Edit abre el formulario, «Sign Out» devuelve a /login. Consola: CERO errores, sin excepciones — el NG0100 del selector de ubicacion (UI-2) esta arreglado, si vuelve es regresion. EH-18: si algo esta muerto, mirar la consola ANTES que el boton. Llegar navegando importa: recargando la URL no aparece el fallo.",
-            "probe": "node frontend/e2e-provider-spaces.mjs   # exige ALL CHECKS PASSED. Se fabrica su propia fila sin tipo y la restaura al salir, asi que no depende de lo que deje el sembrador, y resuelve solo donde estan Playwright, el chromium y el `php artisan` de ESTE equipo (nativo o `docker compose exec -T backend`). Si termina en 2 diciendo NO SE PUDO EJECUTAR, falta una herramienta y la linea para instalarla sale impresa — instalala y repite; salida 1 es la app fallando de verdad. La unica linea de consola que sigue perdonando son los tiles de OpenStreetMap sin salida a internet; el NG0100 ya no esta perdonado."
           }
         ],
-        "notes": "Es el recorrido de esta ronda: cierra AUTH-1, COLAB-1 y UI-1 de una sentada. Los pasos 3 y 4 son los que de verdad importan — el 3 porque el caso mixto (dueno propio + colaborador ajeno) es el unico que distingue las dos senales, y el 4 porque un colaborador que se suelta solo rompe la cadena de responsabilidad que sostiene todo lo demas.",
-        "note": "Recorrido de 2026-08-23 (Marco): W0, W6-2, W6-4, W6-5 y W6-6 verdes; W6-3 encontro que el aviso de invitacion no llegaba a ninguna parte (arreglado en p99) y W6-7 encontro el NG0100 de UI-2 como ERROR rojo en la consola (arreglado en p100). Los dos arreglos tocan pantalla, asi que el recorrido se anda ENTERO otra vez desde W0 — no solo los dos pasos que fallaron: un arreglo en el menu lateral y otro en el formulario de espacio pueden mover lo que ya se habia visto bien. Solo se firma cuando los ocho pasos se han recorrido seguidos sobre el mismo arranque (BR-20)."
+        "notes": "BR-4 y BR-5 en una sola sentada. La regla que se esta comprobando es que a un proveedor no se le obliga a devolver dinero ya depositado: reembolso y clawback son actos distintos, sobre personas distintas, y el segundo siempre lo decide un humano dentro de una ventana, con motivo y auditado. El paso 5 es el que falla si alguien vuelve a juntar los dos caminos.",
+        "result": null,
+        "note": "Absorbe el retirado WALK-3 (eagle-eye del admin) y W6-5 (pantalla de usuarios) del antiguo WALK-6 (2026-09-05): las tres eran sesiones de staff sobre la misma pila sembrada."
       },
       {
-        "id": "WALK-7",
-        "title": "Rastro en vivo: lo que la aplicacion hace de verdad, no lo que el codigo parece decir",
-        "todoId": "WALK-7",
+        "id": "WALK-6",
+        "title": "Proveedor: espacios, borrado programado y consola limpia",
+        "todoId": "WALK-6",
         "status": "pending",
         "closes": [
           "UI-1"
@@ -1297,7 +1220,8 @@
           "EH-10",
           "EH-13",
           "EH-14",
-          "EH-15"
+          "EH-15",
+          "EH-18"
         ],
         "groups": [],
         "result": null,
@@ -1310,24 +1234,18 @@
             "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
           },
           {
-            "id": "W7-1",
-            "role": "cualquiera",
-            "action": "Poner WALK_TRACE=true en backend/.env, `php artisan config:clear`, y dejar abierto `tail -f backend/storage/logs/walk.log` en una terminal al lado de la pantalla.",
-            "expected": "Cada peticion aparece como una linea con verbo, ruta, rol, usuario y si la ruta lleva parametros. Este es el unico sitio del proyecto donde se ve lo que PASO, no lo que alguien dedujo leyendo. El resto del recorrido se hace con esa terminal a la vista.",
-            "probe": "tail -f backend/storage/logs/walk.log"
+            "id": "W6-6",
+            "role": "proveedor",
+            "action": "1) Entrar como provider1@pubads.test. 2) Menu → «📍 My Spaces». 3) En la fila de un espacio CON reservas, pulsar «Schedule deletion». 4) Leer lo que sale en la pantalla.",
+            "expected": "Sale la LISTA de motivos bajo la fila (reservas vivas, pagos sin liquidar), no un «error» generico. El toast solo resume el no; el porque va en la fila.",
+            "probe": "TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"provider1@pubads.test\",\"password\":\"password\"}' | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); SPACE=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/provider/bookings | python3 -c \"import sys,json;print(json.load(sys.stdin)[0]['space_id'])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/provider/spaces/$SPACE | grep -E \"^HTTP/|blockers\"   # el espacio se saca de una reserva viva a proposito: probar con uno libre no da 409, PROGRAMA su borrado. Exige 409 y blockers[] con kind live_bookings / unsettled_payments, o sea la LISTA de motivos y no un \"error\" generico."
           },
           {
-            "id": "W7-2",
-            "role": "cliente",
-            "action": "Pedir por URL un espacio de proveedor que NO existe y despues uno que SI existe.",
-            "expected": "Las dos lineas del log tienen que ser IDENTICAS en estado y la respuesta identica en cuerpo. Si una dice 404 y la otra 403, o si los cuerpos difieren, ahi esta EH-14 otra vez: restando las dos respuestas se enumeran ids ajenos. Este paso ya fallo dos veces seguidas —primero por el estado, luego por el cuerpo— asi que se comprueban los dos.",
-            "probe": "curl -si -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/provider/spaces/999999 | head -1; curl -si -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/provider/spaces/$ID_REAL | head -1"
-          },
-          {
-            "id": "W7-3",
-            "role": "cliente",
-            "action": "Pedir la COLECCION que no es suya: /api/provider/spaces, sin id.",
-            "expected": "403, no 404 — y eso es correcto, no una inconsistencia. Una ruta de coleccion no nombra ninguna fila, asi que no hay nada que enumerar, y el 403 le dice a quien pregunta de buena fe que se ha equivocado de sitio."
+            "id": "W6-7",
+            "role": "proveedor",
+            "action": "Como provider1, CON F12 → Console abierta desde el principio: 1) llegar a «📍 My Spaces» pulsando el menu lateral, NO recargando la URL. 2) Comprobar que cada fila de la lista trae «Schedule deletion» (o «Cancel deletion»). 3) Pulsar View y Edit de cada fila. 4) Avatar → «Sign Out».",
+            "expected": "El boton de borrado esta en la FILA de la lista, no dentro de /edit: buscarlo alli es no encontrarlo y no es un fallo. View abre el detalle, Edit abre el formulario, «Sign Out» devuelve a /login. Consola: CERO errores, sin excepciones — el NG0100 del selector de ubicacion (UI-2) esta arreglado, si vuelve es regresion. EH-18: si algo esta muerto, mirar la consola ANTES que el boton. Llegar navegando importa: recargando la URL no aparece el fallo.",
+            "probe": "node frontend/e2e-provider-spaces.mjs   # exige ALL CHECKS PASSED. Se fabrica su propia fila sin tipo y la restaura al salir, asi que no depende de lo que deje el sembrador, y resuelve solo donde estan Playwright, el chromium y el `php artisan` de ESTE equipo (nativo o `docker compose exec -T backend`). Si termina en 2 diciendo NO SE PUDO EJECUTAR, falta una herramienta y la linea para instalarla sale impresa — instalala y repite; salida 1 es la app fallando de verdad. La unica linea de consola que sigue perdonando son los tiles de OpenStreetMap sin salida a internet; el NG0100 ya no esta perdonado."
           },
           {
             "id": "W7-4",
@@ -1340,32 +1258,30 @@
             "role": "cualquiera",
             "action": "Al terminar, comparar las rutas que aparecieron en el log con la pestana Endpoints del dashboard.",
             "expected": "Lo que la pestana marca como vivo y no aparecio en ninguna linea es una capacidad sin camino desde la interfaz: o le falta pantalla, o sobra la ruta. No es un fallo automatico — es la pregunta que hay que contestar antes de dar el § por cerrado."
-          },
-          {
-            "id": "W7-6",
-            "role": "cualquiera",
-            "action": "Borrar `node_modules` en `frontend/` y en `landing/`, reinstalar con `npm ci` y mirar la salida completa.",
-            "expected": "Ni una linea de un script de ciclo de vida, porque `.npmrc` los apaga (BR-18). Y el build sigue pasando despues. Si algun dia aparece un hook, para y averigua de que paquete sale ANTES de dejarlo correr: en el ataque a keyv ese hook robaba los tokens de la maquina.",
-            "probe": "cd landing && rm -rf node_modules && npm ci --foreground-scripts 2>&1 | grep -i \"preinstall\\|postinstall\\|setup.mjs\" ; echo \"sin hooks = correcto\""
           }
         ],
-        "notes": "Nace de un bucle concreto: tres veces di por buena una comprobacion estatica que resulto ser mas estrecha de lo que su nombre prometia, y las tres veces el codigo leido decia una cosa y el trafico otra. BR-16 dice que eso se corta mirando la ejecucion, no leyendo mas fuerte. Este recorrido ES esa mirada, y el paso 2 es el que ya fallo dos veces."
+        "notes": "Es el recorrido de esta ronda: cierra AUTH-1, COLAB-1 y UI-1 de una sentada. Los pasos 3 y 4 son los que de verdad importan — el 3 porque el caso mixto (dueno propio + colaborador ajeno) es el unico que distingue las dos senales, y el 4 porque un colaborador que se suelta solo rompe la cadena de responsabilidad que sostiene todo lo demas.",
+        "note": "Lo que queda del antiguo WALK-6 mas W7-4/W7-5 del retirado WALK-7 (2026-09-05): recorrer todas las pantallas del rol con el log delante y compararlas con la pestana Endpoints es la misma sesion que ya se anda con la consola abierta."
       },
       {
         "id": "WALK-8",
-        "title": "Recorrido humano de la landing: leerla como un desconocido y darse de alta",
+        "title": "Visitante: la landing, el alta y el primer menu",
         "todoId": "WALK-8",
         "status": "pending",
         "closes": [
-          "LAND-1"
+          "LAND-1",
+          "AUTH-1"
         ],
         "specs": [
-          "§22"
+          "§22",
+          "§3"
         ],
         "ucs": [
-          "UC-57"
+          "UC-57",
+          "UC-53"
         ],
         "br": [
+          "BR-8",
           "BR-10",
           "BR-19"
         ],
@@ -1421,9 +1337,24 @@
             "role": "visitante",
             "action": "Leer los textos de terminos y privacidad de principio a fin.",
             "expected": "Describen lo que la plataforma HACE hoy: retencion del pago hasta la prueba, disputas, colaboradores que no se desvinculan solos, nada en uso se destruye. Cualquier frase que prometa algo que el codigo no hace es deuda legal, no de maquetado."
+          },
+          {
+            "id": "W6-1",
+            "role": "cliente",
+            "action": "1) /login → «Register». 2) Correo nuevo, contrasena `password`, rol client. 3) Enviar. 4) NO recargar: mirar el menu lateral tal como quedo.",
+            "expected": "El menu ya trae «👥 Collaborators». Si hay que recargar para verlo, el paso falla (BR-8).",
+            "probe": "EMAIL=\"walk6-$(date +%s)@pubads.test\"; curl -si -X POST localhost:8000/api/register -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"name\\\":\\\"Walk Seis\\\",\\\"email\\\":\\\"$EMAIL\\\",\\\"password\\\":\\\"password\\\",\\\"password_confirmation\\\":\\\"password\\\",\\\"role\\\":\\\"client\\\"}\" | tr ',' '\\n' | grep -E \"^HTTP/|is_owner|collaborating_on\"   # exige 201 y \"is_owner\":true EN LA RESPUESTA DEL REGISTRO, no solo en /me. El correo lleva la hora para poder repetir la sonda: repetir uno ya usado es 422."
+          },
+          {
+            "id": "W6-2",
+            "role": "cliente",
+            "action": "1) Avatar → «Sign Out». 2) Volver a entrar con el mismo correo. 3) Mirar el menu en el primer pintado, antes de tocar nada.",
+            "expected": "«👥 Collaborators» esta desde el primer pintado, sin parpadeo ni recarga.",
+            "probe": "LOGIN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"client1@pubads.test\",\"password\":\"password\"}'); TOKEN=$(echo \"$LOGIN\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); ME=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/me); python3 -c \"import json,sys;k=['account_id','is_owner','collaborating_on'];a=json.loads(sys.argv[1]);b=json.loads(sys.argv[2]);ca={x:a.get(x) for x in k};cb={x:b.get(x) for x in k};print('login:',ca);print('me   :',cb);print('IGUALES' if ca==cb else 'DISTINTOS')\" \"$LOGIN\" \"$ME\"   # exige IGUALES: el login ya trae el mismo contexto de cuenta que /me, que es lo que permite pintar el menu completo sin recargar. Cambia el correo por el que registraste en W6-1 si quieres."
           }
         ],
-        "notes": "El paso 4 es el que decide si la landing es un embudo o un adorno: comprueba que el rol elegido en una pagina publica llega intacto hasta el menu del producto. Ojo con el paso 6 — los textos NO tienen revision legal y eso sigue pendiente en LAND-1; este recorrido no la sustituye."
+        "notes": "El paso 4 es el que decide si la landing es un embudo o un adorno: comprueba que el rol elegido en una pagina publica llega intacto hasta el menu del producto. Ojo con el paso 6 — los textos NO tienen revision legal y eso sigue pendiente en LAND-1; este recorrido no la sustituye.",
+        "note": "Absorbe W6-1 y W6-2 del antiguo WALK-6 (2026-09-05): darse de alta y entrar son el mismo gesto que ya termina la landing, y separarlos obligaba a repetir el registro dos veces."
       }
     ]
   },
@@ -3658,7 +3589,7 @@
       "flow": [],
       "er": [],
       "classes": [],
-      "satisfiedBy": "Provider\\SpaceController::destroy/cancelDeletion + Space::deletionBlockers() + App\\Console\\Commands\\PurgeScheduledSpaces + SpaceDeletionGuardTest (11 tests)"
+      "satisfiedBy": "Provider\\SpaceController::destroy/cancelDeletion + Space::deletionBlockers() + App\\Console\\Commands\\PurgeScheduledSpaces + SpaceDeletionGuardTest (21 tests)"
     },
     {
       "id": "UC-57",
@@ -6446,7 +6377,7 @@
     },
     {
       "id": "WALK-2",
-      "title": "Recorrido humano de campanas, adsets y anuncios (mantiene §21 en wip)",
+      "title": "Recorrido del cliente: campanas, colaboradores y fronteras",
       "status": "pending",
       "tags": [
         "§21"
@@ -6465,26 +6396,6 @@
       "note": "Existe como todo porque walkthroughs.items[WALK-2].todoId apuntaba a una fila que no estaba en el tablero: el recorrido se veia en su pestana y era invisible en Todos."
     },
     {
-      "id": "WALK-3",
-      "title": "Recorrido humano de F11 (vista eagle-eye del admin)",
-      "status": "pending",
-      "tags": [
-        "F11"
-      ],
-      "groups": [],
-      "specs": [
-        "§12"
-      ],
-      "ucs": [
-        "UC-28"
-      ],
-      "suggestedUcs": [],
-      "flow": [],
-      "er": [],
-      "classes": [],
-      "note": "F11 se cerro con evidencia de tests y su recorrido nunca se ejecuto; por eso F11 esta en review."
-    },
-    {
       "id": "WALK-4",
       "title": "Recorrido humano del dashboard de diseno",
       "status": "pending",
@@ -6500,7 +6411,7 @@
     },
     {
       "id": "WALK-5",
-      "title": "Recorrido humano del dinero: retener, liberar, reembolsar y recuperar",
+      "title": "Recorrido de dinero y staff (absorbe el antiguo WALK-3)",
       "status": "pending",
       "tags": [
         "F10"
@@ -6523,7 +6434,7 @@
     },
     {
       "id": "WALK-6",
-      "title": "Recorrido humano de entrada: login, menu y colaboradores",
+      "title": "Recorrido del proveedor: espacios, borrado y consola",
       "status": "pending",
       "tags": [
         "AUTH-1",
@@ -6610,28 +6521,8 @@
       "note": "Hoy `signup.service.ts` llama a `/api` relativo, que funciona si landing y backend comparten origen. Si la landing va a un CDN aparte hace falta el host absoluto Y CORS en el backend para ese origen. Es una decision de despliegue, no de codigo, y sin tomarla el formulario fallara en produccion aunque funcione en local."
     },
     {
-      "id": "WALK-7",
-      "title": "Rastro en vivo con storage/logs/walk.log (EH-13 · EH-14 · EH-10)",
-      "status": "pending",
-      "tags": [
-        "UI-1"
-      ],
-      "groups": [],
-      "specs": [
-        "§21"
-      ],
-      "ucs": [
-        "UC-43"
-      ],
-      "suggestedUcs": [],
-      "flow": [],
-      "er": [],
-      "classes": [],
-      "note": "El log lo escribe App\\Http\\Middleware\\WalkTrace y esta inerte salvo WALK_TRACE=true. Vive en terminate() y no en handle() a proposito: una negativa se LANZA, no se devuelve, asi que escrito de la forma obvia el log habria registrado todos los exitos y ni una sola de las negativas, que son justo las lineas por las que existe."
-    },
-    {
       "id": "WALK-8",
-      "title": "Recorrido humano de la landing publica",
+      "title": "Recorrido del visitante: landing, alta y primer menu",
       "status": "pending",
       "tags": [
         "LAND-1"
@@ -6796,6 +6687,20 @@
       "er": [],
       "classes": [],
       "note": "Cosmetico, verificado que NO es fuga (2026-08-15). El controlador de colaboradores responde `{\"message\":\"Not found.\"}` mientras el 404 global de `bootstrap/app.php` y el de los middleware responden `{\"error_code\":\"NOT_FOUND\",\"message\":\"Resource not found.\"}`. EH-14 exige que el par sea indistinguible PARA UN MISMO LLAMANTE, y lo es: un client ajeno ve siempre el primero exista o no la fila, y hay test que compara los dos cuerpos byte a byte. Asi que no hay oraculo — solo dos formas de decir lo mismo, que le cuestan un `if` de mas a quien consuma la API."
+    },
+    {
+      "id": "BUILD-1",
+      "title": "Reinstalar node_modules con npm ci en frontend/ y landing/ y leer los avisos",
+      "status": "open",
+      "tags": [],
+      "groups": [],
+      "specs": [],
+      "ucs": [],
+      "suggestedUcs": [],
+      "flow": [],
+      "er": [],
+      "classes": [],
+      "note": "Era el paso W7-6 del retirado WALK-7. No es un recorrido por la interfaz — nadie pulsa nada — asi que estaba mal alojado: un recorrido lo firma quien anduvo las pantallas (BR-20). Es una comprobacion de cadena de suministro (BR-18): borrar `node_modules`, `npm ci`, y leer la salida buscando hooks `preinstall` y paquetes que no se pidieron. OJO en Codespaces: `node_modules` es un bind mount que escribe root, asi que se ejecuta DENTRO del contenedor o da EACCES. Movido aqui el 2026-09-05."
     }
   ],
   "mvpSprint": {
@@ -6933,7 +6838,7 @@
           "mvp-sprint:AD-takedown-05 [missing P2] POST /admin/spaces/{s}/takedown + /restore (provider cannot self-reverse) — §12 · UC-29 | dep AU-log-01",
           "mvp-sprint:AD-freeze-06 [missing P2] POST /admin/providers/{u}/freeze + /unfreeze (pause new bookings + auto-cancel+refund upcoming) — §12 · UC-29 | dep RF-policy-08,AC-namedcaps-11",
           "mvp-sprint:AD-freezecache-07 [missing P2] freeze busts permission/session cache + revokes Sanctum tokens — §12 · UC-29 | dep AD-freeze-06",
-          "mvp-sprint:AD-delguard-08 [built P1] deletion guardrails: DELETE despublica y PROGRAMA (spaces.publication_status=unpublished + delete_scheduled_at); bloqueos = reservas vivas + pagos sin liquidar, devueltos EN el 409; bookings.space_id pasa a RESTRICT; purga manual `php artisan spaces:purge --confirm` que revalida bloqueos — §12 · UC-37",
+          "mvp-sprint:AD-delguard-08 [built P1] deletion guardrails: DELETE despublica y PROGRAMA (spaces.publication_status=unpublished + delete_scheduled_at); reservas vivas y pagos sin liquidar NO impiden agendar — se agenda Y se despublica en la misma transaccion y los motivos vuelven EN el 200 como `purge_blockers[]` (informacion, no negativa) [owner 2026-09-05]; unico 409 que queda: ALREADY_EXISTS si ya hay borrado agendado; el anuncio agendado deja de aceptar reservas nuevas (Client\\BookingController); bookings.space_id pasa a RESTRICT; purga manual `php artisan spaces:purge --confirm` que revalida bloqueos y salta lo que siga retenido — §12 · UC-37 ; las reservas TERMINADAS son bloqueador permanente (`booking_history`, `permanent:true`): el listing se queda despublicado para siempre y no se destruye, y se avisa al agendar en vez de reventar el dia de la purga; la purga aisla cada fila (un fallo no aborta la corrida)",
           "mvp-sprint:AD-health-09 [partial P2] admin health dashboard (rechazos, chats de disputa abiertos, pagos detenidos, queues, refund/strike rate, gateway health) — §12",
           "mvp-sprint:AU-log-01 [built P1] append-only audit_logs table (actor,target,before/after,ts) + DB INSERT-only trigger — §12 · UC-31 | 2026-08-02 BUILT: audit_logs has no updated_at and AuditLog throws on updating/deleting; the DB INSERT-only trigger remains AFTER-MVP per §12",
           "mvp-sprint:AU-record-02 [built P1] AuditLog::record() on every mutating staff action, same txn — §12 · UC-31 | dep AU-log-01 | 2026-08-02 BUILT: Payments approve/reject/refund/release_payout/hold_payout, Admin user create/update/delete, Admin system config (per key), Admin RBAC rewrite (recordOn → target_id null, the target is a SET), staff chat money flags (flag_raise/flag_change); a no-op change writes no entry — AuditWritersTest, 16 tests",

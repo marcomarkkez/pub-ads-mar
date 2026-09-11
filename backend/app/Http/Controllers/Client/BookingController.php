@@ -101,6 +101,19 @@ class BookingController extends Controller
             $unavailable = true;
         }
 
+        // UC-37 · AD-delguard-08, owner 2026-09-05. A listing with a programmed deletion is
+        // `unpublished`, and since that day scheduling SUCCEEDS on a busy listing — the
+        // whole promise being that the set of clients holding it can only shrink while it
+        // winds down. Dropping it from search (Space::scopeBookable) is not enough to keep
+        // that promise: the space id is public and outlives the search result it came from,
+        // so a client with an old tab, a bookmark or a chat attachment could book a listing
+        // that is on its way out and land a fresh booking after the wind-down began. The
+        // refusal has to live at the booking, next to the takedown and freeze gates, for the
+        // same reason those do.
+        if (! $unavailable && $space->publication_status === Space::PUBLICATION_UNPUBLISHED) {
+            $unavailable = true;
+        }
+
         if (! $unavailable) {
             return null;
         }

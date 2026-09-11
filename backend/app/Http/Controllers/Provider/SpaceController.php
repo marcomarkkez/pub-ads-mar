@@ -125,6 +125,31 @@ class SpaceController extends Controller
      * Now it UNPUBLISHES and programs a date. Nothing is destroyed here, by anyone: the
      * purge is a separate, manual command a human runs (`spaces:purge`), and it re-checks
      * the blockers at that moment rather than trusting this one.
+     *
+     * ── Owner 2026-09-05, correcting this endpoint ──────────────────────────────────
+     * "Lo de schedule for deletion se ve raro, creo que más bien debería de hacerse el
+     * schedule, dejando en claro que no se puede borrar inmediatamente porque hay anuncios
+     * corriendo, pero que sí se puede despublicar. […] básicamente agendarlo solo sirve
+     * cuando hay anuncios o pagos pendientes, pero al mismo tiempo que se debe agendar se
+     * debe pausar la publicación, es decir no se puede eliminar del todo."
+     *
+     * Until today live bookings or unsettled payments answered 409 OBJECT_IN_USE and
+     * programmed NOTHING, which inverted the feature: the one listing that needs a wind-down
+     * date — the one clients are still on — was the only one the button refused, while a
+     * listing with nothing on it (which could simply have been deleted) got the schedule.
+     * The provider was left with a red row and no move at all.
+     *
+     * So the blockers no longer refuse. They are the REASON the schedule exists, and they
+     * ride along with the 200 as information: "programmed, and it cannot be destroyed yet
+     * because …". The unpublish in the same transaction is what makes that safe — the
+     * listing leaves the catalog immediately (Space::scopeBookable) and
+     * Client\BookingController refuses new bookings on it, so the set of clients holding it
+     * can only shrink while it winds down. Bookings already live are NOT cancelled; they run
+     * to completion, which is the entire point of a grace period.
+     *
+     * Nothing here decides whether the row actually dies: `spaces:purge` re-runs
+     * deletionBlockers() on the due date and skips anything still held. That re-check is the
+     * guardrail; this endpoint is only an intent.
      */
     public function destroy(Request $request, Space $space): JsonResponse
     {
@@ -132,19 +157,10 @@ class SpaceController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        $blockers = $space->deletionBlockers();
-
-        // 409 (owner 2026-08-03): the request is well-formed — it is the listing that is
-        // in use. The blockers travel WITH the refusal, because "no" without a reason
-        // leaves the provider guessing at which of their clients is holding it.
-        if ($blockers !== []) {
-            return response()->json([
-                'error_code' => ApiErrorCode::ObjectInUse->value,
-                'message' => 'This listing is still in use and cannot be scheduled for deletion.',
-                'blockers' => $blockers,
-            ], 409);
-        }
-
+        // The only refusal left on this endpoint. Not idempotence pedantry: a second
+        // DELETE would push `delete_scheduled_at` a further grace period into the future,
+        // so a provider double-clicking the button would silently postpone their own purge
+        // and never understand why the date kept moving.
         if ($space->isScheduledForDeletion()) {
             return response()->json([
                 'error_code' => ApiErrorCode::AlreadyExists->value,
@@ -154,6 +170,11 @@ class SpaceController extends Controller
         }
 
         $graceDays = (int) SystemConfiguration::get('deletion_grace_days', 30);
+
+        // Read BEFORE the write and reported back untouched. Same list, same shape, same
+        // `kind` values the purge and the frontend already speak — only the framing moved
+        // from "why we said no" to "why the date exists".
+        $blockers = $space->deletionBlockers();
 
         DB::transaction(function () use ($request, $space, $graceDays) {
             $before = [
@@ -180,6 +201,11 @@ class SpaceController extends Controller
         return response()->json([
             'message' => 'Listing unpublished and programmed for deletion.',
             'space' => $space->fresh(),
+            // Informational, never a refusal (owner 2026-09-05). Named for what they
+            // actually block — the PURGE, weeks from now — so no caller mistakes them for
+            // the old 409 body: `blockers` meant "your request was rejected", and reusing
+            // that key on a 200 is exactly how a frontend ends up painting a success red.
+            'purge_blockers' => $blockers,
         ]);
     }
 
@@ -187,6 +213,10 @@ class SpaceController extends Controller
      * The way back. A programmed deletion survives the provider's own pause/unpause lever
      * ON PURPOSE, so there has to be one explicit act that undoes it — otherwise the only
      * exit from `unpublished` would be the purge.
+     *
+     * Since 2026-09-05 this is also the undo for a schedule taken on a BUSY listing: the
+     * provider changes their mind, the listing goes back into the catalog, and the clients
+     * who were mid-booking never saw anything move.
      */
     public function cancelDeletion(Request $request, Space $space): JsonResponse
     {
@@ -194,9 +224,12 @@ class SpaceController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
+        // CONFLICTING_STATE, not OBJECT_IN_USE: nothing is in use here, there is simply no
+        // deletion to cancel. The old code said OBJECT_IN_USE, which would have a frontend
+        // branching on the code look for a `blockers[]` that this response never carries.
         if (! $space->isScheduledForDeletion()) {
             return response()->json([
-                'error_code' => ApiErrorCode::ObjectInUse->value,
+                'error_code' => ApiErrorCode::ConflictingState->value,
                 'message' => 'No deletion is programmed on this listing.',
             ], 409);
         }
@@ -209,6 +242,12 @@ class SpaceController extends Controller
 
             // Back to whatever the provider's own lever says — NOT unconditionally to
             // `published`. A listing they had paused before scheduling stays paused.
+            //
+            // This is what makes the unpublish in destroy() reversible rather than a
+            // one-way door: scheduling never writes `is_active`, so the lever still holds
+            // the pre-schedule truth and cancelling restores exactly it. A published
+            // listing comes back published and returns to the catalog; a paused one does
+            // not get silently published by an undo it never asked for.
             $space->delete_scheduled_at = null;
             $space->publication_status = $space->is_active
                 ? Space::PUBLICATION_PUBLISHED

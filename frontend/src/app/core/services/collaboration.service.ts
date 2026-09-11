@@ -21,7 +21,29 @@ export class CollaborationService {
   private auth = inject(AuthService);
 
   private list = signal<Collaboration[]>([]);
-  private loaded = signal(false);
+
+  /**
+   * WHOSE invitations are in `list`, by user id — NOT a boolean "already loaded".
+   *
+   * It was a boolean, and this service is `providedIn: 'root'`, so it outlives the
+   * session: `AuthService.clearSession()` drops the token and ROUTER-navigates to /login
+   * (no page reload), which leaves this singleton untouched. Sign out, sign in as somebody
+   * else in the same tab, and the sidebar's `refresh()` hit `if (loaded) return` and never
+   * asked the API about the person now holding the session — so the second user got the
+   * FIRST user's list, for the rest of the tab's life:
+   *
+   *   • invited provider2 from client1's account, signed in as provider2 in the same tab →
+   *     no 📨 Invitations entry at all, because client1's (empty) list was still cached.
+   *     Only a hard reload — the one thing a person walking WALK-6 has no reason to do —
+   *     brought it back. Marco hit exactly this by hand (2026-09-05); the API was right
+   *     the whole way down, which is why it read as "the invitation never arrived".
+   *   • and the mirror of it: sign in as somebody WITH invitations, sign out, sign in as
+   *     somebody without → the menu badges a count belonging to the previous user.
+   *
+   * Keying the cache on the identity it was always implicitly about makes both cases the
+   * same one question ("is this list the current user's?"), which cannot answer stale.
+   */
+  private loadedFor = signal<number | null>(null);
   private loadingSig = signal(false);
   private errorSig = signal('');
 
@@ -50,13 +72,23 @@ export class CollaborationService {
    */
   refresh(force = false): void {
     const role = this.auth.userRole();
+    const me = this.auth.user()?.id ?? null;
 
     if (!this.auth.isLoggedIn() || (role !== 'client' && role !== 'provider')) {
       this.list.set([]);
+      // Signed out (or staff): nothing is cached for anybody, so the next session starts
+      // by asking instead of by trusting whatever the last one left behind.
+      this.loadedFor.set(null);
       return;
     }
 
-    if (this.loaded() && !force) return;
+    if (this.loadedFor() === me && !force) return;
+
+    // A list belonging to somebody else is not "stale data", it is the wrong person's —
+    // drop it BEFORE the request rather than after it, or the sidebar renders the previous
+    // user's count for as long as the fetch takes. A forced refresh for the SAME user
+    // keeps what is on screen: that one really is just a re-read.
+    if (this.loadedFor() !== me) this.list.set([]);
 
     this.loadingSig.set(true);
     this.errorSig.set('');
@@ -64,7 +96,7 @@ export class CollaborationService {
     this.http.get<Collaboration[]>(`${this.api}/collaborations`).subscribe({
       next: (res) => {
         this.list.set(Array.isArray(res) ? res : []);
-        this.loaded.set(true);
+        this.loadedFor.set(me);
         this.loadingSig.set(false);
       },
       // No toast here on purpose: this feeds a MENU entry, and a menu that pops a red
@@ -73,7 +105,10 @@ export class CollaborationService {
       // screen — where the person is actually looking for it — can say so.
       error: (err) => {
         this.errorSig.set(err?.error?.message || 'Could not load your invitations.');
-        this.loaded.set(true);
+        // Stamped with the CURRENT user all the same: a failed load is still an answer
+        // about this session, and re-asking on every navigation would turn one failure
+        // into a request per page. The screen's own refresh(true) is the retry.
+        this.loadedFor.set(me);
         this.loadingSig.set(false);
       },
     });
