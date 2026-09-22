@@ -352,6 +352,40 @@ class PlanningCodeCongruenceTest extends TestCase
     }
 
     /**
+     * §22 · LAND-1 — every app this repository ships has to be startable by the documented
+     * command, and the landing is a SECOND Angular app (`landing/`), not a route of the SPA.
+     *
+     * It compiled, it had terms and privacy pages, and it was still invisible: nothing in
+     * docker-compose.yml built it and nothing in useful_commands.md said to run it, so
+     * `docker compose up` brought up four services and not the fifth. Marco walked WALK-8,
+     * went looking for the legal texts and reported "no los veo" — correctly, because on
+     * his machine nothing was listening on 4300 (2026-09-22).
+     *
+     * An app nobody can start is an app that does not exist, and that is a supply-chain
+     * fact a test can hold, not a thing to rediscover by hand every few walks.
+     */
+    public function test_the_public_landing_can_actually_be_started(): void
+    {
+        $root = base_path('..');
+
+        $this->assertFileExists($root . '/landing/package.json', 'The landing app itself is gone.');
+        $this->assertFileExists($root . '/landing/Dockerfile',
+            'landing/ has no Dockerfile, so docker-compose has nothing to build and the landing '
+            . 'never comes up with the rest of the stack.');
+
+        $compose = file_get_contents($root . '/docker-compose.yml');
+        $this->assertMatchesRegularExpression('/^\s{2}landing:/m', $compose,
+            'docker-compose.yml has no `landing` service: `docker compose up` starts everything '
+            . 'except the landing, and §22 (terms + privacy) is unreachable.');
+        $this->assertStringContainsString('4300:4300', $compose,
+            'The landing service is not publishing port 4300, so nothing answers on it.');
+
+        $this->assertStringContainsString('localhost:4300', file_get_contents($root . '/useful_commands.md'),
+            'useful_commands.md never tells anyone where the landing lives — which is how the '
+            . 'legal texts went missing for a walker who was doing everything right.');
+    }
+
+    /**
      * EH-10 at the root. Every URL the Angular app builds has to resolve to a route the
      * backend serves — the check that would have caught the delete-users button the day
      * its route was removed, instead of leaving it to fail silently in a user's hands.

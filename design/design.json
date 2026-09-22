@@ -737,6 +737,33 @@
         "whyItHides": "Por dos razones que empujan el diagnostico al sitio equivocado. (1) El radio de la explosion es el tick, no el componente: `ApplicationRef.tick()` refresca el contenido del router-outlet ANTES que el navbar, asi que una excepcion en la pantalla enrutada deja el navbar sin repintar — el menu del avatar no abre y parece un segundo bug, con su propia teoria de z-index. (2) Depende de los datos: solo revienta si la fila venenosa esta en la lista, asi que la misma pantalla funciona para un usuario y no para otro. Y en este caso solo se reproducia navegando por la SPA, no recargando la URL, que es justo lo que hace un guion de pruebas perezoso.",
         "realExample": "El 2026-08-15, WALK-6. En `/provider/spaces` el proveedor reporto tres cosas: View y Edit no hacian nada, no habia forma de borrar un espacio, y no podia cerrar sesion. Una sola causa: `formatType(type: string) { return type.replace(...) }` con `spaces.type` nullable, y `DisputeDemoSeeder` sembrando una fila con `type: null` y `price_per_day: null`. `TypeError: Cannot read properties of null (reading 'replace')`. Cerrado con un helper unico null-safe (`core/models/space-type.helper.ts`), el seeder dando valores reales, y `frontend/e2e-provider-spaces.mjs` — que navega como un humano y se fabrica su propia fila sin tipo, porque un guardarrail que depende de la basura del seeder pasa en verde el dia que alguien limpia el seeder.",
         "status": "found+fixed"
+      },
+      {
+        "id": "EH-19",
+        "key": "la-aplicacion-que-nadie-puede-arrancar",
+        "pattern": "Codigo que compila, se versiona y no tiene forma documentada ni automatica de levantarse: para quien recorre, no existe.",
+        "howToFind": "Por cada directorio con package.json o composer.json propio, exigir DOS cosas: un servicio en docker-compose.yml y una linea en useful_commands.md con su puerto. Es una prueba, no una revision: PlanningCodeCongruenceTest::test_the_public_landing_can_actually_be_started.",
+        "whyItHides": "Todas las pruebas pasaban. Ninguna preguntaba si el proceso llega a arrancar — solo si el codigo es correcto, que es otra cosa.",
+        "realExample": "landing/ (§22) tenia landing, terminos y privacidad compilando, sin servicio en docker-compose y sin una linea que dijera 4300. Marco recorrio WALK-8 y reporto \"los textos de terminos y privacidad: no los veo\" (2026-09-22). Estaban; no habia nadie escuchando.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-20",
+        "key": "el-gesto-que-dispara-dos-veces",
+        "pattern": "Un manejador colgado de un evento que el navegador emite mas de una vez por gesto: el usuario hace UNA cosa y el sistema hace DOS.",
+        "howToFind": "No se ve mirando la pantalla — se cuenta. En una sonda de Playwright, contar `page.on('request')` por gesto y exigir el numero exacto (un clic = 1 busqueda, un doble clic = 0). Sospechosos: `click` bajo `dblclick`, submit por Enter mas submit por boton, y cualquier `(click)` sobre algo que ya navega.",
+        "whyItHides": "Las dos peticiones son identicas y las dos responden 200, asi que ni el log ni la pantalla delatan nada: solo el mapa \"dando saltos\".",
+        "realExample": "El mapa del cliente: Leaflet emite `click` por cada mitad de un doble clic, asi que un doble clic movia el origen y lanzaba la misma busqueda dos veces mientras doubleClickZoom hacia zoom debajo (2026-09-22). Guardado por e2e-client-map.mjs.",
+        "status": "found+fixed"
+      },
+      {
+        "id": "EH-21",
+        "key": "el-fallo-externo-que-se-dibuja-como-hueco",
+        "pattern": "Un recurso de terceros que falla sin ruido y deja un vacio: indistinguible de un fallo nuestro, y se diagnostica al reves.",
+        "howToFind": "Por cada recurso externo (teselas, imagenes remotas, tipografias, iframes) preguntar: si el servidor dice que no, ¿que ve la persona? Si la respuesta es \"nada\", falta un manejador de error que lo DIGA en pantalla. El DOM miente: una tesela rechazada conserva su clase `leaflet-tile-loaded`.",
+        "whyItHides": "No hay excepcion, no hay consola roja y las pruebas de la API siguen verdes: el hueco no es un estado que el codigo conozca.",
+        "realExample": "OpenStreetMap dejo de servir teselas y el mapa quedo en gris. Marco lo leyo como \"la API ya nego el acceso\" y apunto a nuestro backend (2026-09-22). Ahora ambos mapas avisan y la URL sale de environment.tileUrl (shared/map/base-tiles.ts).",
+        "status": "found+fixed"
       }
     ]
   },
@@ -1297,20 +1324,20 @@
           {
             "id": "W0",
             "role": "quien recorra",
-            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
-            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+            "action": "Antes de nada: `docker compose up -d --build` y luego `python3 mvp-init.py` desde la raiz. OJO: la landing (§22) es una aplicacion APARTE en landing/ y vive en http://localhost:4300 — el SPA del 4200 no tiene landing ni paginas legales. Este recorrido empieza en el 4300.",
+            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`. Y `curl -sI localhost:4300 | head -1` responde 200: si no, la landing no esta levantada y los pasos W8-1, W8-2 y W8-6 no tienen nada que recorrer (es lo que le paso a Marco el 2026-09-22).",
+            "probe": "docker compose ps --services --filter status=running | sort | tr '\\n' ' '; curl -sI localhost:4300 | head -1   # exige que aparezca `landing` y un 200 del 4300"
           },
           {
             "id": "W8-1",
             "role": "visitante",
-            "action": "Abrir la landing en un movil y leerla entera sin tocar nada mas.",
+            "action": "Abrir la landing en un movil y leerla entera sin tocar nada mas (en http://localhost:4300, NO en el 4200).",
             "expected": "Se entiende que es sin scroll: titular, subtitulo y formulario caben. Ninguna seccion se sale de ancho ni obliga a desplazamiento horizontal."
           },
           {
             "id": "W8-2",
             "role": "visitante",
-            "action": "Pulsar los enlaces de la barra y del pie: como funciona, espacios, confianza, terminos, privacidad.",
+            "action": "Pulsar los enlaces de la barra y del pie: como funciona, espacios, confianza, terminos, privacidad (en http://localhost:4300, NO en el 4200).",
             "expected": "Los tres primeros bajan a su seccion; los dos ultimos abren su pagina y desde ahi se vuelve al inicio. Ningun enlace muere."
           },
           {
@@ -1335,7 +1362,7 @@
           {
             "id": "W8-6",
             "role": "visitante",
-            "action": "Leer los textos de terminos y privacidad de principio a fin.",
+            "action": "Leer los textos de terminos y privacidad de principio a fin (en http://localhost:4300, NO en el 4200).",
             "expected": "Describen lo que la plataforma HACE hoy: retencion del pago hasta la prueba, disputas, colaboradores que no se desvinculan solos, nada en uso se destruye. Cualquier frase que prometa algo que el codigo no hace es deuda legal, no de maquetado."
           },
           {
@@ -2124,7 +2151,7 @@
         "infra"
       ],
       "kanban": {
-        "status": "review",
+        "status": "done",
         "weight": "S",
         "impacts": [
           "all"
@@ -2133,7 +2160,7 @@
         "ids": []
       },
       "summary": "The API endpoint map (source of truth backend/routes/api.php): LIVE (built) auth/client/provider/admin/support/payments plus the shared unified /chats routes, and PLANNED (designed) endpoints. Marks divergences and retired conversations/tickets routes.",
-      "body": "Source of truth: `backend/routes/api.php`. Format: `METHOD path — purpose`. ⚠ = the LIVE code\ndiverges from canon. All paths prefixed `/api`. Two parts: LIVE (built) and PLANNED (designed).\n\n--- LIVE endpoints (built) ---\nPublic / auth: POST /register · POST /login · POST /logout · GET /me\n\nClient (role:client, prefix /client):\n  POST,GET /campaigns · GET,PUT,DELETE /campaigns/{c} — campaign CRUD (DELETE ⚠ no guardrail)\n  POST,GET /campaigns/{c}/adsets · GET,PUT,DELETE /…/adsets/{a} — adset CRUD (grouping label)\n  POST,GET /…/adsets/{a}/ads · GET,PUT,DELETE /…/ads/{ad} — ad CRUD ⚠ no media-spec gate\n  POST,GET /bookings · GET,PUT /bookings/{b} — book / cancel ⚠ no one-checkout, no pre-pay/escrow\n  GET /spaces/search — geo+price+date catalog\n  POST,GET /campaigns/{c}/collaborators · DELETE /…/{col} — ⚠ campaign-scoped (must be account; see Planned)\n  GET /invoices · GET /invoices/{i} · GET /invoices/{i}/pdf\n  POST /campaigns/{c}/backlog · GET /campaigns/{c}/orphans · POST /campaigns/{c}/adsets/move\n  POST /proofs/{proof}/accept — client accepts proof → payout releasable (B9, LIVE)\n  POST /proofs/{proof}/reject — client rejects → payout HELD + payment_held flag + 3 Support chats (B9, LIVE; flag-mismatch aliases this)\n  GET /wallet — balance + entries ⚠ no withdraw\n\nProvider (role:provider, prefix /provider):\n  POST,GET /spaces · GET,PUT,DELETE /spaces/{s} — space CRUD ⚠ no spec columns; DELETE no guard\n  POST /spaces/{s}/media · DELETE /…/media/{m} — space media ⚠ live route named /photos; rename to /media\n  GET,POST /spaces/{s}/availabilities · DELETE /…/{av} · POST /…/sync-ical · POST /…/import-ical\n  GET /bookings · PUT /bookings/{b} — booking queue: Approve / Reject(reason OPTIONAL, stored) — LIVE; ⚠ provider UI button still bare\n  GET /dashboard\n  GET,POST /proofs · GET /proofs/{proof} — primary proof; deadline EXISTS by design (5 d) ⚠ missing enforcement cron + strikes\n\nAdmin (role:admin, prefix /admin):\n  GET /dashboard\n  POST,GET /users · GET,PUT,DELETE /users/{u} — CRM ⚠ DELETE no guardrail\n  GET /permissions · GET,PUT /permissions/{role} · PATCH /permissions/{role}/{resource} — RBAC matrix\n  GET /oversight/chats · GET /oversight/chats/{chat} — eagle-eye chat oversight (read-only, incognito;\n    filters ?nature ?flag ?object_type ?object_id ?status ?participant). RETIRES /oversight/{conversations,tickets}\n  GET /audit — the immutable log (UC-31); filters ?target_type ?target_id ?actor_id ?action.\n    Read-only by construction: no write verb exists and the model refuses UPDATE/DELETE.\n  GET,PUT /configurations — tunable key/values\n\nSupport (role:support, prefix /support):\n  GET /dashboard — Support acts on chats via the shared /chats map (join/flag/resolve/close, below)\n  ⚠ RETIRED: /tickets, /tickets/{t}, /tickets/{t}/reply → folded into /chats (a ticket = chat w/ Support)\n  PUT /spaces/{s} · PUT /ads/{ad} · PUT /bookings/{b} · PUT /users/{u} · PUT /collaborators/{c}\n    — edit-any-NON-money, audited (UC-23). Money objects have NO route here; money-determining\n    fields are excluded per-object. Response: {data, audited, audit_id}.\n\nPayments (role:payments, prefix /payments):\n  GET /dashboard · GET /payments · GET /payments/{p} · POST /…/approve · POST /…/reject\n  POST /…/refund · POST /…/payout/release · POST /…/payout/hold — money moves (idempotent, → wallet)\n  (no proof routes — REMOVED 2026-08-02. Payments must not review proof CONTENT: the verdict is\n   the client's, POST /client/proofs/{proof}/accept|reject. §2 keeps Payments 👁 on Proof, not ✏,\n   so `payments.proofs.update` was revoked with the routes.)\n\nShared — Chats (any authenticated; ONE primitive — §10; nature + ACL DERIVED from participants+objects):\n  GET,POST /chats — list caller's chats (derived queue) / open a chat. COUNTERPARTY is set by the ENTRY POINT\n    (target: support [default, incl. from an ad/adset/campaign object] | provider [only from a published listing, space attached] | billing→support+payment), NOT inferred from the attached object; object is context only (§10). [owner 2026-07-25]\n  GET /chats/{chat} — chat + participants + objects + active flags + messages (PII-masked at render)\n  POST /chats/{chat}/messages — post (raw stored, masked at render); same derived ACL\n  POST /chats/{chat}/objects · DELETE /…/objects/{obj} — attach/detach an object (OWNERSHIP-checked; system msg)\n  POST /chats/{chat}/flags — add/change a flag {type,reason} (Support flags; Payments executes money via §8)\n  POST /chats/{chat}/join — Support joins a client↔provider chat (announced + PII relax; role:support)\n  POST /chats/{chat}/resolve · /close · /reopen — resolve(support) / close(opener) / reopen(admin ONLY)\n  ⚠ RETIRED → /chats: GET,POST /conversations(+/messages); GET,POST /tickets(+/reply);\n    GET,PUT /support/tickets/{t}(+/reply); POST /support/conversations/{c}/join;\n    POST /support/payments/{p}/flag-refund|flag-payout-hold; the dual-ticket auto-open.\n    (The §8 Payments money routes /payments/{p}/refund|payout/release|payout/hold are UNCHANGED —\n     money execution is not a chat concern.)\n\n--- PLANNED endpoints (designed, not built) ---\nAccount-scoped collaborators (BOTH sides — replace the campaign-nested client routes):\n  Client:   GET,POST /client/collaborators · DELETE /…/{col}   (subroles publicist, manager)\n  Provider: GET,POST /provider/collaborators · DELETE /…/{col}  (subroles installator, sales, supervisor)\nMedia specs: spaces gain physical_specs+media_specs+upload_instructions; GET /client/spaces/{s}/media-specs; ad upload HARD-FAILS on spec mismatch\nCheckout/escrow: POST /client/campaigns/{c}/checkout (ONE payment + ONE invoice) · POST /client/bookings {is_prepay} · GET /provider/spaces/{s}/waiting-list · POST /provider/waiting-list/{offer}/confirm\nRatings: POST /client/campaigns/{c}/rating · GET /spaces/{s} (avg+count)\nWallet: POST /client/wallet/withdraw\nAudit: the TABLE, the model and GET /admin/audit are BUILT (above). What is still planned is COVERAGE —\n  every other ✏/$ action of §2 calling AuditLog::record() in its own transaction (today only UC-23 does).\nModeration: POST /admin/spaces/{s}/takedown · /restore · POST /admin/providers/{u}/freeze · /unfreeze\nDispute (RETIRES \"dual ticket\"): on client proof reject, auto-open THREE chats (Support↔Client / ↔Provider /\n  ↔Payments), each attached to the held payment+booking with a `payment_held` flag (§7/§10; UC-7).\nNotifications: dispatcher + GET /notifications · POST /notifications/{n}/read\nProof-deadline engine + strikes: cron (day3/4 reminders, day5 auto-cancel+refund+strike); strikes table + provider-dashboard counter\n\nCompliance (arch/design/cases → backend):\n- CONTRADICTS canon (fix LIVE code): ~~Payments proof approve/reject/index (B9)~~ FIXED 2026-08-02;\n  collaborators campaign-scoped (→ account_id, both sides); bookings.status not canonical enum;\n  provider booking PUT bare confirm/cancel (→ Approve/Reject, reason optional); hard DELETE with\n  no guardrails.\n- DOC feature → NO endpoint: everything under \"PLANNED\" above.\n- COMPLIANT: auth; client/provider/admin CRUD + ownership guards; RBAC matrix; eagle-eye reads;\n  money = decimal MXN pesos with idempotent refund/payout → wallet; PII masking at render;\n  staff-only chat PII-relax (former ticket internal-note hiding).",
+      "body": "Fuente de verdad: `backend/routes/api.php`. El mapa MAQUINABLE esta en el bloque `endpoints[]` de este mismo fichero (120 entradas, con `status: live|planned`), y dos pruebas lo sujetan en los dos sentidos: `test_every_served_route_is_documented` y `test_every_documented_route_is_served` (PlanningCodeCongruenceTest). Una tercera, `test_planned_endpoints_name_a_real_todo_and_are_not_served_yet`, impide que un endpoint \"planeado\" se quede sin dueño o se sirva a escondidas.\n\nAqui habia una copia a mano de esa misma lista, con marcas ⚠ donde el codigo ya se habia separado del canon. Una lista que nadie compila es una lista que se desvia, y desviarse en silencio era justo el fallo que marcaba: el original esta en `design/archive.json` → `retiredSpecBodies[\"17\"]`. Para consultar rutas, lee `endpoints[]` o `routes/api.php`; para cambiarlas, cambia el codigo y deja que las pruebas digan que falta documentar.",
       "kind": "meta",
       "ucs": [],
       "suggestedUcs": [
@@ -6474,7 +6501,8 @@
       "flow": [],
       "er": [],
       "classes": [],
-      "note": "Construida y compilando (74 kB iniciales comprimidos). Queda pendiente y es REQUISITO DE APERTURA, no de cierre: los textos de terminos y privacidad no los ha revisado nadie con formacion legal. Estan escritos, describen lo que la plataforma hace hoy, y lo dicen en la propia pagina. Lo cierra WALK-8."
+      "note": "Construida y compilando (74 kB iniciales comprimidos). Queda pendiente y es REQUISITO DE APERTURA, no de cierre: los textos de terminos y privacidad no los ha revisado nadie con formacion legal. Estan escritos, describen lo que la plataforma hace hoy, y lo dicen en la propia pagina. Lo cierra WALK-8.",
+      "detail": " [2026-09-22] Ademas de la revision legal faltaba poder ARRANCARLA: no habia servicio en docker-compose ni una linea en useful_commands. Corregido y sujeto por una prueba (EH-19). La revision legal de los textos sigue siendo requisito de apertura."
     },
     {
       "id": "LAND-2",
@@ -6701,6 +6729,20 @@
       "er": [],
       "classes": [],
       "note": "Era el paso W7-6 del retirado WALK-7. No es un recorrido por la interfaz — nadie pulsa nada — asi que estaba mal alojado: un recorrido lo firma quien anduvo las pantallas (BR-20). Es una comprobacion de cadena de suministro (BR-18): borrar `node_modules`, `npm ci`, y leer la salida buscando hooks `preinstall` y paquetes que no se pidieron. OJO en Codespaces: `node_modules` es un bind mount que escribe root, asi que se ejecuta DENTRO del contenedor o da EACCES. Movido aqui el 2026-09-05."
+    },
+    {
+      "id": "SPEC-1",
+      "title": "Comprimir specs, userStories, businessRules, errorHunt y todos: una afirmacion, un sitio",
+      "status": "open",
+      "owner": "siguiente sesion",
+      "detail": "design.json esta en ~98k tokens y cada sesion paga ese peso entero antes de hacer nada. El gasto no es la prosa: es la REPETICION, que ademas es la fuente de los errores redundantes (dos copias de una regla se separan y nadie sabe cual manda). Hecho ya: §17 (mapa de endpoints copiado a mano) reducido a un puntero a endpoints[] + routes/api.php, cuerpo original en archive.json. Queda, por orden de tamaño: specs §19 (16.7k, dice de si mismo que su prosa \"esta plegada en §1-14\"), userStories (37k, 57 casos), businessRules (35k, 20 reglas), errorHunt (29k, 21 clases), todos (24k, 40). METODO, no recorte a ojo: (1) medir por bloque; (2) buscar la MISMA afirmacion en dos bloques; (3) dejarla donde es ejecutable (una prueba > una regla > una historia > un spec) y sustituir la copia por un puntero; (4) lo retirado va a archive.json, nunca se borra; (5) despues de cada bloque, `php artisan test --filter=PlanningCodeCongruence` y abrir las 13 vistas del tablero. Objetivo: por debajo de 60k tokens sin perder una sola decision con fecha.",
+      "refs": [
+        "§17",
+        "§19",
+        "EH-19",
+        "EH-20",
+        "EH-21"
+      ]
     }
   ],
   "mvpSprint": {

@@ -20,6 +20,10 @@ docker compose down -v
 Endpoints once up:
 - API:      http://localhost:8000
 - Frontend: http://localhost:4200
+- Landing:  http://localhost:4300  ← §22: la landing publica, el alta desde fuera y los
+  textos de **terminos** y **privacidad**. Es una aplicacion Angular APARTE (`landing/`),
+  no una ruta del SPA: si no esta levantada, esas dos paginas no existen para nadie. Es el
+  primer paso de WALK-8.
 - DB:       localhost:5435 (host) → 5432 (container)
 
 ## Inside containers
@@ -74,6 +78,10 @@ php artisan serve
 # Frontend SPA (http://localhost:4200)
 cd frontend
 ng serve
+
+# Landing publica + legales (http://localhost:4300) — aplicacion aparte
+cd landing
+npm start
 ```
 
 Requires host PHP 8.4 with ext-dom/xml/pgsql + local PG 17 on port 5434.

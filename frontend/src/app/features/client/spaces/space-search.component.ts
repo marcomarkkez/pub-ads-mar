@@ -6,6 +6,7 @@ import { Router } from '@angular/router';
 import * as L from 'leaflet';
 import { environment } from '../../../../environments/environment';
 import { NotificationService } from '../../../core/services/notification.service';
+import { addBaseTiles } from '../../../shared/map/base-tiles';
 import { Space, PaginatedResponse, formatSpaceType } from '../../../core/models';
 
 // Minimal shape for the campaign picker (avoids coupling to the full Campaign model barrel).
@@ -164,6 +165,15 @@ const SPACE_ICON_SELECTED = L.divIcon({
     <div [class.split-view]="showMap()">
       <!-- Map (always rendered so ViewChild is available; shown/hidden via CSS) -->
       <div [style.display]="showMap() ? 'block' : 'none'" class="card map-card">
+        <!-- A refused basemap draws NOTHING, which reads as a broken app. Say it instead:
+             the markers, the clicks and the search all still work over the empty
+             background, and that is what the second line is for. -->
+        @if (baseMapDown()) {
+          <p class="basemap-notice">
+            🗺️ El mapa base no está disponible (el servidor de teselas no responde).
+            <span>Los anuncios, el clic para buscar y la selección siguen funcionando.</span>
+          </p>
+        }
         <div #mapEl class="map-el"></div>
       </div>
 
@@ -262,6 +272,12 @@ const SPACE_ICON_SELECTED = L.divIcon({
     .selected-card { outline: 2px solid var(--primary); }
     .map-card { margin-bottom: 24px; padding: 0; overflow: hidden; }
     .map-el { height: 480px; width: 100%; }
+    .basemap-notice {
+      margin: 0; padding: 8px 12px; font-size: 13px;
+      background: var(--warning-bg, #fef3c7); color: var(--warning-text, #92400e);
+      border-bottom: 1px solid var(--border);
+    }
+    .basemap-notice span { display: block; font-size: 12px; opacity: .8; }
     .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
     .cards-col { display: flex; flex-direction: column; gap: 12px; }
     /* Map-centered split: map left, scrollable results right (#2) */
@@ -319,6 +335,8 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   pages = signal<number[]>([]);
   showMap = signal(true);
   selectedSpace = signal<Space | null>(null);
+  /** True while the tile server is refusing us — see shared/map/base-tiles.ts. */
+  baseMapDown = signal(false);
 
   // ── Selection basket (C03) ──────────────────────────────────────────────────
   selection = signal<Space[]>([]);
@@ -338,6 +356,14 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   // broke the detail popup (see syncSpaceMarkers).
   private spaceMarkers = new Map<number, L.Marker>();
 
+  /**
+   * Pending "search from here" click, held long enough for a 'dblclick' to cancel it.
+   * 300ms is the usual double-click window and it is below the point where a single click
+   * starts to feel unresponsive — the search itself takes longer than the wait.
+   */
+  private clickTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly DOUBLE_CLICK_GRACE_MS = 300;
+
   constructor(
     private http: HttpClient,
     private notify: NotificationService,
@@ -354,6 +380,9 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // A pending click would otherwise fire a search into a destroyed component.
+    if (this.clickTimer) clearTimeout(this.clickTimer);
+    this.clickTimer = null;
     this.map?.remove();
     this.map = null;
     this.spaceMarkers.clear();
@@ -367,25 +396,41 @@ export class SpaceSearchComponent implements OnInit, AfterViewInit, OnDestroy {
       zoom: 12,
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(this.map);
+    addBaseTiles(this.map, (down) => this.zone.run(() => this.baseMapDown.set(down)));
 
     this.centerMarker = L.marker([this.latitude, this.longitude], { icon: CENTER_ICON }).addTo(this.map);
 
     this.map.on('click', (e: L.LeafletMouseEvent) => {
-      this.zone.run(() => {
-        // Clicking bare map means "I'm looking somewhere else now", so the open detail
-        // panel must go with it. Leaflet already closed the popup for us on 'preclick'
-        // (closePopupOnClick), which clears selectedSpace through popupclose; this line
-        // covers the list-view path, where a card can be selected with no popup to close.
-        this.selectedSpace.set(null);
-        this.latitude = +e.latlng.lat.toFixed(6);
-        this.longitude = +e.latlng.lng.toFixed(6);
-        this.centerMarker?.setLatLng([this.latitude, this.longitude]);
-        this.search();
-      });
+      // Leaflet fires 'click' for EACH half of a double click and then 'dblclick', so a
+      // double click used to move the search origin and fire two identical searches while
+      // doubleClickZoom zoomed underneath it — the map lurched and re-queried twice for one
+      // gesture. Marco reported it as the map "haciendo cosas raras" on a double click.
+      // Holding the click for a moment lets 'dblclick' cancel it, which is the only way to
+      // tell the two gestures apart: the browser has no idea a second click is coming.
+      if (this.clickTimer) clearTimeout(this.clickTimer);
+      const lat = +e.latlng.lat.toFixed(6);
+      const lng = +e.latlng.lng.toFixed(6);
+      this.clickTimer = setTimeout(() => {
+        this.clickTimer = null;
+        this.zone.run(() => {
+          // Clicking bare map means "I'm looking somewhere else now", so the open detail
+          // panel must go with it. Leaflet already closed the popup for us on 'preclick'
+          // (closePopupOnClick), which clears selectedSpace through popupclose; this line
+          // covers the list-view path, where a card can be selected with no popup to close.
+          this.selectedSpace.set(null);
+          this.latitude = lat;
+          this.longitude = lng;
+          this.centerMarker?.setLatLng([this.latitude, this.longitude]);
+          this.search();
+        });
+      }, this.DOUBLE_CLICK_GRACE_MS);
+    });
+
+    // Zoom in, and ONLY zoom in: a double click is not a request to search somewhere else.
+    this.map.on('dblclick', () => {
+      if (!this.clickTimer) return;
+      clearTimeout(this.clickTimer);
+      this.clickTimer = null;
     });
 
     // The map can mount inside a flex column whose size settles after layout —

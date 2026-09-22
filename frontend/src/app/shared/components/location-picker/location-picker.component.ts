@@ -18,6 +18,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { environment } from '../../../../environments/environment';
+import { addBaseTiles } from '../../map/base-tiles';
 
 // ── HOW TO SWAP BACK TO GOOGLE MAPS ──────────────────────────────────────────
 // 1. Set environment.mapProvider = 'google' in environment.ts
@@ -68,6 +69,16 @@ const PIN_ICON = L.divIcon({
       </div>
     }
 
+    <!-- A refused basemap draws nothing at all. Say so: picking a point by clicking still
+         works over the empty background, and the coordinates below are what actually get
+         saved. -->
+    @if (baseMapDown) {
+      <p style="margin:0 0 6px;padding:8px 12px;font-size:12px;border-radius:6px;background:var(--warning-bg, #fef3c7);color:var(--warning-text, #92400e);">
+        🗺️ El mapa base no está disponible (el servidor de teselas no responde).
+        Puedes seguir marcando el punto con un clic; se guardan las coordenadas.
+      </p>
+    }
+
     <!-- Leaflet map container -->
     <div #mapEl [style.height]="height" style="width:100%;border-radius:8px;overflow:hidden;"></div>
 
@@ -110,6 +121,15 @@ export class LocationPickerComponent implements OnInit, AfterViewInit, OnChanges
   // Displayed coords (updated on pick)
   currentLat: number | null = null;
   currentLng: number | null = null;
+
+  /**
+   * True while the tile server is refusing us (shared/map/base-tiles.ts).
+   *
+   * Written from a Leaflet callback inside `zone.run()`, i.e. in a change-detection pass of
+   * its own and never during the one that checks this view — which is what keeps it clear
+   * of the NG0100 this component was fixed for.
+   */
+  baseMapDown = false;
 
   private map: L.Map | null = null;
   private marker: L.Marker | null = null;
@@ -181,10 +201,7 @@ export class LocationPickerComponent implements OnInit, AfterViewInit, OnChanges
       zoom: 13,
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(this.map);
+    addBaseTiles(this.map, (down) => this.zone.run(() => { this.baseMapDown = down; }));
 
     // The caption is already seeded by ngOnInit; touching it here is what caused NG0100.
     if (this.lat !== null && this.lng !== null) {

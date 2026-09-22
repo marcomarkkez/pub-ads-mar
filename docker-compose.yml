@@ -79,11 +79,34 @@ services:
     networks:
       - publisher_net
 
+  # §22 · LAND-1 — la landing publica es una aplicacion Angular APARTE (landing/), no una
+  # ruta del SPA. Sin este servicio `docker compose up` levantaba todo MENOS la landing, y
+  # como ningun documento decia como arrancarla, los textos de terminos y privacidad no
+  # existian para quien recorria WALK-8: "no los veo" (Marco, 2026-09-22). Existian; no
+  # habia nada escuchando en el 4300.
+  landing:
+    build:
+      context: ./landing
+      dockerfile: Dockerfile
+    container_name: publisher_landing
+    restart: unless-stopped
+    ports:
+      - "4300:4300"
+    volumes:
+      - ./landing:/app
+      - landing_node_modules:/app/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    networks:
+      - publisher_net
+
 volumes:
   pgdata:
   backend_vendor:
   backend_storage:
   frontend_node_modules:
+  landing_node_modules:
 
 networks:
   publisher_net:

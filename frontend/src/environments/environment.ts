@@ -19,6 +19,14 @@ export const environment = {
   // Map provider: 'leaflet' = Leaflet + OpenStreetMap (current)
   // Switch to 'google' to use Google Maps (set googleMapsApiKey too)
   mapProvider: 'leaflet' as 'leaflet' | 'google',
+  // Base map tiles — read by shared/map/base-tiles.ts and by NOTHING else, so this is the
+  // single line to change to move off OpenStreetMap. OSM's tile servers are a donated,
+  // rate-limited public service that may refuse a client outright; when that happens the
+  // map draws an unexplained empty background, so both map screens now say so out loud.
+  // Any {z}/{x}/{y} XYZ provider works here (Carto, Stadia, a self-hosted tileserver…) —
+  // change tileAttribution with it, the licence usually requires it.
+  tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  tileAttribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   googleMapsApiKey: 'YOUR_GOOGLE_MAPS_API_KEY',
   what3wordsApiKey: 'YOUR_W3W_API_KEY',
 };
