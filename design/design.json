@@ -6519,7 +6519,7 @@
       "flow": [],
       "er": [],
       "classes": [],
-      "note": "Cierra LAND-1. Hasta que pase, §22 sigue en `review` por mucho que compile."
+      "note": "Cierra LAND-1. Hasta que pase, §22 sigue en `review` por mucho que compile. [2026-11-10] Marco lo empezo y no pudo pasar del alta: la landing mandaba el registro a su propio puerto (EH-22). Arreglado en p107 y los pasos reescritos con emails/contrasena explicitos. SIGUIENTE: repetirlo entero desde W0 tras `git pull origin mvp-build && docker compose restart backend landing`."
     },
     {
       "id": "AUTH-1",
