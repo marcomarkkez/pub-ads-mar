@@ -1611,5 +1611,30 @@ flipped — the doc edits are Q47 below.
 - Q37 (proofs 403 vs 404) is unchanged and now has a costed answer: 2 controllers + 3 test
   assertions, ~6 lines, no migration. Q33, Q35, Q36, Q38 remain open.
 
+## Session 35 — 2026-11-09 → 2026-11-10 · WALK-4 cerrado, push desde la sesión, WALK-8 desbloqueado
+
+### Commits en `mvp-build`
+- `ac99829` WALK-4 pasado (Marco, con `walk.py --pass`).
+- `b21ac2d` p105 — WALK-4 (recorrido + todo) sale de design.json a `archive.json → retiredWalkthroughs`.
+- `85ef845` p106 — **regla nueva [owner 2026-11-10]: el agente hace commit y push a `mvp-build` e informa**
+  (rama, hash, qué lleva). El 403 ya no ocurre (verificado con un push real; `--dry-run` no lo prueba).
+  Borrar ramas remotas desde la sesión SIGUE dando 403: eso lo hace Marco.
+- `0e83414` p107a — WALK-8 reescrito: datos explícitos (`walk8-prov-N@pubads.test`, `walk8-cli-N@pubads.test`,
+  contraseña `password`), sondas que dicen qué debe salir; W6-1/W6-2 → W8-7/W8-8. EH-22 registrado.
+- `f301685` p107 — la landing mandaba `POST /api/register` a su propio puerto 4300 (HTML → `Unexpected token '<'`).
+  Ahora resuelve el 8000 como el frontend; CORS acepta siempre 4200 y 4300; nunca pinta el mensaje del parser.
+  `LandingSignupReachesApiTest` (3 pruebas, negativas comprobadas). Suite: 278 verdes.
+
+### Entorno (Codespace de Marco)
+- `docker compose up --build` falló con `content digest … not found` (almacén de Docker roto, no código):
+  `docker builder prune -af` → `docker compose build --no-cache` → `up -d`. Tras eso solo corrían `frontend`
+  y `landing`: **comprobar mañana que corren los cinco** (sonda del W0).
+
+### Dónde seguimos mañana
+1. `git pull origin mvp-build && docker compose restart backend landing`, sonda W0 de WALK-8 (cinco servicios).
+2. **Repetir WALK-8 entero** (N=1 la primera vez). Si pasa, Marco firma con `walk.py`; luego WALK-2 (cliente).
+3. Abierto para Marco: SPEC-1 — ¿bajar el objetivo a ~90k tokens o sacar bloques enteros a archive.json
+   (recomendado: `mvpSprint.specBacklog`, `diagrams`)? Y BR-1: espacio con reservas ¿despublicado para siempre?
+
 <!-- Add new sessions above this line -->
 
