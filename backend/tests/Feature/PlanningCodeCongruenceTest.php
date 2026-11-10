@@ -335,7 +335,7 @@ class PlanningCodeCongruenceTest extends TestCase
      * listing — close enough to "it doesn't work" that it was reported as exactly that.
      *
      * `design.html` stays the canonical name (README.md, claude.md, useful_commands.md and
-     * WALK-4's W4-1 all cite it); `index.html` is only the doormat, and this asserts the
+     * the archived WALK-4's W4-1 all cite it); `index.html` is only the doormat, and this asserts the
      * doormat still points somewhere.
      */
     public function test_the_design_dashboard_answers_at_the_served_root(): void

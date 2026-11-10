@@ -89,8 +89,8 @@ Están en `design.json` → `errorHunt` con su `howToFind`. Resumidas, por si se
 - Un paso de walk es siempre **interfaz**. Las `probe` acompañan, nunca sustituyen.
 - Si un paso se puede comprobar entero desde la terminal, **no es un paso de walk**: es una
   prueba. Bajarlo a `tests/`. *(Así salió `BUILD-1` del retirado WALK-7.)*
-- Un walk por persona-sesión, no por funcionalidad. Hoy son seis: WALK-8 visitante,
-  WALK-2 cliente, WALK-6 proveedor, WALK-5 dinero y staff, WALK-1 Messages, WALK-4 tablero.
+- Un walk por persona-sesión, no por funcionalidad. Hoy son cinco: WALK-8 visitante,
+  WALK-2 cliente, WALK-6 proveedor, WALK-5 dinero y staff, WALK-1 Messages. (WALK-4 tablero pasó el 2026-11-10 y está en `archive.json`.)
 - El paso `W0` de cada walk deja la pila lista **y dice en qué URL empieza**. Un walk que no
   dice dónde vive lo que hay que mirar es el hueco del §5.
 
