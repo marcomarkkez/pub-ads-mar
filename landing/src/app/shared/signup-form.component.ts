@@ -114,14 +114,19 @@ export class SignupFormComponent {
       })
       .subscribe({
         next: () => this.router.navigateByUrl('/gracias'),
-        error: (e: { status?: number; error?: { message?: string } }) => {
+        error: (e: { status?: number; error?: unknown }) => {
           this.sending.set(false);
           // 422 con este payload es casi siempre el email repetido, y decirlo por su nombre
           // ahorra el bucle de "no sé qué he hecho mal" en el unico paso que importa.
+          // Cualquier otra cosa recibe una frase humana: el `message` del error NO se pinta,
+          // porque cuando la respuesta no es JSON ese `message` es el del parser del
+          // navegador (`Unexpected token '<'…`), que es lo que Marco vio en WALK-8 (EH-21).
           this.failure.set(
             e.status === 422
               ? 'Ese email ya tiene cuenta. Prueba a entrar en su lugar.'
-              : e.error?.message || 'No hemos podido crear la cuenta. Inténtalo de nuevo en un momento.'
+              : !e.status
+                ? 'No hemos podido contactar con el servidor. Inténtalo de nuevo en un momento.'
+                : 'No hemos podido crear la cuenta. Inténtalo de nuevo en un momento.'
           );
         },
       });

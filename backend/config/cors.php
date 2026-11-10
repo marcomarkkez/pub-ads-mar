@@ -19,7 +19,14 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_filter(explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:4200'))),
+    // Las dos apps del navegador van SIEMPRE, se diga lo que se diga en .env: el SPA (4200) y
+    // la landing (4300, §22). CORS_ALLOWED_ORIGINS solo AÑADE. Antes la variable sustituia a la
+    // lista, y un .env copiado de .env.example (que solo nombraba el 4200) dejaba el alta de
+    // la landing sin permiso en local — WALK-8, 2026-11-10.
+    'allowed_origins' => array_values(array_unique(array_filter(array_merge(
+        ['http://localhost:4200', 'http://localhost:4300'],
+        explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))
+    )))),
 
     // Matches GitHub Codespaces forwarded-port URLs, e.g.
     // https://<codespace-name>-4200.app.github.dev — the dev environment
