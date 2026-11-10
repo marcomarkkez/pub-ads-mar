@@ -764,6 +764,15 @@
         "whyItHides": "No hay excepcion, no hay consola roja y las pruebas de la API siguen verdes: el hueco no es un estado que el codigo conozca.",
         "realExample": "OpenStreetMap dejo de servir teselas y el mapa quedo en gris. Marco lo leyo como \"la API ya nego el acceso\" y apunto a nuestro backend (2026-09-22). Ahora ambos mapas avisan y la URL sale de environment.tileUrl (shared/map/base-tiles.ts).",
         "status": "found+fixed"
+      },
+      {
+        "id": "EH-22",
+        "key": "la-api-relativa-sin-api-detras",
+        "pattern": "Una app del navegador llama a su API con una ruta RELATIVA (`/api/...`) cuando la API vive en OTRO puerto. La peticion cae en el servidor de la propia app, que contesta HTML, y el error que ve la persona es el del parser: `Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON`.",
+        "howToFind": "Por cada app con `package.json` propio (frontend/, landing/): `grep -rn \"'/api'\" src` y comprobar que el puerto que sirve esa app tiene un proxy o una API detras. Si no, la base de la API se resuelve como en frontend/src/environments/environment.ts (Codespaces: `-<puerto>.` → `-8000.`; local: `:8000`). Y en el `error:` de cada peticion: no pintar `e.error.message` en crudo — cuando la respuesta no es JSON, ese texto es el del navegador.",
+        "whyItHides": "Las pruebas de la API pasan (la API esta bien), `curl` contra el 8000 da 201, y la app compila. Solo falla en el navegador, y solo en la app que no es la principal.",
+        "realExample": "WALK-8, Marco, 2026-11-10: el alta de la landing (4300) mandaba `POST /api/register` al propio 4300. Ademas CORS_ALLOWED_ORIGINS SUSTITUIA la lista y el .env.example solo nombraba el 4200. Arreglado en landing/src/app/shared/signup.service.ts y backend/config/cors.php; sujeto por backend/tests/Feature/LandingSignupReachesApiTest.php.",
+        "status": "found+fixed"
       }
     ]
   },
@@ -1269,7 +1278,8 @@
         ],
         "eh": [
           "EH-8",
-          "EH-10"
+          "EH-10",
+          "EH-22"
         ],
         "groups": [
           "landing-page"
@@ -1279,9 +1289,9 @@
           {
             "id": "W0",
             "role": "quien recorra",
-            "action": "Antes de nada: `docker compose up -d --build` y luego `python3 mvp-init.py` desde la raiz. OJO: la landing (§22) es una aplicacion APARTE en landing/ y vive en http://localhost:4300 — el SPA del 4200 no tiene landing ni paginas legales. Este recorrido empieza en el 4300.",
-            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`. Y `curl -sI localhost:4300 | head -1` responde 200: si no, la landing no esta levantada y los pasos W8-1, W8-2 y W8-6 no tienen nada que recorrer (es lo que le paso a Marco el 2026-09-22).",
-            "probe": "docker compose ps --services --filter status=running | sort | tr '\\n' ' '; curl -sI localhost:4300 | head -1   # exige que aparezca `landing` y un 200 del 4300"
+            "action": "En la terminal del Codespace, desde la raiz del repo: `docker compose up -d --build` y despues `python3 mvp-init.py`. Luego corre la sonda. Este recorrido empieza en la landing, http://localhost:4300 (el 4200 es el producto y no tiene landing). DATOS DE ESTE RECORRIDO (apuntalos antes de empezar). Proveedor: email `walk8-prov-N@pubads.test`, contrasena `password`. Cliente: email `walk8-cli-N@pubads.test`, contrasena `password`. N es un numero que no hayas usado (1 la primera vez, 2 la siguiente…): un email usado ya existe y el alta lo rechaza. ",
+            "expected": "La sonda imprime `backend db frontend landing nginx` (los CINCO; si falta alguno, el recorrido no puede empezar: `docker compose logs --tail=30 <el que falte>`), luego `landing 200` y `api 422` (422 = la API esta viva y rechaza un alta vacia, que es lo correcto). mvp-init dice si sembro o si no habia nada que hacer; las dos cosas valen.",
+            "probe": "docker compose ps --services --filter status=running | sort | tr '\\n' ' '; echo; echo \"landing $(curl -s -o /dev/null -w '%{http_code}' localhost:4300)\"; echo \"api $(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:8000/api/register -H 'Accept: application/json')\"   # exige los cinco servicios, landing 200 y api 422"
           },
           {
             "id": "W8-1",
@@ -1298,21 +1308,21 @@
           {
             "id": "W8-3",
             "role": "visitante",
-            "action": "Enviar el formulario vacio, luego con un email mal escrito, luego con una contraseña de cuatro caracteres.",
-            "expected": "Cada error se marca en su campo y no se envia nada. Ningun 422 llega del servidor: la validacion de forma se resuelve antes de salir."
+            "action": "En el formulario de la landing: 1) pulsar «enviar» con todo vacio; 2) escribir un email sin arroba (p. ej. `walk8`); 3) un email bueno con una contrasena de cuatro caracteres (`1234`).",
+            "expected": "En los tres casos el error sale debajo de SU campo y la pagina no cambia. No aparece ningun mensaje tecnico (nada de `Unexpected token`, `DOCTYPE` ni `JSON`)."
           },
           {
             "id": "W8-4",
             "role": "visitante",
-            "action": "Darse de alta de verdad con un email nuevo, eligiendo \"Tengo espacios\".",
-            "expected": "Cae en el acuse. Entrando despues por el login del producto, el menu es el de PROVEEDOR — si sale el de cliente, el rol elegido en la landing no viajo.",
-            "probe": "curl -si -X POST localhost:8000/api/register -H \"Content-Type: application/json\" -d '{\"name\":\"X\",\"email\":\"nuevo@x.com\",\"password\":\"12345678\",\"password_confirmation\":\"12345678\",\"role\":\"provider\"}' | head -1   # exige 201"
+            "action": "Alta de verdad en la landing: elegir «Tengo espacios», nombre cualquiera, email `walk8-prov-N@pubads.test`, contrasena `password`. Enviar. Despues abrir http://localhost:4200/login y entrar con ese mismo email y `password`.",
+            "expected": "Tras enviar, la landing pasa a la pagina de gracias (/gracias). Al entrar en el 4200, el menu lateral es el de PROVEEDOR (espacios, no campanas). Si sale el de cliente, el rol elegido en la landing no viajo. La sonda (cambia N por el tuyo) debe imprimir `\"role\":\"provider\"`.",
+            "probe": "EMAIL=walk8-prov-N@pubads.test; curl -s -X POST localhost:8000/api/login -H 'Content-Type: application/json' -H 'Accept: application/json' -d \"{\\\"email\\\":\\\"$EMAIL\\\",\\\"password\\\":\\\"password\\\"}\" | grep -o '\"role\":\"[a-z]*\"' || echo \"NO EXISTE $EMAIL — el alta no llego a la API\""
           },
           {
             "id": "W8-5",
             "role": "visitante",
-            "action": "Repetir el alta con EL MISMO email.",
-            "expected": "El formulario dice que ese email ya tiene cuenta, con esas palabras. Un \"error inesperado\" aqui es el unico fallo que hace abandonar en el ultimo paso."
+            "action": "Volver a http://localhost:4300 y repetir el alta EXACTAMENTE con el mismo email `walk8-prov-N@pubads.test`.",
+            "expected": "Debajo del formulario aparece «Ese email ya tiene cuenta. Prueba a entrar en su lugar.» y la pagina no cambia. Cualquier otro texto (un «error inesperado», `Unexpected token`, `DOCTYPE`) es fallo."
           },
           {
             "id": "W8-6",
@@ -1321,22 +1331,22 @@
             "expected": "Describen lo que la plataforma HACE hoy: retencion del pago hasta la prueba, disputas, colaboradores que no se desvinculan solos, nada en uso se destruye. Cualquier frase que prometa algo que el codigo no hace es deuda legal, no de maquetado."
           },
           {
-            "id": "W6-1",
+            "id": "W8-7",
             "role": "cliente",
-            "action": "1) /login → «Register». 2) Correo nuevo, contrasena `password`, rol client. 3) Enviar. 4) NO recargar: mirar el menu lateral tal como quedo.",
-            "expected": "El menu ya trae «👥 Collaborators». Si hay que recargar para verlo, el paso falla (BR-8).",
-            "probe": "EMAIL=\"walk6-$(date +%s)@pubads.test\"; curl -si -X POST localhost:8000/api/register -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"name\\\":\\\"Walk Seis\\\",\\\"email\\\":\\\"$EMAIL\\\",\\\"password\\\":\\\"password\\\",\\\"password_confirmation\\\":\\\"password\\\",\\\"role\\\":\\\"client\\\"}\" | tr ',' '\\n' | grep -E \"^HTTP/|is_owner|collaborating_on\"   # exige 201 y \"is_owner\":true EN LA RESPUESTA DEL REGISTRO, no solo en /me. El correo lleva la hora para poder repetir la sonda: repetir uno ya usado es 422."
+            "action": "En el producto: http://localhost:4200/login → «Register». Email `walk8-cli-N@pubads.test`, contrasena `password`, rol client. Enviar y NO recargar: mirar el menu lateral tal como quedo.",
+            "expected": "El menu ya trae «👥 Collaborators» sin recargar (BR-8). La sonda (cambia N) imprime `HTTP/1.1 201` y `\"is_owner\":true`: el registro ya trae el contexto de cuenta. OJO: la sonda CREA otra cuenta (`walk8-cli-N-sonda@pubads.test`) para no chocar con la tuya.",
+            "probe": "EMAIL=walk8-cli-N-sonda@pubads.test; curl -si -X POST localhost:8000/api/register -H 'Content-Type: application/json' -H 'Accept: application/json' -d \"{\\\"name\\\":\\\"Walk Ocho\\\",\\\"email\\\":\\\"$EMAIL\\\",\\\"password\\\":\\\"password\\\",\\\"password_confirmation\\\":\\\"password\\\",\\\"role\\\":\\\"client\\\"}\" | grep -oE '^HTTP/[0-9.]+ [0-9]+|\"is_owner\":(true|false)'   # exige 201 y \"is_owner\":true"
           },
           {
-            "id": "W6-2",
+            "id": "W8-8",
             "role": "cliente",
-            "action": "1) Avatar → «Sign Out». 2) Volver a entrar con el mismo correo. 3) Mirar el menu en el primer pintado, antes de tocar nada.",
-            "expected": "«👥 Collaborators» esta desde el primer pintado, sin parpadeo ni recarga.",
-            "probe": "LOGIN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"email\":\"client1@pubads.test\",\"password\":\"password\"}'); TOKEN=$(echo \"$LOGIN\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); ME=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/me); python3 -c \"import json,sys;k=['account_id','is_owner','collaborating_on'];a=json.loads(sys.argv[1]);b=json.loads(sys.argv[2]);ca={x:a.get(x) for x in k};cb={x:b.get(x) for x in k};print('login:',ca);print('me   :',cb);print('IGUALES' if ca==cb else 'DISTINTOS')\" \"$LOGIN\" \"$ME\"   # exige IGUALES: el login ya trae el mismo contexto de cuenta que /me, que es lo que permite pintar el menu completo sin recargar. Cambia el correo por el que registraste en W6-1 si quieres."
+            "action": "Avatar → «Sign Out». Volver a entrar con `walk8-cli-N@pubads.test` / `password`. Mirar el menu en el primer pintado, antes de tocar nada.",
+            "expected": "«👥 Collaborators» esta desde el primer pintado, sin parpadeo ni recarga. La sonda (cambia N) imprime `IGUALES`: el login trae el mismo contexto de cuenta que /me. Si imprime `LOGIN FALLIDO`, el email o la contrasena no existen: revisa N.",
+            "probe": "EMAIL=walk8-cli-N@pubads.test; LOGIN=$(curl -s -X POST localhost:8000/api/login -H 'Content-Type: application/json' -H 'Accept: application/json' -d \"{\\\"email\\\":\\\"$EMAIL\\\",\\\"password\\\":\\\"password\\\"}\"); python3 -c \"import json,sys,urllib.request as u;a=json.loads(sys.argv[1]);t=a.get('token');print('LOGIN FALLIDO:',sys.argv[1][:200]) if not t else None;sys.exit(1) if not t else None;r=u.Request('http://localhost:8000/api/me',headers={'Authorization':'Bearer '+t,'Accept':'application/json'});b=json.load(u.urlopen(r));k=['account_id','is_owner','collaborating_on'];ca={x:a.get(x) for x in k};cb={x:b.get(x) for x in k};print('login:',ca);print('me   :',cb);print('IGUALES' if ca==cb else 'DISTINTOS')\" \"$LOGIN\""
           }
         ],
         "notes": "El paso 4 es el que decide si la landing es un embudo o un adorno: comprueba que el rol elegido en una pagina publica llega intacto hasta el menu del producto. Ojo con el paso 6 — los textos NO tienen revision legal y eso sigue pendiente en LAND-1; este recorrido no la sustituye.",
-        "note": "Absorbe W6-1 y W6-2 del antiguo WALK-6 (2026-09-05): darse de alta y entrar son el mismo gesto que ya termina la landing, y separarlos obligaba a repetir el registro dos veces."
+        "note": "Absorbe W6-1 y W6-2 del antiguo WALK-6 (2026-09-05): darse de alta y entrar son el mismo gesto que ya termina la landing, y separarlos obligaba a repetir el registro dos veces. Reescrito el 2026-11-10 tras el intento de Marco: los pasos W6-1/W6-2 pasan a W8-7/W8-8, cada paso dice que email y contrasena usar, y las sondas dicen que tiene que salir en vez de romperse con un traceback."
       }
     ]
   },
