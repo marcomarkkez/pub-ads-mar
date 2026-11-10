@@ -1072,7 +1072,7 @@
         "id": "WALK-4",
         "title": "Recorrido humano del dashboard de diseno (antes DASH-1)",
         "todoId": "WALK-4",
-        "status": "failed",
+        "status": "passed",
         "closes": [],
         "specs": [],
         "ucs": [],
@@ -1108,9 +1108,9 @@
         ],
         "notes": "Nacio como el UC propuesto DASH-1. No cierra ningun Fxx: el dashboard es documentacion, no producto. Se ejecuta cuando la planeacion cambia de forma, no en cada sprint.",
         "result": {
-          "date": "2026-08-07",
+          "date": "2026-11-10",
           "by": "Marco",
-          "notes": "W4-3 falla: el paso pide seguir el puntero (§N o UC-N) de una entrada del glosario hasta la seccion citada, y en el glosario no hay nada pulsable. El puntero se pinta como texto. W4-1 y W4-2 pasaron. Ademas: Endpoints, Cacería, Glosario, Classes, ER y Flow no tienen icono para añadir a la bandeja."
+          "notes": "W4-3 y bandeja ok en las 13 vistas"
         }
       },
       {
