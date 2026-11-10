@@ -59,26 +59,23 @@ bd sync               # Sync with git
 
 ## Landing the Plane (Session Completion)
 
-**Publishing is the owner's call, not the agent's** (owner rule, 2026-08-02). The old "work is NOT
-complete until `git push` succeeds" mandate was removed: it is unsatisfiable from a Claude Code
-(web) session (read-scoped token, `git push` 403s, no signing key in the container) and unwanted
-locally, where the owner decides when a branch goes out. An agent never pushes on its own initiative
-in either environment.
+**The agent pushes, and tells the owner** (owner rule [owner 2026-11-10], supersedes 2026-08-02).
+*"Modifica las reglas para que tú hagas push de ahora en adelante siempre y cuando me informes."*
+The 403 that made pushing impossible from a Claude Code (web) session is gone (verified
+2026-11-10: `b21ac2d` pushed to `claude/charming-franklin-7wmp4i` and GitHub accepted it).
+Every push is announced in the reply: branch, commit hash, one line of what it carries.
 
 **When ending a work session:**
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
+2. **Run quality gates** (if code changed) - Tests, linters, builds (design/WORKFLOW.md §6)
 3. **Update issue status** - Close finished work, update in-progress items
-4. **Leave the work reviewable** - depends on where you are running:
-   - *Local (owner's machine):* leave the changes staged or committed on the dev branch and say so.
-     Push only if the owner asks in that session.
-   - *Claude Code (web):* do not commit at all. Hand over a patch:
-     ```bash
-     git add -A && git diff --cached --binary > pNN.patch && git reset
-     ```
-     plus a ready-to-paste commit message and the `python3 mvp-init.py` line, and let the owner
-     apply it from their Codespace. See claude.md → Learnings for the reasoning.
+4. **Commit and push to `mvp-build`, then inform** - numbered `pNN — …` commit message as before,
+   `git push origin mvp-build`, and say in the reply: branch, hash, what it carries. If the push
+   fails (403 or anything else), fall back to the patch and say why:
+   ```bash
+   git add -A && git diff --cached --binary > pNN.patch && git reset
+   ```
 5. **Clean up** - Clear stashes
 6. **Hand off** - Provide context for next session: what landed, what is pending, what needs a
    decision from the owner
@@ -107,6 +104,7 @@ bd close <id>         # Complete work
 ## Session Completion
 
 See **Landing the Plane** above — that section is authoritative. Beads ships a "Session Completion"
-block here that mandates `git push`; it was removed on 2026-08-02 by owner rule. If `bd` regenerates
-this block and the push mandate comes back, delete it again.
+block here that mandates `git push`; it was removed on 2026-08-02 by owner rule. Pushing is now the
+agent's job (owner 2026-11-10), but the rule above (push AND inform) governs, not the beads block:
+if `bd` regenerates it, delete it again.
 <!-- END BEADS INTEGRATION -->

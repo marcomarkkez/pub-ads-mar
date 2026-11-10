@@ -62,7 +62,8 @@ reproducir → medir → arreglar → prueba negativa → registrar la CLASE →
    ninguna prueba podía distinguirlo — no se entrega código que nadie puede justificar.*
 5. **Registrar la CLASE en `errorHunt`, no el incidente.** El valor está en `howToFind`: la
    búsqueda que mañana se repite sobre código nuevo.
-6. **Entregar `pNN.patch`.** Nunca commit ni push desde la sesión del agente.
+6. **Commit `pNN — …` y push a `mvp-build`, e informar** (rama, hash, qué lleva) — [owner 2026-11-10].
+   Si el push falla, se entrega `pNN.patch` y se dice por qué.
 
 ---
 
@@ -142,6 +143,7 @@ Es el spec canónico y pesa ~98k tokens: cada sesión lo paga entero antes de em
 
 - `git checkout <fichero>` en este repositorio. Un agente destruyó tres semanas así el
   2026-08-23. Recuperar desde `origin/<rama>`.
-- Commit o push desde la sesión del agente. Se entrega `pNN.patch`.
+- Hacer push sin decirlo. Desde el 2026-11-10 el agente hace commit y push, pero SIEMPRE lo
+  informa (rama, hash, qué lleva). Antes de esa fecha se entregaba `pNN.patch`.
 - Marcar un walk. Lo firma quien lo anduvo (BR-20).
 - Escribir un comando con `{...}` sin haberlo ejecutado.
