@@ -354,7 +354,13 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .tag.q-state.done { color: var(--muted); }
 
 .walk { padding: 14px 16px; margin: 12px 0; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
-.walk-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.walk-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; cursor: pointer; list-style: none; }
+.walk-head::-webkit-details-marker { display: none; }
+.walk-head::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+details.walk[open] > .walk-head::before { transform: rotate(90deg); }
+.walk-count { font-size: 12px; color: var(--muted); }
+.walk-step-id { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+  font-weight: 600; margin-right: 8px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); }
 .walk-title { font-weight: 600; }
 .walk-steps { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 10px; }
 .walk-step { padding: 10px 12px; border-left: 2px solid var(--border); }

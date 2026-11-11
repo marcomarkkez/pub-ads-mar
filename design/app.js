@@ -699,6 +699,8 @@
      pasa a `done` mientras su WALK siga pendiente, asi que esta vista dice literalmente que es lo
      que falta para cerrar cada feature. */
   function renderWalks() {
+    var openWalks = {};
+    try { openWalks = JSON.parse(localStorage.getItem("walksOpen") || "{}") || {}; } catch (e) { openWalks = {}; }
     var w = state.data.walkthroughs;
     els.content.innerHTML = "";
     if (!w) { els.content.innerHTML = '<div class="empty">No <code>walkthroughs</code> block in design.json.</div>'; return; }
@@ -735,13 +737,20 @@
            +". En la cabecera el numero de elementos es fijo y pequeno, es por donde se entra a la
            tarjeta, y .row-tags vuelve a ser lo que dice ser: referencias, sin un control de accion
            mezclado entre los datos. */
-        html += '<div class="walk is-' + esc(it.status) + '"><div class="walk-head">' +
+        /* Plegable (Marco, 2026-11-11: "que cada recorrido se pueda colapsar ya que ocupan
+           mucho espacio"). Cerrado por defecto; lo que cada uno abre se recuerda en este
+           navegador. Una busqueda abre todo lo que coincide: si no, filtrar por un WALK
+           desde otro sitio llevaria a una cabecera cerrada. */
+        var isOpen = !!q || openWalks[it.id] === true;
+        html += '<details class="walk is-' + esc(it.status) + '" data-walk="' + esc(it.id) + '"' + (isOpen ? " open" : "") + '>' +
+          '<summary class="walk-head">' +
           '<span class="q-id">' + esc(it.id) + '</span>' +
           '<span class="walk-title">' + esc(it.title) + '</span>' +
+          '<span class="walk-count">' + (it.steps || []).length + ' pasos</span>' +
           '<span class="tag q-state ' + (done ? "done" : "open") + '" style="border-color:' + esc(meta.color) + '">' +
           esc(meta.label) + '</span>' +
           '<span class="head-pin" data-pin-walk="' + esc(it.id) + '"></span>' +
-          '</div><div class="row-tags">' +
+          '</summary><div class="row-tags">' +
           (it.closes || []).map(function (c) { return refChip("cierra " + c, done); }).join('') +
           (it.specs || []).map(function (s) { return refChip(s, done); }).join('') +
           (it.ucs || []).map(function (u) { return refChip(u, done); }).join('') +
@@ -749,7 +758,10 @@
           (it.eh || []).map(function (e) { return refChip(e, done, "eh"); }).join('') +
           '</div><ol class="walk-steps">';
         (it.steps || []).forEach(function (s) {
-          html += '<li class="walk-step"><span class="walk-role">' + esc(s.role) + '</span>' +
+          /* El id del paso a la vista: los pasos se citan entre si ("la sonda del W0") y sin
+             el numero en pantalla esa cita no lleva a ningun sitio (Marco, 2026-11-11). */
+          html += '<li class="walk-step"><span class="walk-step-id">' + esc(s.id || "") + '</span>' +
+            '<span class="walk-role">' + esc(s.role) + '</span>' +
             '<div class="walk-action">' + esc(s.action) + '</div>' +
             '<div class="walk-expect"><span>se espera</span> ' + esc(s.expected) + '</div>' +
             /* BR-17: hay verdades que la pantalla no ensena. Un 404 y un 403 se ven identicos
@@ -761,7 +773,7 @@
                coleccion y devolvio 405. Un comando que no se puede copiar se vuelve a
                teclear, y se teclea mal. */
             (s.probe ? '<div class="walk-probe">' +
-              '<div class="walk-probe-head"><span>comprobar</span>' +
+              '<div class="walk-probe-head"><span>sonda · pegar en la terminal</span>' +
               '<button type="button" class="probe-copy" title="Copiar el comando entero">copiar</button>' +
               '</div><pre><code>' + esc(s.probe) + '</code></pre></div>' : "") +
             '</li>';
@@ -772,11 +784,22 @@
             esc([it.result.date, it.result.by].filter(Boolean).join(" · ")) + ' — ' +
             esc(it.result.notes || "") + '</p>';
         }
-        html += (it.notes ? '<p class="prose walk-note">' + esc(it.notes) + '</p>' : "") + '</div>';
+        html += (it.notes ? '<p class="prose walk-note">' + esc(it.notes) + '</p>' : "") + '</details>';
       });
       if (!items.length) html += '<div class="empty">Ningun recorrido coincide.</div>';
       box.innerHTML = html;
       items.forEach(function (it) { attachPin(box, '[data-pin-walk="' + cssq(it.id) + '"]', "walk", it); });
+      box.querySelectorAll("details.walk").forEach(function (d) {
+        d.addEventListener("toggle", function () {
+          if (q) return; // abrir por busqueda no es una preferencia
+          openWalks[d.getAttribute("data-walk")] = d.open;
+          try { localStorage.setItem("walksOpen", JSON.stringify(openWalks)); } catch (e) { /* sin almacenamiento: solo no se recuerda */ }
+        });
+      });
+      // El boton de bandeja vive dentro del <summary>: su clic no debe plegar la tarjeta.
+      box.querySelectorAll("summary .head-pin").forEach(function (pin) {
+        pin.addEventListener("click", function (ev) { ev.preventDefault(); });
+      });
     }
   }
 
