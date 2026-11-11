@@ -1,3 +1,22 @@
+// The menu stays put while the page scrolls, like the navbar (Marco, WALK-2, 2026-11-11:
+// "esta sección debe estar fija igual que el header"). Same trap the navbar fell into in
+// p90: a sticky box cannot leave its containing block, and `.sidebar`'s containing block is
+// the <app-sidebar> host, exactly as tall as the menu — so the HOST is what must stick, at
+// the navbar's height. Desktop only: under 768px the menu is a fixed drawer (below).
+// Held by frontend/e2e-navbar.mjs (sidebar check).
+@media (min-width: 769px) {
+  :host {
+    position: sticky;
+    top: 56px;
+    align-self: flex-start;
+    height: calc(100vh - 56px);
+  }
+  .sidebar {
+    height: 100%;
+    overflow-y: auto;
+  }
+}
+
 .sidebar {
   width: 220px;
   min-height: calc(100vh - 56px);

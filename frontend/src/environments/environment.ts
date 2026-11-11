@@ -25,8 +25,12 @@ export const environment = {
   // map draws an unexplained empty background, so both map screens now say so out loud.
   // Any {z}/{x}/{y} XYZ provider works here (Carto, Stadia, a self-hosted tileserver…) —
   // change tileAttribution with it, the licence usually requires it.
-  tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-  tileAttribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  // 2026-11-11: OSM answered 403 to the map in Marco's Codespace (WALK-2). OSM's tile
+  // servers are a donated service whose usage policy refuses app traffic it does not
+  // recognise; CARTO's basemaps are built for it (free tier with attribution — the
+  // production provider is still an open decision). Same OSM data underneath.
+  tileUrl: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  tileAttribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
   googleMapsApiKey: 'YOUR_GOOGLE_MAPS_API_KEY',
   what3wordsApiKey: 'YOUR_W3W_API_KEY',
 };

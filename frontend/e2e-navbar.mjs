@@ -28,6 +28,7 @@
  *      next screen, where it ate every click
  *   5  the bar still sticks to the top once the page scrolls — `position: sticky` on
  *      .navbar never stuck, because its containing block is the 56px host element
+ *   6  the side menu sticks under the bar too, same trap on the <app-sidebar> host
  */
 // Playwright is deliberately not a dependency of this app: it is a walk tool. Where it
 // lives differs per host, so it is looked up rather than assumed.
@@ -149,6 +150,21 @@ const sticky = await page.evaluate(() => {
 check(sticky.scrollY > 0 && Math.abs(sticky.navTop) < 1 && sticky.avatarClickable,
   'the bar stays pinned to the top when the page scrolls',
   `scrollY=${sticky.scrollY} navbar top=${sticky.navTop} avatar clickable=${sticky.avatarClickable}`);
+
+// --- 6. the side menu sticks too (Marco, WALK-2, 2026-11-11) ------------------------
+// Same trap as 5: sticky on .sidebar never stuck, its containing block is the host. The
+// page is made tall through .main-content, which is what really grows on a long screen.
+const side = await page.evaluate(() => {
+  document.querySelector('.main-content').style.minHeight = '3000px';
+  window.scrollTo(0, 800);
+  const sb = document.querySelector('.sidebar').getBoundingClientRect();
+  const item = document.querySelector('.sidebar .nav-item').getBoundingClientRect();
+  const top = document.elementFromPoint(item.x + item.width / 2, item.y + item.height / 2);
+  return { scrollY: window.scrollY, sideTop: Math.round(sb.top), itemClickable: !!top && !!top.closest('.nav-item') };
+});
+check(side.scrollY > 0 && Math.abs(side.sideTop - 56) < 2 && side.itemClickable,
+  'the side menu stays under the bar when the page scrolls',
+  `scrollY=${side.scrollY} sidebar top=${side.sideTop} first item clickable=${side.itemClickable}`);
 
 // and it still opens once scrolled
 await realClick('.avatar-btn');

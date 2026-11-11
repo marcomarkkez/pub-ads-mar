@@ -58,6 +58,10 @@ services:
       - "8000:80"
     volumes:
       - ./backend:/var/www:ro
+      # The photos live in the backend's named volume, not in ./backend/storage. Without
+      # this mount nginx looks for /storage/... in the host folder, finds nothing and every
+      # uploaded photo answers 404 (WALK-2, 2026-11-11). Held by frontend/e2e-space-photo.mjs.
+      - backend_storage:/var/www/storage:ro
       - ./backend/docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - publisher_net
