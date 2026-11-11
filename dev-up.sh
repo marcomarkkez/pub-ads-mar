@@ -64,6 +64,17 @@ if [ "$RC" -ne 0 ]; then
     bad "el almacen de Docker esta roto (no es el codigo). Arreglo:  ./dev-up.sh --repair"
   else
     bad "docker compose up fallo (salida arriba)"
+    # "container publisher_db is unhealthy": el log de ESE servicio dice por que.
+    SVC=$(echo "$OUT" | grep -oE 'container publisher_[a-z]+ is unhealthy' | head -1 | sed -E 's/container publisher_([a-z]+).*/\1/')
+    if [ -n "$SVC" ]; then
+      echo "     Ultimas lineas de $SVC:"
+      docker compose logs --tail=15 "$SVC" 2>&1 | sed 's/^/       /'
+      if [ "$SVC" = "db" ]; then
+        echo "     Si dice 'No space left', 'PANIC' o 'invalid checkpoint', la base se dano con el disco lleno."
+        echo "     Los datos del MVP se vuelven a sembrar solos; borra SOLO el volumen de la base y repite:"
+        echo "       docker compose down && docker volume rm publisher_pgdata && ./dev-up.sh"
+      fi
+    fi
   fi
   exit 1
 fi
