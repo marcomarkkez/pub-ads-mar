@@ -1,5 +1,13 @@
 # Useful Commands
 
+## Start of day / after a disconnect — ONE command
+
+```bash
+./dev-up.sh            # Docker vivo · disco · compose up · espera la API · mvp-init.py · resumen ✓/✗
+./dev-up.sh --repair   # "content digest … not found" / "RWLayer … nil": recrea imagenes, conserva volumenes
+docker compose stop    # ANTES de cerrar o suspender el Codespace
+```
+
 ## Start Stack (Docker — canonical)
 
 ```bash
