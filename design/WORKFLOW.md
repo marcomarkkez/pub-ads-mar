@@ -117,6 +117,8 @@ php artisan test --filter=PlanningCodeCongruence   # los artefactos, congruentes
 cd ../frontend && npx tsc --noEmit            # tipos
 node e2e-client-map.mjs                       # mapa del cliente
 node e2e-provider-spaces.mjs                  # espacios del proveedor
+node e2e-client-campaign.mjs                  # campaña del cliente (WALK-2 W2-1/W2-2)
+node e2e-landing-signup.mjs                   # alta de la landing (WALK-8, EH-22) — necesita la landing en :4300
 ```
 
 Y la receta del parche (worktree + `git write-tree` + tar + poda con `git ls-files`) está en
