@@ -76,7 +76,7 @@ export function parseApiError(err: HttpErrorResponse): ApiError {
   if (err.status === 0) {
     return {
       code: ApiErrorCode.NetworkError,
-      message: 'Could not reach the API. Check the backend URL, CORS, and that it is running.',
+      message: networkErrorMessage(typeof window === 'undefined' ? '' : window.location.hostname),
     };
   }
 
@@ -90,4 +90,21 @@ export function parseApiError(err: HttpErrorResponse): ApiError {
     code: ApiErrorCode.ServerError,
     message: message || `Unexpected error (HTTP ${err.status}).`,
   };
+}
+
+/**
+ * What "could not reach the API" means depends on where the app is running (2026-11-11).
+ * In a Codespace the API is another forwarded port, `<name>-8000.app.github.dev`, and when
+ * that port is PRIVATE GitHub answers the browser with its sign-in redirect instead of the
+ * API: the browser reports it as a network error, while `curl localhost:8000` from the
+ * terminal still answers fine. Marco hit exactly that after recreating the containers. The
+ * generic sentence sent him to check the backend, which was healthy; this one names the fix.
+ * `mvp-init.py` also sets the port public on every run, so this is the fallback.
+ */
+export function networkErrorMessage(hostname: string): string {
+  if (/-\d+\.(app\.github\.dev|githubpreview\.dev)$/.test(hostname)) {
+    return 'Could not reach the API on port 8000. In a Codespace this is almost always port 8000 being Private: '
+      + 'Ports tab → right-click 8000 → Port Visibility → Public, then reload (or run python3 mvp-init.py).';
+  }
+  return 'Could not reach the API. Check the backend URL, CORS, and that it is running.';
 }

@@ -112,6 +112,32 @@ def user_count():
     return int(nums[-1]) if nums else None
 
 
+def ensure_api_port_public():
+    """En un Codespace, deja el puerto 8000 (la API) en Public (2026-11-11).
+
+    El SPA (4200) llama a la API desde el NAVEGADOR, en `<codespace>-8000.app.github.dev`.
+    Si ese puerto es Private, GitHub contesta con su redireccion de inicio de sesion, el
+    navegador lo da como fallo de red y el login dice NETWORK_ERROR — mientras `curl
+    localhost:8000` desde la terminal sigue contestando bien. Pasa al recrear contenedores.
+    Fuera de un Codespace no hace nada. Si `gh` no puede, dice la alternativa a mano.
+    """
+    name = os.environ.get("CODESPACE_NAME")
+    if not name:
+        return
+    print("\n→ Codespace: dejando el puerto 8000 (API) en Public…")
+    try:
+        r = run(["gh", "codespace", "ports", "visibility", "8000:public", "-c", name], capture=True)
+        ok = r.returncode == 0
+        detail = (r.stderr or r.stdout or "").strip().splitlines()[:1]
+    except FileNotFoundError:
+        ok, detail = False, ["gh no esta instalado"]
+    if ok:
+        print("  ✓ puerto 8000 en Public")
+    else:
+        print("  ✗ no se pudo (%s). Hazlo a mano: pestana Ports → clic derecho en 8000 →\n"
+              "    Port Visibility → Public. Si no, el login dira NETWORK_ERROR." % (detail[0] if detail else "?"))
+
+
 def main():
     ap = argparse.ArgumentParser(description="Initialize / heal the local MVP stack.")
     ap.add_argument("--fresh", action="store_true", help="force migrate:fresh --seed even if seeded")
@@ -162,6 +188,8 @@ def main():
         print("\n→ %d usuarios, sin migraciones pendientes y los sembradores no han cambiado."
               % count)
         artisan("cache:clear")
+
+    ensure_api_port_public()
 
     print("\n✓ Ready. Log in at the SPA with password 'password':")
     for name in LOGINS:
