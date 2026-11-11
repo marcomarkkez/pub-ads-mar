@@ -201,6 +201,20 @@ import { Campaign, Adset, Ad } from '../../../core/models';
                       <div style="font-weight:600;font-size:13px;">{{ ad.name }}</div>
                       <div style="font-size:12px;color:var(--text-muted);">{{ ad.media_type }} {{ ad.file_name ? '- ' + ad.file_name : '' }}</div>
                     </div>
+                    <!-- WALK-2 W2-1 (2026-11-11): moving ONE ad to another adset. The API had it
+                         (POST adsets/move, bookings travel in the same transaction — §21 rule 3)
+                         but the screen only moved backlog orphans, so the step had no door. -->
+                    @if (adsets().length > 1) {
+                      <select class="ad-move" [ngModel]="null" (ngModelChange)="moveAd(ad, $event)"
+                        [name]="'move-' + ad.id" [disabled]="movingAdId() === ad.id" title="Move this ad to another adset">
+                        <option [ngValue]="null">Move to…</option>
+                        @for (other of adsets(); track other.id) {
+                          @if (other.id !== adset.id) {
+                            <option [ngValue]="other.id">{{ other.name }}</option>
+                          }
+                        }
+                      </select>
+                    }
                     @if (ad.space_id) {
                       <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-color:var(--primary);"
                         (click)="openBookForm(ad)">Book</button>
@@ -285,6 +299,7 @@ export class CampaignDetailComponent implements OnInit {
   orphans = signal<Ad[]>([]);
   movingOrphans = signal(false);
   moveTargetAdsetId: number | null = null;
+  movingAdId = signal<number | null>(null);
 
   constructor(
     private http: HttpClient,
@@ -435,6 +450,22 @@ export class CampaignDetailComponent implements OnInit {
     });
   }
 
+  moveAd(ad: Ad, adsetId: number | null): void {
+    if (adsetId === null) return;
+    this.movingAdId.set(ad.id);
+    this.http.post(`${this.api}/client/campaigns/${this.campaignId}/adsets/move`, { ad_ids: [ad.id], adset_id: adsetId }).subscribe({
+      next: () => {
+        this.movingAdId.set(null);
+        this.notify.success(`"${ad.name}" moved.`);
+        this.loadAdsets();
+      },
+      error: (err) => {
+        this.movingAdId.set(null);
+        this.notify.error(err.error?.message || 'Failed to move the ad.');
+      },
+    });
+  }
+
   /* ── Adsets ── */
 
   addAdset(): void {
@@ -460,11 +491,19 @@ export class CampaignDetailComponent implements OnInit {
   }
 
   deleteAdset(adset: Adset): void {
-    if (!confirm(`Delete adset "${adset.name}" and all its ads?`)) return;
+    // WALK-2 W2-2 (2026-11-11): the old text threatened to delete the ads too, which the API never
+    // done — an adset is a label, its ads go back to the campaign backlog (§21). And the
+    // backlog was not reloaded, so the ads vanished from the screen until a refresh.
+    const n = adset.ads?.length ?? 0;
+    const msg = n > 0
+      ? `Delete adset "${adset.name}"? ${n === 1 ? 'Its ad is' : `Its ${n} ads are`} NOT deleted: ${n === 1 ? 'it goes' : 'they go'} back to "Unassigned spaces".`
+      : `Delete adset "${adset.name}"?`;
+    if (!confirm(msg)) return;
     this.http.delete(`${this.api}/client/campaigns/${this.campaignId}/adsets/${adset.id}`).subscribe({
       next: () => {
         this.adsets.update(list => list.filter(a => a.id !== adset.id));
-        this.notify.success('Adset deleted.');
+        this.notify.success(n > 0 ? 'Adset deleted; its ads are back in "Unassigned spaces".' : 'Adset deleted.');
+        this.loadOrphans();
       },
       error: (err) => this.notify.error(err.error?.message || 'Failed to delete adset.'),
     });
