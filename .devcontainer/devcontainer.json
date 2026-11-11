@@ -1,0 +1,28 @@
+// Codespace ligero para pub-ads-mar (2026-11-12).
+//
+// Sin este fichero GitHub usa su imagen "universal" (todos los lenguajes y herramientas),
+// que en una cuenta personal llenaba casi entero el disco de 32 GB antes de levantar nada:
+// con el disco lleno Docker rompe su almacen ("RWLayer … nil", "content digest … not found")
+// y Postgres no arranca. Esta pila corre ENTERA en Docker, asi que el Codespace solo
+// necesita: Docker (la pila), Node 22 (las guardias e2e-*.mjs con Playwright), Python 3
+// (mvp-init.py, patch-preflight.py, design/walk.py) y gh (mvp-init pone el puerto 8000 en
+// Public). Si algo falla al construir: borrar esta carpeta y reconstruir vuelve a la imagen
+// universal.
+{
+  "name": "pub-ads-mar",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/python:1": { "version": "os-provided", "installTools": false },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "forwardPorts": [4200, 4300, 8000, 8080],
+  "portsAttributes": {
+    "4200": { "label": "App (SPA)" },
+    "4300": { "label": "Landing" },
+    "8000": { "label": "API" },
+    "8080": { "label": "Tablero de diseño", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": "echo 'Listo. Arranca la pila con: ./dev-up.sh'"
+}
