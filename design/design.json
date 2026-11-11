@@ -1022,60 +1022,61 @@
           {
             "id": "W0",
             "role": "quien recorra",
-            "action": "Antes de nada: `python3 mvp-init.py` desde la raiz del repositorio.",
-            "expected": "Deja la pila lista para entrar, y DICE cual de los tres estados disparo: base vacia, migraciones pendientes, o sembradores cambiados desde la ultima siembra. Si dice que no habia nada que hacer, tambien sirve — es la diferencia entre \"comprobado\" y \"supuesto\". Todos los usuarios usan la contrasena `password`.",
-            "probe": "docker compose exec backend php artisan tinker --execute \"echo App\\Models\\User::count();\"   # 0 = sin sembrar, y entonces el login dira \"credenciales incorrectas\""
+            "action": "En la terminal del Codespace, desde la raiz: `python3 mvp-init.py`. Despues corre la sonda: prepara las variables que usan las sondas siguientes. Usuarios (todos con contrasena `password`): DUENNO = `client1@pubads.test`, OTRO CLIENTE = `client2@pubads.test`, COLABORADOR = `colab1@pubads.test`. El producto vive en http://localhost:4200. ",
+            "expected": "mvp-init dice que estado disparo (base vacia, migraciones pendientes, sembradores cambiados) o que no habia nada que hacer; las dos cosas valen. La sonda imprime `cliente=OK ID_AJENO=<numero> ID_REAL=<numero>`. Si `cliente=` sale vacio, la base no esta sembrada: `python3 mvp-init.py --fresh`.",
+            "probe": "login(){ curl -s -X POST localhost:8000/api/login -H 'Content-Type: application/json' -H 'Accept: application/json' -d \"{\\\"email\\\":\\\"$1\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin).get('token',''))\"; }; first(){ python3 -c \"import sys,json;d=json.load(sys.stdin);d=d.get('data',d) if isinstance(d,dict) else d;print(d[0]['id'] if d else '')\"; }; TOKEN_CLIENTE=$(login client1@pubads.test); T2=$(login client2@pubads.test); TP=$(login provider1@pubads.test); ID_AJENO=$(curl -s -H \"Authorization: Bearer $T2\" -H 'Accept: application/json' localhost:8000/api/client/campaigns | first); ID_REAL=$(curl -s -H \"Authorization: Bearer $TP\" -H 'Accept: application/json' localhost:8000/api/provider/spaces | first); echo \"cliente=${TOKEN_CLIENTE:+OK} ID_AJENO=$ID_AJENO ID_REAL=$ID_REAL\"   # exige cliente=OK y dos numeros. Deja las variables en ESTA terminal: las sondas de W2-3, W7-2 y W7-3 las usan, asi que correlas en la misma."
           },
           {
             "id": "W2-1",
-            "role": "cliente",
-            "action": "Crear una campaña, un adset y un anuncio, y despues mover el anuncio a otro adset.",
-            "expected": "El movimiento arrastra a sus dependientes en una sola operacion; nada queda a medias."
+            "role": "cliente (DUENNO)",
+            "action": "Entrar como `client1@pubads.test`. 1) Menu 📢 Campaigns → crear una campana llamada `Walk2`. 2) Dentro de la campana, en «Adsets», escribir `A` → «Add Adset»; luego `B` → «Add Adset». 3) Menu 🗺️ Explore Spaces → pulsar un espacio → «➕ Añadir a la selección» → «Add to existing campaign» → elegir `Walk2`. 4) Volver a la campana: en la tarjeta «Unassigned spaces (1)», elegir `A` → «Move to this adset». 5) En el anuncio que ahora esta dentro de A, desplegable «Move to…» → `B`.",
+            "expected": "Tras 4, el espacio aparece como anuncio dentro de A y la tarjeta «Unassigned spaces» desaparece. Tras 5, el anuncio esta en B y ya no en A, sin recargar la pagina, y sale el aviso «… moved.»."
           },
           {
             "id": "W2-2",
-            "role": "cliente",
-            "action": "Borrar un adset que todavia tiene anuncios.",
-            "expected": "Los anuncios sobreviven huerfanos: un adset es una etiqueta organizativa, borrarla no destruye su contenido."
+            "role": "cliente (DUENNO)",
+            "action": "En la misma campana, pulsar «Delete» en el adset `B` (el que tiene el anuncio) y leer el aviso antes de aceptar.",
+            "expected": "El aviso dice que el anuncio NO se borra y que vuelve a «Unassigned spaces». Al aceptar, B desaparece y, SIN recargar, aparece otra vez la tarjeta «Unassigned spaces (1)» con ese espacio: un adset es una etiqueta, borrarla no destruye su contenido."
           },
           {
             "id": "W2-3",
-            "role": "cliente",
-            "action": "Pedir por URL un objeto que pertenece a otra cuenta.",
-            "expected": "Responde 404, nunca 403: un 403 confirmaria que ese objeto existe.",
-            "probe": "curl -si -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/client/campaigns/$ID_AJENO | head -1   # exige 404, no 403"
+            "role": "cliente (DUENNO)",
+            "action": "En el navegador, como `client1`, escribir la URL http://localhost:4200/client/campaigns/<ID_AJENO> (el numero que imprimio la sonda del W0: es una campana de client2). Despues corre la sonda.",
+            "expected": "La pantalla no ensena nada de esa campana (ni nombre ni presupuesto) y avisa «Resource not found.». La sonda imprime `HTTP/1.1 404`: nunca 403, porque un 403 confirmaria que esa campana existe.",
+            "probe": "curl -si -H \"Authorization: Bearer $TOKEN_CLIENTE\" -H 'Accept: application/json' localhost:8000/api/client/campaigns/$ID_AJENO | head -1   # exige 404, no 403"
           },
           {
-            "id": "W6-3",
-            "role": "cliente",
-            "action": "Ventana A, como duenno: 1) 👥 Collaborators → «Invite a collaborator» → correo de otro usuario con cuenta propia (client2@pubads.test). Ventana B (incognito), como ese usuario: 2) entrar. 3) Encontrar la invitacion SIN que nadie diga la URL. 4) Aceptarla. 5) NO recargar: mirar el menu.",
-            "expected": "En B: «📨 Invitations (1)» en el menu nada mas entrar → lleva a /collaborations → fila con «Accept and join». Tras aceptar y sin recargar: el contador baja Y «👥 Collaborators» sigue en el menu (es duenno de su cuenta ademas de colaborar). Sin entrada 📨, el flujo no tiene puerta: fue asi hasta p99.",
-            "probe": "COLAB=colab1@pubads.test; TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"email\\\":\\\"$COLAB\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/me | python3 -c \"import sys,json;d=json.load(sys.stdin);print('is_owner=',d['is_owner'],' collaborating_on=',d['collaborating_on'])\"   # pon en COLAB el correo que acabas de aceptar; colab1@pubads.test ya viene aceptado en la cuenta 3 del sembrador. Exige LAS DOS senales a la vez: is_owner= True Y collaborating_on= [3] no vacio. Ese es el caso mixto de EH-11: si una de las dos falta, la pestana esta colgada de la senal equivocada."
+            "id": "W2-4",
+            "role": "cliente (DUENNO) + OTRO CLIENTE",
+            "action": "Ventana normal, como `client1`: menu 👥 Collaborators → «Invite a collaborator» → email `client2@pubads.test`, subrol «Publicist» → «Invite». Ventana de incognito, como `client2@pubads.test`: entrar, encontrar la invitacion SIN escribir ninguna URL, aceptarla y, SIN recargar, mirar el menu.",
+            "expected": "En incognito, nada mas entrar el menu tiene «📨 Invitations (1)» → lleva a /collaborations → fila con «Accept and join». Tras aceptar y sin recargar: el contador baja Y «👥 Collaborators» sigue en el menu (client2 es duenno de su cuenta ademas de colaborar). La sonda imprime `is_owner= True collaborating_on= [<numero>]` (las dos cosas a la vez). Si al invitar dice que client2 ya esta invitado, es de una vuelta anterior: `python3 mvp-init.py --fresh` y repetir.",
+            "probe": "TOKEN=$(login client2@pubads.test); curl -s -H \"Authorization: Bearer $TOKEN\" -H 'Accept: application/json' localhost:8000/api/me | python3 -c \"import sys,json;d=json.load(sys.stdin);print('is_owner=',d['is_owner'],' collaborating_on=',d['collaborating_on'])\"   # usa login() del W0: misma terminal"
           },
           {
-            "id": "W6-4",
-            "role": "colaborador",
-            "action": "En la ventana B, como colaborador: 1) 📨 Invitations. 2) Sobre la fila ya aceptada, buscar cualquier control para salirse de la cuenta ajena. 3) Lanzar la peticion directa.",
-            "expected": "No hay ningun control para salirse. La peticion directa responde 409 y manda a Soporte (BR-15). Un 405 con `allow: GET, HEAD, POST` es el id vacio, no el guardarrail.",
-            "probe": "COLAB=colab1@pubads.test; TOKEN=$(curl -s -X POST localhost:8000/api/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d \"{\\\"email\\\":\\\"$COLAB\\\",\\\"password\\\":\\\"password\\\"}\" | python3 -c \"import sys,json;print(json.load(sys.stdin)['token'])\"); ROW=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/collaborations | python3 -c \"import sys,json;print([r['id'] for r in json.load(sys.stdin) if r['status']=='accepted'][0])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H \"Accept: application/json\" localhost:8000/api/collaborators/$ROW | grep -E \"^HTTP/|CONFLICTING_STATE\"   # exige 409 con error_code CONFLICTING_STATE y un mensaje que mande a Soporte. Ni 200 (se solto solo) ni 404 (mentir sobre una fila que el colaborador ve en su propia sesion)."
+            "id": "W2-5",
+            "role": "OTRO CLIENTE (ya colaborador)",
+            "action": "En la ventana de incognito, como `client2`: menu 📨 Invitations → sobre la fila ya aceptada, buscar cualquier boton para salirse de la cuenta de client1. Despues corre la sonda (intenta salirse por la API).",
+            "expected": "No hay ningun boton para salirse. La sonda imprime `HTTP/1.1 409` y una linea con `CONFLICTING_STATE`: un colaborador no se desvincula solo, lo hace Soporte (BR-15). Si sale 405, la fila no se encontro (revisa que aceptaste en W2-4).",
+            "probe": "TOKEN=$(login client2@pubads.test); ROW=$(curl -s -H \"Authorization: Bearer $TOKEN\" -H 'Accept: application/json' localhost:8000/api/collaborations | python3 -c \"import sys,json;print([r['id'] for r in json.load(sys.stdin) if r['status']=='accepted'][0])\"); curl -si -X DELETE -H \"Authorization: Bearer $TOKEN\" -H 'Accept: application/json' localhost:8000/api/collaborators/$ROW | grep -oE '^HTTP/[0-9.]+ [0-9]+|CONFLICTING_STATE'   # exige 409 y CONFLICTING_STATE"
           },
           {
-            "id": "W7-2",
-            "role": "cliente",
-            "action": "Pedir por URL un espacio de proveedor que NO existe y despues uno que SI existe.",
-            "expected": "Las dos lineas del log tienen que ser IDENTICAS en estado y la respuesta identica en cuerpo. Si una dice 404 y la otra 403, o si los cuerpos difieren, ahi esta EH-14 otra vez: restando las dos respuestas se enumeran ids ajenos. Este paso ya fallo dos veces seguidas —primero por el estado, luego por el cuerpo— asi que se comprueban los dos.",
-            "probe": "curl -si -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/provider/spaces/999999 | head -1; curl -si -H \"Accept: application/json\" -H \"Authorization: Bearer $TOKEN_CLIENTE\" localhost:8000/api/provider/spaces/$ID_REAL | head -1"
+            "id": "W2-6",
+            "role": "cliente (DUENNO)",
+            "action": "Solo terminal (misma que el W0): la sonda pide, como cliente, un espacio de proveedor que NO existe (999999) y uno que SI existe ($ID_REAL).",
+            "expected": "Las dos respuestas son IDENTICAS: mismo estado y mismo cuerpo; la sonda termina en `IDENTICAS`. Si difieren, restando las dos se enumeran ids ajenos (EH-14).",
+            "probe": "A=$(curl -si -H \"Authorization: Bearer $TOKEN_CLIENTE\" -H 'Accept: application/json' localhost:8000/api/provider/spaces/999999 | grep -vE '^(Date|X-|Set-Cookie|Cache-Control|Content-Length)'); B=$(curl -si -H \"Authorization: Bearer $TOKEN_CLIENTE\" -H 'Accept: application/json' localhost:8000/api/provider/spaces/$ID_REAL | grep -vE '^(Date|X-|Set-Cookie|Cache-Control|Content-Length)'); echo \"$A\" | head -1; [ \"$A\" = \"$B\" ] && echo IDENTICAS || { echo DISTINTAS; diff <(echo \"$A\") <(echo \"$B\"); }"
           },
           {
-            "id": "W7-3",
-            "role": "cliente",
-            "action": "Pedir la COLECCION que no es suya: /api/provider/spaces, sin id.",
-            "expected": "403, no 404 — y eso es correcto, no una inconsistencia. Una ruta de coleccion no nombra ninguna fila, asi que no hay nada que enumerar, y el 403 le dice a quien pregunta de buena fe que se ha equivocado de sitio."
+            "id": "W2-7",
+            "role": "cliente (DUENNO)",
+            "action": "Solo terminal: la sonda pide, como cliente, la LISTA de espacios de proveedor (/api/provider/spaces, sin numero).",
+            "expected": "Imprime `HTTP/1.1 403`, y eso es correcto: una lista no nombra ninguna fila, asi que no hay nada que enumerar, y el 403 le dice a quien pregunta de buena fe que se ha equivocado de sitio.",
+            "probe": "curl -si -H \"Authorization: Bearer $TOKEN_CLIENTE\" -H 'Accept: application/json' localhost:8000/api/provider/spaces | head -1   # exige 403"
           }
         ],
         "notes": "Mantiene a §21 en `wip`. Es la contraparte de WALK-1 del lado de campañas.",
         "result": null,
-        "note": "Absorbe W6-3/W6-4 (colaboradores) del antiguo WALK-6 y W7-2/W7-3 (pedir por URL lo ajeno) del retirado WALK-7 (2026-09-05). Todo lo hace un cliente en una sola sesion."
+        "note": "Absorbe W6-3/W6-4 (colaboradores) del antiguo WALK-6 y W7-2/W7-3 (pedir por URL lo ajeno) del retirado WALK-7 (2026-09-05). Todo lo hace un cliente en una sola sesion. Reescrito el 2026-11-11 antes de recorrerlo: usuarios y URL en cada paso, el W0 deja preparadas las variables ($TOKEN_CLIENTE, $ID_AJENO, $ID_REAL) que antes nadie definia, y los pasos se renumeran W2-1..W2-7 (eran W2-1..3, W6-3, W6-4, W7-2, W7-3)."
       },
       {
         "id": "WALK-5",
