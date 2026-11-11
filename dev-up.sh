@@ -33,12 +33,21 @@ fi
 ok "Docker responde"
 
 step "2) Disco"
+# 2026-11-12: el disco lleno ERA la causa de los "RWLayer … nil" / "content digest … not
+# found" de tres dias: Docker no puede escribir sus capas y deja el almacen a medias. Con
+# el disco asi, levantar o reparar la pila solo vuelve a llenarlo — por eso aqui se PARA.
 USE=$(df --output=pcent / 2>/dev/null | tail -1 | tr -dc '0-9')
+FREE=$(df -h --output=avail / 2>/dev/null | tail -1 | tr -d ' ')
 if [ -n "$USE" ] && [ "$USE" -ge 90 ]; then
-  bad "disco al ${USE}% — libera espacio: docker system prune -f"
-else
-  ok "disco al ${USE:-?}%"
+  bad "disco al ${USE}% (libres: ${FREE:-?}). Con el disco lleno Docker rompe su almacen y Postgres no arranca."
+  echo "     Que ocupa el sitio:"
+  docker system df 2>/dev/null | sed 's/^/       /'
+  echo "     Liberar sin perder datos (cache de compilacion, cache de npm, imagenes sin usar):"
+  echo "       docker builder prune -af && docker image prune -af && npm cache clean --force"
+  echo "     y repite ./dev-up.sh. Si no baja del 90%: Codespaces → «Change machine type» (mas disco)."
+  exit 1
 fi
+ok "disco al ${USE:-?}% (libres: ${FREE:-?})"
 
 step "3) Pila (docker compose)"
 if [ "$REPAIR" = 1 ]; then
